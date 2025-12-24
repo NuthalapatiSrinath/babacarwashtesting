@@ -3,24 +3,35 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Lock, Phone, ArrowRight } from "lucide-react";
 import toast from "react-hot-toast";
+import { authService } from "../api/authService"; // Import the service
 
 const Login = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({ mobile: "", password: "" });
 
-  const handleLogin = (e) => {
+  // Changed 'mobile' to 'number' to match API Payload
+  const [formData, setFormData] = useState({ number: "", password: "" });
+
+  const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      if (
-        formData.mobile === "9876543210" &&
-        formData.password === "admin123"
-      ) {
+    try {
+      // --- REAL API CALL ---
+      const response = await authService.login(
+        formData.number,
+        formData.password
+      );
+
+      if (response.statusCode === 200) {
+        // 1. Save Token & User Info
+        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("user", JSON.stringify(response.data)); // Save name, role, id
         localStorage.setItem("isAuthenticated", "true");
-        toast.success("Login Successful! Redirecting...", {
+
+        // 2. Success Toast
+        toast.success(`Welcome back, ${response.data.name}!`, {
           style: {
             border: "1px solid var(--color-success)",
             padding: "16px",
@@ -32,29 +43,35 @@ const Login = () => {
             secondary: "var(--color-text-inverse)",
           },
         });
+
+        // 3. Redirect
         navigate("/");
       } else {
-        toast.error("Invalid Credentials", {
-          style: {
-            border: "1px solid var(--color-danger)",
-            color: "var(--color-danger)",
-            background: "var(--color-card)",
-          },
-        });
-        setIsLoading(false);
+        // Handle API logical errors (if 200 but success=false)
+        throw new Error(response.message || "Login Failed");
       }
-    }, 1500);
+    } catch (error) {
+      console.error("Login Error:", error);
+      toast.error(error.message || "Invalid Credentials", {
+        style: {
+          border: "1px solid var(--color-danger)",
+          color: "var(--color-danger)",
+          background: "var(--color-card)",
+        },
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleMobileChange = (e) => {
-    const value = e.target.value.replace(/\D/g, "");
-    if (value.length <= 10) setFormData({ ...formData, mobile: value });
+  const handleNumberChange = (e) => {
+    const value = e.target.value.replace(/\D/g, ""); // Numbers only
+    if (value.length <= 10) setFormData({ ...formData, number: value });
   };
 
   return (
-    // DYNAMIC BACKGROUND GRADIENT
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-grad-start via-grad-mid to-grad-end relative overflow-hidden transition-colors duration-300">
-      {/* Dynamic Blobs */}
+      {/* Background Blobs */}
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blob rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2"></div>
       <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-blob rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2"></div>
 
@@ -64,7 +81,7 @@ const Login = () => {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="w-full max-w-4xl bg-card/80 backdrop-blur-xl rounded-3xl shadow-card overflow-hidden flex flex-col md:flex-row border border-border relative z-10 mx-4"
       >
-        {/* LEFT SIDE: Brand Section */}
+        {/* LEFT SIDE: Brand */}
         <div className="w-full md:w-1/2 bg-gradient-to-br from-primary to-primary-hover p-12 flex flex-col justify-between text-text-inverse relative">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
 
@@ -95,11 +112,12 @@ const Login = () => {
         {/* RIGHT SIDE: Form */}
         <div className="w-full md:w-1/2 p-10 md:p-14 flex flex-col justify-center bg-card">
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-text-main">Welcome Back</h2>
-            <p className="text-text-sub mt-2">Please login to your account.</p>
+            <h2 className="text-3xl font-bold text-text-main">Sign In</h2>
+            <p className="text-text-sub mt-2">Access your admin dashboard.</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
+            {/* Mobile Number Input */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-text-sub uppercase tracking-wider">
                 Mobile Number
@@ -108,15 +126,16 @@ const Login = () => {
                 <Phone className="absolute left-4 top-3.5 w-5 h-5 text-text-muted" />
                 <input
                   type="tel"
-                  value={formData.mobile}
-                  onChange={handleMobileChange}
-                  className="w-full bg-input-bg border border-input-border rounded-xl pl-12 pr-4 py-3.5 text-text-main focus:bg-card focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium placeholder:text-text-muted"
-                  placeholder="Enter mobile number"
+                  value={formData.number}
+                  onChange={handleNumberChange}
+                  className="w-full bg-input-bg border border-input-border rounded-xl pl-12 pr-4 py-3.5 text-text-main focus:bg-card focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium placeholder:text-text-muted font-mono"
+                  placeholder="9494197969"
                   required
                 />
               </div>
             </div>
 
+            {/* Password Input */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-text-sub uppercase tracking-wider">
                 Password
@@ -130,7 +149,7 @@ const Login = () => {
                     setFormData({ ...formData, password: e.target.value })
                   }
                   className="w-full bg-input-bg border border-input-border rounded-xl pl-12 pr-12 py-3.5 text-text-main focus:bg-card focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium placeholder:text-text-muted"
-                  placeholder="••••••••"
+                  placeholder="Enter Password"
                   required
                 />
                 <button
@@ -145,14 +164,14 @@ const Login = () => {
 
             <button
               type="submit"
-              disabled={isLoading || formData.mobile.length < 10}
+              disabled={isLoading || formData.number.length < 10}
               className="w-full bg-primary hover:bg-primary-hover text-text-inverse font-bold py-4 rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed mt-4"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  Sign In <ArrowRight size={20} />
+                  Login <ArrowRight size={20} />
                 </>
               )}
             </button>
