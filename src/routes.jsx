@@ -4,9 +4,6 @@ import {
   Building2,
   ShoppingBag,
   LocateFixed,
-  Briefcase,
-  UserCheck,
-  Users,
   Droplets,
   DollarSign,
   FileText,
@@ -14,12 +11,23 @@ import {
   Wallet,
   Tags,
   HelpCircle,
+  Briefcase,
+  Users,
+  ClipboardCheck,
+  UserCheck,
 } from "lucide-react";
 
-// For now, we use a placeholder. Later you can import real pages like:
-// import Dashboard from './pages/Dashboard';
+// Page Imports
+import Dashboard from "./pages/Dashboard";
+import Locations from "./pages/Locations";
+import Buildings from "./pages/Buildings";
+import Malls from "./pages/Malls";
+import Sites from "./pages/Sites";
+import Supervisors from "./pages/Supervisors";
+import Workers from "./pages/Workers";
+import Staff from "./pages/Staff";
+import Attendance from "./pages/Attendance";
 import PlaceholderPage from "./pages/PlaceholderPage";
-import Dashboard from "./pages/Dashboard"; // Keeping your existing Dashboard
 
 export const routes = [
   // --- OVERVIEW ---
@@ -33,41 +41,46 @@ export const routes = [
   // --- MANAGEMENT ---
   {
     path: "/locations",
-    title: "Locations Management",
-    component: <PlaceholderPage title="Locations" />,
-    icon: MapPin,
+    component: <Locations />,
   },
   {
     path: "/buildings",
-    title: "Buildings Management",
-    component: <PlaceholderPage title="Buildings" />,
-    icon: Building2,
+    component: <Buildings />,
   },
   {
     path: "/malls",
-    title: "Malls Management",
-    component: <PlaceholderPage title="Malls" />,
-    icon: ShoppingBag,
+    component: <Malls />,
   },
   {
     path: "/sites",
-    title: "Sites Management",
-    component: <PlaceholderPage title="Sites" />,
-    icon: LocateFixed,
+    component: <Sites />,
   },
 
-  // Workers (Sub-menu items mostly, but top level route needs definition too if clicked)
+  // --- WORKERS SECTION (Flattened) ---
+  // The Sidebar handles the grouping visual.
+  // The Router just needs to know the paths exist.
   {
-    path: "/workers",
-    title: "Workers List",
-    component: <PlaceholderPage title="Workers" />,
-    icon: Briefcase,
+    path: "/workers/list",
+    title: "Workers",
+    component: <Workers />,
+    icon: UserCheck,
   },
   {
+    path: "/workers/staff",
+    title: "Staff",
+    component: <Staff />,
+    icon: Users,
+  },
+  {
+    path: "/workers/attendance",
+    title: "Attendance",
+    component: <Attendance />,
+    icon: ClipboardCheck,
+  },
+
+  {
     path: "/supervisors",
-    title: "Supervisors List",
-    component: <PlaceholderPage title="Supervisors" />,
-    icon: UserCheck,
+    component: <Supervisors />,
   },
   {
     path: "/customers",

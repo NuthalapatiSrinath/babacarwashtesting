@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -30,10 +30,29 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
     payments: false,
   });
 
+  // Auto-open menus based on current URL
+  useEffect(() => {
+    if (location.pathname.startsWith("/workers")) {
+      setOpenMenus((prev) => ({ ...prev, workers: true }));
+    }
+    if (location.pathname.startsWith("/washes")) {
+      setOpenMenus((prev) => ({ ...prev, washes: true }));
+    }
+    if (
+      location.pathname.startsWith("/payments") ||
+      location.pathname === "/collection-sheet" ||
+      location.pathname === "/settlements"
+    ) {
+      // Optional: Auto open payments if you consider other finance pages part of it
+      // setOpenMenus((prev) => ({ ...prev, payments: true }));
+    }
+  }, [location.pathname]);
+
   const toggleMenu = (menu) => {
     setOpenMenus((prev) => ({ ...prev, [menu]: !prev[menu] }));
   };
 
+  // Helper to keep menu highlighted if a child is active
   const isActiveParent = (paths) =>
     paths.some((path) => location.pathname.startsWith(path));
 
@@ -41,7 +60,6 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
     if (isMobile && onClose) onClose();
   };
 
-  // FIXED CLASSES: Solid Background, Fixed Width, No visual glitches
   const sidebarClasses = `
     fixed top-0 left-0 h-full
     bg-card text-text-main
@@ -91,7 +109,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
           )}
         </div>
 
-        {/* 2. Navigation Menu (Added 'no-scrollbar' class) */}
+        {/* 2. Navigation Menu */}
         <nav
           className="flex-1 px-4 py-6 overflow-y-auto no-scrollbar"
           aria-label="Main Navigation"
@@ -135,10 +153,10 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
               onClick={handleLinkClick}
             />
 
-            {/* Workers Dropdown */}
+            {/* --- WORKERS DROPDOWN --- */}
             <li>
               <MenuButton
-                label="Workers"
+                label="Workers Management"
                 icon={Briefcase}
                 isOpen={openMenus.workers}
                 isActive={isActiveParent(["/workers"])}
@@ -146,8 +164,18 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
               />
               <SubMenu isOpen={openMenus.workers}>
                 <SubNavItem
-                  to="/workers"
-                  label="Worker List"
+                  to="/workers/list"
+                  label="Workers"
+                  onClick={handleLinkClick}
+                />
+                <SubNavItem
+                  to="/workers/staff"
+                  label="Staff"
+                  onClick={handleLinkClick}
+                />
+                <SubNavItem
+                  to="/workers/attendance"
+                  label="Attendance"
                   onClick={handleLinkClick}
                 />
               </SubMenu>
@@ -166,7 +194,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
               onClick={handleLinkClick}
             />
 
-            {/* Washes Dropdown */}
+            {/* --- WASHES DROPDOWN --- */}
             <li>
               <MenuButton
                 label="Washes"
@@ -193,7 +221,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
               Finance
             </li>
 
-            {/* Payments Dropdown */}
+            {/* --- PAYMENTS DROPDOWN --- */}
             <li>
               <MenuButton
                 label="Payments"
@@ -260,7 +288,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
   );
 };
 
-/* --- Helper Components (Same as before) --- */
+/* --- Helper Components --- */
 const NavItem = ({ to, icon: Icon, label, onClick }) => (
   <li>
     <NavLink

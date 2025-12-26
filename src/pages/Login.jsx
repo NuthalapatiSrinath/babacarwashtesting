@@ -1,181 +1,195 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Lock, Phone, ArrowRight } from "lucide-react";
+import {
+  Lock,
+  Smartphone,
+  ArrowRight,
+  Loader2,
+  ShieldCheck,
+} from "lucide-react";
 import toast from "react-hot-toast";
-import { authService } from "../api/authService"; // Import the service
+import { authService } from "../api/authService";
 
 const Login = () => {
   const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
 
-  // Changed 'mobile' to 'number' to match API Payload
-  const [formData, setFormData] = useState({ number: "", password: "" });
+  const [formData, setFormData] = useState({
+    number: "",
+    password: "",
+  });
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
+
+    if (!formData.number || !formData.password) {
+      toast.error("Please enter credentials");
+      return;
+    }
+
+    setLoading(true);
 
     try {
-      // --- REAL API CALL ---
-      const response = await authService.login(
-        formData.number,
-        formData.password
-      );
+      // Explicitly construct the payload to prevent sending stray data
+      const payload = {
+        number: String(formData.number).trim(), // Ensure it's a string
+        password: formData.password,
+      };
 
-      if (response.statusCode === 200) {
-        // 1. Save Token & User Info
+      console.log("Sending Login Payload:", payload); // Debugging
+
+      const response = await authService.login(payload);
+
+      if (response.statusCode === 200 && response.data.token) {
         localStorage.setItem("token", response.data.token);
-        localStorage.setItem("user", JSON.stringify(response.data)); // Save name, role, id
-        localStorage.setItem("isAuthenticated", "true");
+        localStorage.setItem("user", JSON.stringify(response.data));
 
-        // 2. Success Toast
-        toast.success(`Welcome back, ${response.data.name}!`, {
-          style: {
-            border: "1px solid var(--color-success)",
-            padding: "16px",
-            color: "var(--color-success)",
-            background: "var(--color-card)",
-          },
-          iconTheme: {
-            primary: "var(--color-success)",
-            secondary: "var(--color-text-inverse)",
-          },
-        });
+        toast.success(`Welcome back, ${response.data.name || "Admin"}!`);
 
-        // 3. Redirect
-        navigate("/");
+        setTimeout(() => {
+          navigate("/");
+        }, 800);
       } else {
-        // Handle API logical errors (if 200 but success=false)
-        throw new Error(response.message || "Login Failed");
+        throw new Error(response.message || "Access Denied");
       }
     } catch (error) {
       console.error("Login Error:", error);
-      toast.error(error.message || "Invalid Credentials", {
-        style: {
-          border: "1px solid var(--color-danger)",
-          color: "var(--color-danger)",
-          background: "var(--color-card)",
-        },
-      });
+      toast.error(error.message || "Invalid credentials");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleNumberChange = (e) => {
-    const value = e.target.value.replace(/\D/g, ""); // Numbers only
-    if (value.length <= 10) setFormData({ ...formData, number: value });
-  };
-
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-grad-start via-grad-mid to-grad-end relative overflow-hidden transition-colors duration-300">
-      {/* Background Blobs */}
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blob rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2"></div>
-      <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-blob rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2"></div>
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#0f172a] relative overflow-hidden font-sans">
+      {/* Background Effects */}
+      <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none" />
 
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="w-full max-w-4xl bg-card/80 backdrop-blur-xl rounded-3xl shadow-card overflow-hidden flex flex-col md:flex-row border border-border relative z-10 mx-4"
+        className="w-full max-w-[420px] mx-4 relative z-10"
       >
-        {/* LEFT SIDE: Brand */}
-        <div className="w-full md:w-1/2 bg-gradient-to-br from-primary to-primary-hover p-12 flex flex-col justify-between text-text-inverse relative">
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-
-          <div className="relative z-10">
-            <div className="w-20 h-20 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-8 shadow-inner border border-white/20">
-              <img
-                src="/logo-icon.png"
-                className="w-12 h-12 object-contain"
-                alt="Logo"
-              />
-            </div>
-            <h1 className="text-4xl font-extrabold tracking-tight mb-2 text-text-inverse">
-              Baba Car Wash
+        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl p-8 md:p-10">
+          <div className="text-center mb-10">
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 200, damping: 20 }}
+              className="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-500/25"
+            >
+              <ShieldCheck className="w-8 h-8 text-white" />
+            </motion.div>
+            <h1 className="text-3xl font-bold text-white tracking-tight mb-2">
+              Admin Portal
             </h1>
-            <p className="text-primary-light font-medium text-lg">
-              Admin Control Center
+            <p className="text-slate-400 text-sm">
+              Secure Authentication Required
             </p>
           </div>
 
-          <div className="relative z-10 mt-12">
-            <p className="text-sm text-primary-light/80 leading-relaxed">
-              "Streamline your operations, manage bookings, and track finances
-              efficiently."
-            </p>
-          </div>
-        </div>
-
-        {/* RIGHT SIDE: Form */}
-        <div className="w-full md:w-1/2 p-10 md:p-14 flex flex-col justify-center bg-card">
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-text-main">Sign In</h2>
-            <p className="text-text-sub mt-2">Access your admin dashboard.</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-6">
-            {/* Mobile Number Input */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-text-sub uppercase tracking-wider">
-                Mobile Number
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">
+                Phone ID
               </label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-3.5 w-5 h-5 text-text-muted" />
+              <div
+                className={`group relative flex items-center bg-slate-900/50 border rounded-xl transition-all duration-300 ${
+                  focusedField === "number"
+                    ? "border-indigo-500 ring-2 ring-indigo-500/20 shadow-lg shadow-indigo-500/10"
+                    : "border-white/10 hover:border-white/20"
+                }`}
+              >
+                <div
+                  className={`pl-4 transition-colors duration-300 ${
+                    focusedField === "number"
+                      ? "text-indigo-400"
+                      : "text-slate-500"
+                  }`}
+                >
+                  <Smartphone className="w-5 h-5" />
+                </div>
                 <input
-                  type="tel"
+                  type="text"
+                  name="number"
                   value={formData.number}
-                  onChange={handleNumberChange}
-                  className="w-full bg-input-bg border border-input-border rounded-xl pl-12 pr-4 py-3.5 text-text-main focus:bg-card focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium placeholder:text-text-muted font-mono"
-                  placeholder="9494197969"
-                  required
+                  onChange={handleChange}
+                  onFocus={() => setFocusedField("number")}
+                  onBlur={() => setFocusedField(null)}
+                  className="w-full bg-transparent text-white px-4 py-3.5 outline-none placeholder-slate-600"
+                  placeholder="Enter registered number"
+                  autoComplete="off"
                 />
               </div>
             </div>
 
-            {/* Password Input */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-text-sub uppercase tracking-wider">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">
                 Password
               </label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-3.5 w-5 h-5 text-text-muted" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  className="w-full bg-input-bg border border-input-border rounded-xl pl-12 pr-12 py-3.5 text-text-main focus:bg-card focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium placeholder:text-text-muted"
-                  placeholder="Enter Password"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-3.5 text-text-muted hover:text-primary transition-colors"
+              <div
+                className={`group relative flex items-center bg-slate-900/50 border rounded-xl transition-all duration-300 ${
+                  focusedField === "password"
+                    ? "border-indigo-500 ring-2 ring-indigo-500/20 shadow-lg shadow-indigo-500/10"
+                    : "border-white/10 hover:border-white/20"
+                }`}
+              >
+                <div
+                  className={`pl-4 transition-colors duration-300 ${
+                    focusedField === "password"
+                      ? "text-indigo-400"
+                      : "text-slate-500"
+                  }`}
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
+                  <Lock className="w-5 h-5" />
+                </div>
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  onFocus={() => setFocusedField("password")}
+                  onBlur={() => setFocusedField(null)}
+                  className="w-full bg-transparent text-white px-4 py-3.5 outline-none placeholder-slate-600"
+                  placeholder="••••••••"
+                />
               </div>
             </div>
 
-            <button
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               type="submit"
-              disabled={isLoading || formData.number.length < 10}
-              className="w-full bg-primary hover:bg-primary-hover text-text-inverse font-bold py-4 rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed mt-4"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-8 border border-white/10"
             >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              {loading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <>
-                  Login <ArrowRight size={20} />
+                  <span>Sign In</span>
+                  <ArrowRight className="w-5 h-5" />
                 </>
               )}
-            </button>
+            </motion.button>
           </form>
+
+          <div className="mt-8 text-center border-t border-white/5 pt-6">
+            <p className="text-slate-500 text-xs">
+              Authorized personnel only. <br /> Access is monitored and logged.
+            </p>
+          </div>
         </div>
       </motion.div>
     </div>
