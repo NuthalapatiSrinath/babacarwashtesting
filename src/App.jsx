@@ -18,7 +18,7 @@ const LoadingScreen = () => (
       <div className="w-24 h-24 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
       <div className="absolute inset-0 flex items-center justify-center animate-pulse">
         <img
-          src="/logo-icon.png"
+          src="/carwash.jpeg"
           className="w-10 h-10 object-contain"
           alt="Loading..."
         />
