@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+
 import {
   LayoutDashboard,
   MapPin,
@@ -20,10 +21,13 @@ import {
   ChevronRight,
   LogOut,
   X,
+  ClipboardCheck, // Bookings
+  Settings, // Settings
 } from "lucide-react";
 
 const Sidebar = ({ isOpen, isMobile, onClose }) => {
   const location = useLocation();
+
   const [openMenus, setOpenMenus] = useState({
     workers: false,
     washes: false,
@@ -38,21 +42,12 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
     if (location.pathname.startsWith("/washes")) {
       setOpenMenus((prev) => ({ ...prev, washes: true }));
     }
-    if (
-      location.pathname.startsWith("/payments") ||
-      location.pathname === "/collection-sheet" ||
-      location.pathname === "/settlements"
-    ) {
-      // Optional: Auto open payments if you consider other finance pages part of it
-      // setOpenMenus((prev) => ({ ...prev, payments: true }));
-    }
   }, [location.pathname]);
 
   const toggleMenu = (menu) => {
     setOpenMenus((prev) => ({ ...prev, [menu]: !prev[menu] }));
   };
 
-  // Helper to keep menu highlighted if a child is active
   const isActiveParent = (paths) =>
     paths.some((path) => location.pathname.startsWith(path));
 
@@ -63,7 +58,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
   const sidebarClasses = `
     fixed top-0 left-0 h-full
     bg-card text-text-main
-    border-r border-border 
+    border-r border-border
     transition-transform duration-300 ease-in-out z-50
     w-[280px] max-w-[85vw] flex flex-col
     ${isOpen ? "translate-x-0" : "-translate-x-full"}
@@ -86,7 +81,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
       </AnimatePresence>
 
       <aside className={sidebarClasses}>
-        {/* 1. Header (Logo) */}
+        {/* Header */}
         <div className="h-header-h flex items-center px-5 border-b border-border/50 shrink-0 gap-3 relative bg-card">
           <img
             src="/logo-icon.png"
@@ -109,15 +104,17 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
           )}
         </div>
 
-        {/* 2. Navigation Menu */}
+        {/* Navigation */}
         <nav
           className="flex-1 px-4 py-6 overflow-y-auto no-scrollbar"
           aria-label="Main Navigation"
         >
           <ul className="space-y-1">
+            {/* Overview */}
             <li className="px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest mb-2 mt-1">
               Overview
             </li>
+
             <NavItem
               to="/"
               icon={LayoutDashboard}
@@ -125,9 +122,11 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
               onClick={handleLinkClick}
             />
 
+            {/* Management */}
             <li className="px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest mb-2 mt-6">
               Management
             </li>
+
             <NavItem
               to="/locations"
               icon={MapPin}
@@ -153,7 +152,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
               onClick={handleLinkClick}
             />
 
-            {/* --- WORKERS DROPDOWN --- */}
+            {/* Workers */}
             <li>
               <MenuButton
                 label="Workers Management"
@@ -162,6 +161,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                 isActive={isActiveParent(["/workers"])}
                 onClick={() => toggleMenu("workers")}
               />
+
               <SubMenu isOpen={openMenus.workers}>
                 <SubNavItem
                   to="/workers/list"
@@ -194,7 +194,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
               onClick={handleLinkClick}
             />
 
-            {/* --- WASHES DROPDOWN --- */}
+            {/* Washes */}
             <li>
               <MenuButton
                 label="Washes"
@@ -203,6 +203,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                 isActive={isActiveParent(["/washes"])}
                 onClick={() => toggleMenu("washes")}
               />
+
               <SubMenu isOpen={openMenus.washes}>
                 <SubNavItem
                   to="/washes/onewash"
@@ -217,11 +218,11 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
               </SubMenu>
             </li>
 
+            {/* Finance */}
             <li className="px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest mb-2 mt-6">
               Finance
             </li>
 
-            {/* --- PAYMENTS DROPDOWN --- */}
             <li>
               <MenuButton
                 label="Payments"
@@ -230,6 +231,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                 isActive={isActiveParent(["/payments"])}
                 onClick={() => toggleMenu("payments")}
               />
+
               <SubMenu isOpen={openMenus.payments}>
                 <SubNavItem
                   to="/payments"
@@ -264,19 +266,42 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
               onClick={handleLinkClick}
             />
 
+            {/* Support */}
             <li className="px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest mb-2 mt-6">
               Support
             </li>
+
             <NavItem
               to="/enquiry"
               icon={HelpCircle}
               label="Enquiry"
               onClick={handleLinkClick}
             />
+
+            <NavItem
+              to="/bookings"
+              icon={ClipboardCheck}
+              label="Bookings"
+              onClick={handleLinkClick}
+            />
+
+            <NavItem
+              to="/import-logs"
+              icon={FileText}
+              label="Import Logs"
+              onClick={handleLinkClick}
+            />
+
+            <NavItem
+              to="/settings"
+              icon={Settings}
+              label="Settings"
+              onClick={handleLinkClick}
+            />
           </ul>
         </nav>
 
-        {/* 3. Footer */}
+        {/* Footer */}
         <div className="p-6 border-t border-border/50 shrink-0 bg-card">
           <button className="w-full flex items-center justify-center gap-2 text-danger bg-danger/10 hover:bg-danger/20 py-3 rounded-lg font-bold transition-colors text-sm">
             <LogOut size={18} />
@@ -288,7 +313,8 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
   );
 };
 
-/* --- Helper Components --- */
+/* Helper Components */
+
 const NavItem = ({ to, icon: Icon, label, onClick }) => (
   <li>
     <NavLink
@@ -338,6 +364,7 @@ const MenuButton = ({ label, icon: Icon, isOpen, isActive, onClick }) => (
       />
       <span className="truncate">{label}</span>
     </div>
+
     <ChevronRight
       className={`w-4 h-4 text-text-sub transition-transform duration-300 ${
         isOpen ? "rotate-90" : ""

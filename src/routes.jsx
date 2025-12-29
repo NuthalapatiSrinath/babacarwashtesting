@@ -28,6 +28,15 @@ import Workers from "./pages/Workers";
 import Staff from "./pages/Staff";
 import Attendance from "./pages/Attendance";
 import PlaceholderPage from "./pages/PlaceholderPage";
+import Settings from "./pages/Settings";
+import ImportLogs from "./pages/ImportLogs";
+import Bookings from "./pages/Bookings";
+import Enquiry from "./pages/Enquiry";
+import Pricing from "./pages/Pricing";
+import Customers from "./pages/Customers";
+import CustomerHistory from "./pages/CustomerHistory"; // NEW IMPORT
+import OneWash from "./pages/OneWash";
+import Residence from "./pages/Residence";
 
 export const routes = [
   // --- OVERVIEW ---
@@ -56,9 +65,7 @@ export const routes = [
     component: <Sites />,
   },
 
-  // --- WORKERS SECTION (Flattened) ---
-  // The Sidebar handles the grouping visual.
-  // The Router just needs to know the paths exist.
+  // --- WORKERS SECTION ---
   {
     path: "/workers/list",
     title: "Workers",
@@ -82,24 +89,32 @@ export const routes = [
     path: "/supervisors",
     component: <Supervisors />,
   },
+
+  // --- CUSTOMERS SECTION ---
   {
     path: "/customers",
     title: "Customer Database",
-    component: <PlaceholderPage title="Customers" />,
+    component: <Customers />,
     icon: Users,
+  },
+  // Hidden Detail Route (No icon needed as it's not in sidebar)
+  {
+    path: "/customers/:id/history",
+    title: "Customer History",
+    component: <CustomerHistory />,
   },
 
   // --- WASHES ---
   {
     path: "/washes/onewash",
     title: "One Wash Service",
-    component: <PlaceholderPage title="One Wash" />,
+    component: <OneWash />,
     icon: Droplets,
   },
   {
     path: "/washes/residence",
     title: "Residence Service",
-    component: <PlaceholderPage title="Residence" />,
+    component: <Residence />,
     icon: Droplets,
   },
 
@@ -131,7 +146,7 @@ export const routes = [
   {
     path: "/pricing",
     title: "Pricing Configuration",
-    component: <PlaceholderPage title="Pricing" />,
+    component: <Pricing />,
     icon: Tags,
   },
 
@@ -139,12 +154,23 @@ export const routes = [
   {
     path: "/enquiry",
     title: "Enquiries",
-    component: <PlaceholderPage title="Enquiry" />,
+    component: <Enquiry />,
     icon: HelpCircle,
+  },
+  {
+    path: "/bookings",
+    title: "Bookings",
+    component: <Bookings />,
+  },
+  {
+    path: "/import-logs",
+    title: "Import Logs",
+    component: <ImportLogs />,
+    icon: FileText,
   },
   {
     path: "/settings",
     title: "Settings",
-    component: <PlaceholderPage title="Settings" />,
+    component: <Settings />,
   },
 ];

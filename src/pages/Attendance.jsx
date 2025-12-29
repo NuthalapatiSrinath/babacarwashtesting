@@ -4,7 +4,7 @@ import {
   Calendar,
   Download,
   User,
-  Users, // <--- Added Users here
+  Users,
   MapPin,
   Building,
   ShoppingBag,
@@ -26,13 +26,24 @@ import { buildingService } from "../api/buildingService";
 
 const Attendance = () => {
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState([]);
+  const [allData, setAllData] = useState([]); // Store ALL fetched data
+  const [displayedData, setDisplayedData] = useState([]); // Store current page data
 
   // --- Filter States ---
-  const today = new Date().toISOString().split("T")[0];
-  const [dateRange, setDateRange] = useState({ start: today, end: today });
 
-  // Tabs: 'all', 'residence', 'mall', 'site'
+  // Helper: Get Date String (YYYY-MM-DD)
+  const getDateString = (daysOffset = 0) => {
+    const date = new Date();
+    date.setDate(date.getDate() + daysOffset);
+    return date.toISOString().split("T")[0];
+  };
+
+  // UPDATED: Default is Yesterday (Start) to Today (End)
+  const [dateRange, setDateRange] = useState({
+    start: getDateString(-1), // Yesterday
+    end: getDateString(0), // Today
+  });
+
   const [activePremise, setActivePremise] = useState("all");
 
   // Dropdown Selections
@@ -42,7 +53,15 @@ const Attendance = () => {
   const [selectedBuilding, setSelectedBuilding] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Options Data (Populated on Load)
+  // Pagination State (Client-Side)
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
+
+  // Options Data
   const [employees, setEmployees] = useState([]);
   const [malls, setMalls] = useState([]);
   const [sites, setSites] = useState([]);
@@ -59,7 +78,6 @@ const Attendance = () => {
           buildingService.list(1, 1000),
         ]);
 
-        // Handle response structure { statusCode: 200, data: [...] }
         setEmployees(orgRes.data || []);
         setMalls(mallsRes.data || []);
         setSites(sitesRes.data || []);
@@ -71,7 +89,7 @@ const Attendance = () => {
     loadFilters();
   }, []);
 
-  // --- 2. Fetch Attendance Data ---
+  // --- 2. Fetch Data ---
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -81,13 +99,10 @@ const Attendance = () => {
         search: searchTerm,
       };
 
-      // Employee Filter
       if (selectedEmployee) params.worker = selectedEmployee;
 
-      // Premise Logic
       if (activePremise !== "all") {
         params.premise = activePremise;
-
         if (activePremise === "mall" && selectedMall)
           params.mall = [selectedMall];
         if (activePremise === "site" && selectedSite)
@@ -96,8 +111,20 @@ const Attendance = () => {
           params.building = [selectedBuilding];
       }
 
+      // API Call
       const response = await attendanceService.list(params);
-      setData(response.data || []);
+      const fullList = response.data || [];
+
+      // Store ALL data
+      setAllData(fullList);
+
+      // Reset to Page 1
+      setPagination((prev) => ({
+        ...prev,
+        page: 1,
+        total: fullList.length,
+        totalPages: Math.ceil(fullList.length / prev.limit) || 1,
+      }));
     } catch (error) {
       console.error(error);
       toast.error("Failed to load attendance records");
@@ -105,6 +132,13 @@ const Attendance = () => {
       setLoading(false);
     }
   };
+
+  // --- 3. Handle Pagination (Slicing Data) ---
+  useEffect(() => {
+    const startIndex = (pagination.page - 1) * pagination.limit;
+    const endIndex = startIndex + pagination.limit;
+    setDisplayedData(allData.slice(startIndex, endIndex));
+  }, [pagination.page, pagination.limit, allData]);
 
   // Trigger fetch when filters change
   useEffect(() => {
@@ -123,26 +157,34 @@ const Attendance = () => {
     if (e.key === "Enter") fetchData();
   };
 
-  // --- 3. Handlers ---
+  // --- 4. Handlers ---
+
+  const handlePageChange = (newPage) => {
+    setPagination((prev) => ({ ...prev, page: newPage }));
+  };
+
+  const handleLimitChange = (newLimit) => {
+    setPagination((prev) => ({
+      ...prev,
+      limit: newLimit,
+      page: 1, // Reset to page 1 on limit change
+      totalPages: Math.ceil(allData.length / newLimit) || 1,
+    }));
+  };
 
   const handleStatusToggle = async (row, statusType) => {
-    // statusType: 'P' (Present) or 'A' (Absent)
     const isPresent = statusType === "P";
-
-    // Don't update if status is already same
     if (row.present === isPresent) return;
 
-    // 1. Optimistic Update
-    const originalData = [...data];
-    const updatedData = data.map((item) =>
+    // Optimistic Update
+    const updatedList = allData.map((item) =>
       item._id === row._id
         ? { ...item, present: isPresent, type: isPresent ? "" : "AB" }
         : item
     );
-    setData(updatedData);
+    setAllData(updatedList);
 
     try {
-      // 2. API Call
       await attendanceService.update({
         ids: [row._id],
         present: isPresent,
@@ -152,7 +194,7 @@ const Attendance = () => {
       toast.success(isPresent ? "Marked Present" : "Marked Absent");
     } catch (error) {
       toast.error("Update failed");
-      setData(originalData); // Revert on error
+      fetchData(); // Revert on error
     }
   };
 
@@ -188,15 +230,16 @@ const Attendance = () => {
         params.building = [selectedBuilding];
 
       const blob = await attendanceService.exportData(params);
-
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `Attendance_${dateRange.start}.xlsx`);
+      link.setAttribute(
+        "download",
+        `Attendance_${dateRange.start}_to_${dateRange.end}.xlsx`
+      );
       document.body.appendChild(link);
       link.click();
       link.remove();
-
       toast.dismiss();
       toast.success("Export successful");
     } catch (error) {
@@ -371,7 +414,6 @@ const Attendance = () => {
 
         {/* Row 2: Dynamic Filters */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
-          {/* Global Search */}
           <div className="relative">
             <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
             <input
@@ -380,17 +422,16 @@ const Attendance = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={handleSearchSubmit}
-              className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
+              className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 outline-none"
             />
           </div>
 
-          {/* Employee Specific Filter */}
           <div className="relative">
             <User className="absolute left-3 top-3 w-4 h-4 text-slate-400 pointer-events-none" />
             <select
               value={selectedEmployee}
               onChange={(e) => setSelectedEmployee(e.target.value)}
-              className="w-full pl-9 pr-8 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none appearance-none bg-white cursor-pointer"
+              className="w-full pl-9 pr-8 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 outline-none appearance-none bg-white cursor-pointer"
             >
               <option value="">All Employees</option>
               {employees.map((emp) => (
@@ -401,9 +442,8 @@ const Attendance = () => {
             </select>
           </div>
 
-          {/* Conditional Dropdowns */}
           {activePremise === "mall" && (
-            <div className="relative animate-in fade-in slide-in-from-left-2">
+            <div className="relative">
               <ShoppingBag className="absolute left-3 top-3 w-4 h-4 text-slate-400 pointer-events-none" />
               <select
                 value={selectedMall}
@@ -421,7 +461,7 @@ const Attendance = () => {
           )}
 
           {activePremise === "site" && (
-            <div className="relative animate-in fade-in slide-in-from-left-2">
+            <div className="relative">
               <MapPin className="absolute left-3 top-3 w-4 h-4 text-slate-400 pointer-events-none" />
               <select
                 value={selectedSite}
@@ -439,7 +479,7 @@ const Attendance = () => {
           )}
 
           {activePremise === "residence" && (
-            <div className="relative animate-in fade-in slide-in-from-left-2">
+            <div className="relative">
               <Building className="absolute left-3 top-3 w-4 h-4 text-slate-400 pointer-events-none" />
               <select
                 value={selectedBuilding}
@@ -465,20 +505,15 @@ const Attendance = () => {
         </div>
       </div>
 
-      {/* --- Data Table --- */}
+      {/* --- Data Table with Client-Side Pagination --- */}
       <DataTable
         title="Attendance Records"
         columns={columns}
-        data={data}
+        data={displayedData} // Pass sliced data
         loading={loading}
-        pagination={{
-          page: 1,
-          limit: data.length > 0 ? data.length : 10,
-          total: data.length,
-          totalPages: 1,
-        }}
-        onPageChange={() => {}}
-        onLimitChange={() => {}}
+        pagination={pagination}
+        onPageChange={handlePageChange}
+        onLimitChange={handleLimitChange}
       />
     </div>
   );
