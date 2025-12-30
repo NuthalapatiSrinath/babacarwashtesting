@@ -1,7 +1,9 @@
 import api from "./axiosInstance";
 
 export const paymentService = {
-  // 1. List Payments (Main Table)
+  // --- EXISTING METHODS ---
+
+  // List Payments
   list: async (page = 1, limit = 10, search = "", filters = {}) => {
     const params = {
       pageNo: page - 1,
@@ -13,7 +15,7 @@ export const paymentService = {
     return response.data;
   },
 
-  // 2. Export Data (General Export)
+  // Export Data
   exportData: async (filters = {}) => {
     const response = await api.get("/payments/export/list", {
       params: filters,
@@ -22,14 +24,13 @@ export const paymentService = {
     return response.data;
   },
 
-  // 3. Update Payment (Generic Update for Mode/Amount/Notes)
-  // Uses PUT /payments/:id to allow updating payment_mode
+  // Update Payment (Generic)
   updatePayment: async (id, data) => {
     const response = await api.put(`/payments/${id}`, data);
     return response.data;
   },
 
-  // 4. Collect Payment (Specific Logic for collecting cash/card)
+  // Collect Payment
   collect: async (id, amount, mode, date) => {
     const payload = {
       amount: Number(amount),
@@ -40,7 +41,7 @@ export const paymentService = {
     return response.data;
   },
 
-  // 5. Download Collection Sheet (Monthly Statement for Residence)
+  // Download Collection Sheet
   downloadCollectionSheet: async ({
     serviceType,
     year,
@@ -48,10 +49,7 @@ export const paymentService = {
     building,
     worker,
   }) => {
-    // Backend expects 0-indexed month (0=Jan, 11=Dec)
-    // Frontend sends 1-indexed (1=Jan), so subtract 1
     const adjustedMonth = parseInt(month, 10) - 1;
-
     const response = await api.get("/payments/export/statement/monthly", {
       params: {
         service_type: serviceType,
@@ -60,8 +58,33 @@ export const paymentService = {
         building: building || "all",
         worker: worker || "all",
       },
-      responseType: "blob", // Critical for file download
+      responseType: "blob",
     });
+    return response.data;
+  },
+
+  // --- NEW: SETTLEMENTS API ---
+
+  // 1. Get List of Settlements
+  // Hits: GET /payments/settlements/list
+  // 1. Get List of Settlements
+  // --- NEW: SETTLEMENTS API ---
+
+  // 1. Get List of Settlements
+  getSettlements: async (page = 1, limit = 10) => {
+    // FIX: Send 'page' directly (e.g., 1).
+    // Do NOT send 'page - 1' because that sends 0, causing a Backend Crash (400).
+    const params = {
+      pageNo: page,
+      pageSize: limit,
+    };
+    const response = await api.get("/payments/settlements/list", { params });
+    return response.data;
+  },
+
+  // 2. Approve/Update Settlement
+  updateSettlement: async (id) => {
+    const response = await api.put(`/payments/settlements/${id}`, {});
     return response.data;
   },
 };

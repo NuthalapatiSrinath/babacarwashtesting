@@ -42,6 +42,7 @@ import OneWashPayments from "./pages/OneWashPayments";
 import ResidencePayments from "./pages/ResidencePayments";
 import WorkRecords from "./pages/WorkRecords";
 import CollectionSheet from "./pages/CollectionSheet";
+import Settlements from "./pages/Settlements";
 
 export const routes = [
   // --- OVERVIEW ---
@@ -159,7 +160,7 @@ export const routes = [
   {
     path: "/settlements",
     title: "Settlements",
-    component: <PlaceholderPage title="Settlements" />,
+    component: <Settlements />,
     icon: Wallet,
   },
   {
