@@ -1,8 +1,13 @@
 import axios from "axios";
 import toast from "react-hot-toast";
 
+// HARDCODED BASE URL
+// This forces the request to be relative (e.g., https://your-site.com/api/...)
+// It relies entirely on your proxy configuration (vercel.json or vite.config.js)
+const baseURL = "/api";
+
 const api = axios.create({
-  baseURL: "http://3.29.249.5:3000/api",
+  baseURL: baseURL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -13,14 +18,11 @@ api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
 
+    // Debugging logs
     console.log(`[🚀 Request] ${config.method?.toUpperCase()} ${config.url}`);
-    console.log(
-      `[🔑 Token in Storage]`,
-      token ? "Yes (Exists)" : "NULL (Missing)"
-    );
 
     if (token) {
-      // IMPORTANT — backend expects RAW token (NO Bearer)
+      // IMPORTANT — Preserving your logic: RAW token (No Bearer prefix)
       config.headers.Authorization = token;
     }
 
@@ -35,7 +37,7 @@ api.interceptors.request.use(
 // --- RESPONSE INTERCEPTOR ---
 api.interceptors.response.use(
   (response) => {
-    console.log(`[✅ Success] ${response.config.url}`, response.status);
+    // console.log(`[✅ Success] ${response.config.url}`, response.status);
     return response;
   },
 
