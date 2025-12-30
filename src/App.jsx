@@ -1,15 +1,14 @@
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-  Outlet,
-} from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { Suspense, useState, useEffect } from "react";
+
+// Layouts & Pages
 import MainLayout from "./layouts/MainLayout";
 import Login from "./pages/Login";
 import { routes } from "./routes";
+
+// Components
+import ProtectedRoute from "./components/ProtectedRoute"; // Imported centralized protection
 
 // --- Loading Screen Component ---
 const LoadingScreen = () => (
@@ -30,19 +29,9 @@ const LoadingScreen = () => (
   </div>
 );
 
-// --- Protected Route Wrapper ---
-const ProtectedRoute = () => {
-  // Check for the actual token used by your AuthService
-  const token = localStorage.getItem("token");
-
-  // If no token, redirect to Login
-  return token ? <Outlet /> : <Navigate to="/login" replace />;
-};
-
-// --- Public Route Wrapper (Optional: prevents logged-in users from seeing login) ---
+// --- Public Route Wrapper (Prevents logged-in users from seeing login) ---
 const PublicRoute = ({ children }) => {
   const token = localStorage.getItem("token");
-  // If user is already logged in, send them to dashboard
   if (token) {
     return <Navigate to="/" replace />;
   }
@@ -53,7 +42,7 @@ function App() {
   const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {
-    // Simulate initial app loading checks (e.g., verify token validity)
+    // Simulate initial app loading checks
     const timer = setTimeout(() => setAppReady(true), 1000);
     return () => clearTimeout(timer);
   }, []);
@@ -68,10 +57,7 @@ function App() {
         reverseOrder={false}
         gutter={8}
         toastOptions={{
-          // Default duration: 2 seconds (Fast disappear)
           duration: 2000,
-
-          // Default Style (Modern & Clean)
           style: {
             background: "#1e293b", // Slate-800
             color: "#fff",
@@ -82,23 +68,15 @@ function App() {
             fontWeight: "500",
             boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.3)",
           },
-
-          // Success Configuration
           success: {
             duration: 2000,
-            iconTheme: { primary: "#10B981", secondary: "#fff" }, // Emerald Green
-            style: {
-              borderLeft: "4px solid #10B981",
-            },
+            iconTheme: { primary: "#10B981", secondary: "#fff" },
+            style: { borderLeft: "4px solid #10B981" },
           },
-
-          // Error Configuration
           error: {
-            duration: 3000, // Errors stay slightly longer
-            iconTheme: { primary: "#EF4444", secondary: "#fff" }, // Red
-            style: {
-              borderLeft: "4px solid #EF4444",
-            },
+            duration: 3000,
+            iconTheme: { primary: "#EF4444", secondary: "#fff" },
+            style: { borderLeft: "4px solid #EF4444" },
           },
         }}
       />

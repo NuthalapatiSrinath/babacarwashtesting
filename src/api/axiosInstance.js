@@ -2,50 +2,63 @@ import axios from "axios";
 import toast from "react-hot-toast";
 
 const api = axios.create({
-  // UPDATED: Changed to relative path '/api' to work with Vercel Rewrites
-  // This prevents the "Mixed Content" error by proxying through Vercel.
-  baseURL: "/api",
-  headers: {
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  },
+  baseURL: "http://3.29.249.5:3000/api",
+  timeout: 15000,
 });
 
-// REQUEST INTERCEPTOR: Attach Token
+const forceLogout = (message) => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+
+  toast.error(message);
+
+  window.location.replace("/login");
+};
+
+// REQUEST INTERCEPTOR
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
-    if (token) {
-      // Send token exactly as backend expects
-      config.headers["Authorization"] = token;
+
+    if (!token) {
+      forceLogout("Session expired. Please login again.");
+      return Promise.reject("Missing auth token");
     }
+
+    config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// RESPONSE INTERCEPTOR: Handle Errors & Auto Logout
+// RESPONSE INTERCEPTOR
 api.interceptors.response.use(
-  (response) => response,
+  (res) => res,
+
   (error) => {
-    const originalRequest = error.config;
+    const status = error?.response?.status;
+    const path = window.location.pathname;
 
-    // Handle 401 Unauthorized (Session Expired)
-    if (
-      error.response &&
-      error.response.status === 401 &&
-      !originalRequest._retry
-    ) {
-      originalRequest._retry = true;
-
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-
-      toast.error("Session expired. Please login again.");
-
-      // Use window.location to force full refresh and clear state
-      window.location.href = "/login";
+    if (path === "/login") {
+      return Promise.reject(error);
     }
+
+    // AUTH FAILURE
+    if (status === 401 || status === 403) {
+      forceLogout("Session expired. Please login again.");
+      return Promise.reject(error);
+    }
+
+    // SERVER DOWN / NETWORK / CORS / TIMEOUT
+    if (
+      !error.response ||
+      error.code === "ERR_NETWORK" ||
+      error.code === "ECONNABORTED"
+    ) {
+      forceLogout("Server unreachable. Please login again.");
+      return Promise.reject(error);
+    }
+
     return Promise.reject(error);
   }
 );

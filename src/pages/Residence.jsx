@@ -5,11 +5,8 @@ import {
   Edit2,
   Download,
   Search,
-  Car,
-  MapPin,
-  Calendar,
-  User,
   Filter,
+  User,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -26,20 +23,20 @@ const Residence = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
 
-  // Dropdown Data
   const [workers, setWorkers] = useState([]);
 
-  // Filters
+  // --- FIX 1: Set Default Date to TODAY to avoid fetching 400k records ---
+  const getToday = () => new Date().toISOString().split("T")[0];
+
   const [filters, setFilters] = useState({
-    startDate: "",
-    endDate: "",
+    startDate: getToday(),
+    endDate: getToday(),
     worker: "",
     status: "",
   });
 
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Pagination
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -61,13 +58,16 @@ const Residence = () => {
       }
     };
     loadWorkers();
+
+    // Fetch data using the default 'Today' filters set in state
     fetchData(1, 10);
-  }, []);
+  }, []); // Empty dependency array means this runs once on mount
 
   // --- Fetch Data ---
   const fetchData = async (page = 1, limit = 10) => {
     setLoading(true);
     try {
+      // NOTE: Using current 'filters' state which now has default dates
       const res = await jobService.list(page, limit, searchTerm, filters);
 
       setData(res.data || []);
@@ -89,7 +89,9 @@ const Residence = () => {
   // --- Handlers ---
   const handleDateChange = (field, value) => {
     if (field === "clear") {
-      setFilters((prev) => ({ ...prev, startDate: "", endDate: "" }));
+      // Reset to TODAY, not empty, to prevent system overload
+      const today = getToday();
+      setFilters((prev) => ({ ...prev, startDate: today, endDate: today }));
     } else {
       setFilters((prev) => ({ ...prev, [field]: value }));
     }
@@ -125,122 +127,130 @@ const Residence = () => {
   };
 
   const handleExport = async () => {
+    const toastId = toast.loading("Preparing download...");
     try {
-      const blob = await jobService.exportData({
-        ...filters,
+      const exportParams = {
         search: searchTerm,
-      });
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        worker: filters.worker,
+        status: filters.status,
+      };
+
+      const blob = await jobService.exportData(exportParams);
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", "residence_jobs.xlsx");
+      const dateStr = new Date().toISOString().split("T")[0];
+      link.setAttribute("download", `residence_jobs_${dateStr}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
-      toast.success("Download started");
+
+      toast.success("Download started", { id: toastId });
     } catch (e) {
-      toast.error("Export failed");
+      console.error("Export Error:", e);
+      toast.error("Export failed", { id: toastId });
     }
   };
 
   // --- Columns ---
   const columns = [
     {
-      header: "ID",
+      header: "Id",
       accessor: "id",
-      className: "w-16 text-center text-xs font-mono text-slate-400",
-      render: (row) => <span>#{row.id || row.scheduleId}</span>,
+      className: "w-12 text-center text-slate-500",
+      render: (row, idx) => (
+        <span className="font-mono text-xs">
+          {(pagination.page - 1) * pagination.limit + idx + 1}
+        </span>
+      ),
     },
     {
-      header: "Date",
+      header: "Created",
       accessor: "assignedDate",
-      className: "w-28",
       render: (row) => (
-        <div className="flex flex-col">
-          <span className="text-slate-700 font-medium text-sm">
-            {row.assignedDate
-              ? new Date(row.assignedDate).toLocaleDateString()
-              : "-"}
-          </span>
-          <span className="text-[10px] text-slate-400">Assigned</span>
-        </div>
+        <span className="text-slate-700 text-sm font-medium">
+          {row.assignedDate
+            ? new Date(row.assignedDate).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })
+            : "-"}
+        </span>
       ),
     },
     {
-      header: "Customer / Vehicle",
-      accessor: "vehicle",
+      header: "Completed",
+      accessor: "completedDate",
       render: (row) => (
-        <div className="flex flex-col gap-1">
-          <span className="font-bold text-slate-700 text-sm truncate max-w-[150px]">
-            {row.customer?.firstName} {row.customer?.lastName}
-          </span>
-          <div className="flex items-center gap-2">
-            <span className="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-xs font-bold uppercase text-slate-600 tracking-wide flex items-center gap-1">
-              <Car className="w-3 h-3" />
-              {row.vehicle?.registration_no || "N/A"}
-            </span>
-            {row.vehicle?.parking_no && (
-              <span className="text-[10px] text-slate-500 font-mono">
-                {row.vehicle.parking_no}
-              </span>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
-      header: "Location",
-      accessor: "building",
-      render: (row) => (
-        <div className="flex flex-col">
-          <span className="text-sm font-medium text-slate-700">
-            {row.building?.name || "-"}
-          </span>
-          <div className="flex items-center gap-1 mt-0.5">
-            <MapPin className="w-3 h-3 text-slate-400" />
-            <span className="text-[10px] text-slate-500 truncate max-w-[120px]">
-              {row.location?.name || row.location?.address || "-"}
-            </span>
-          </div>
-        </div>
-      ),
-    },
-    {
-      header: "Worker",
-      accessor: "worker",
-      render: (row) => (
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 text-xs font-bold border border-orange-100">
-            {row.worker?.name?.[0] || "U"}
-          </div>
-          <span className="text-sm text-slate-600 font-medium">
-            {row.worker?.name || "Unassigned"}
-          </span>
-        </div>
+        <span className="text-slate-500 text-sm">
+          {row.completedDate
+            ? new Date(row.completedDate).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })
+            : "-"}
+        </span>
       ),
     },
     {
       header: "Status",
       accessor: "status",
-      className: "w-24 text-center",
       render: (row) => {
-        const s = (row.status || "pending").toLowerCase();
-        let color = "bg-slate-100 text-slate-600";
-        if (s === "completed")
-          color = "bg-emerald-50 text-emerald-700 border border-emerald-100";
-        if (s === "pending")
-          color = "bg-amber-50 text-amber-700 border border-amber-100";
-        if (s === "cancelled")
-          color = "bg-red-50 text-red-700 border border-red-100";
-
+        const status = (row.status || "pending").toUpperCase();
+        let colorClass = "text-amber-500";
+        if (status === "COMPLETED") colorClass = "text-emerald-500";
+        if (status === "CANCELLED") colorClass = "text-red-500";
         return (
-          <span
-            className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${color}`}
-          >
-            {s}
-          </span>
+          <span className={`text-xs font-bold ${colorClass}`}>{status}</span>
         );
       },
+    },
+    {
+      header: "Vehicle No",
+      accessor: "vehicle.registration_no",
+      render: (row) => (
+        <span className="text-slate-700 font-medium text-sm">
+          {row.vehicle?.registration_no || "N/A"}
+        </span>
+      ),
+    },
+    {
+      header: "Parking No",
+      accessor: "vehicle.parking_no",
+      render: (row) => (
+        <span className="text-slate-600 text-sm">
+          {row.vehicle?.parking_no || "-"}
+        </span>
+      ),
+    },
+    {
+      header: "Building",
+      accessor: "building.name",
+      render: (row) => (
+        <span className="text-slate-700 text-sm uppercase">
+          {row.building?.name || "-"}
+        </span>
+      ),
+    },
+    {
+      header: "Customer",
+      accessor: "customer.mobile",
+      render: (row) => (
+        <span className="text-slate-600 font-mono text-sm">
+          {row.customer?.mobile || "-"}
+        </span>
+      ),
+    },
+    {
+      header: "Worker",
+      accessor: "worker.name",
+      render: (row) => (
+        <span className="text-slate-700 text-xs font-bold uppercase">
+          {row.worker?.name || "UNASSIGNED"}
+        </span>
+      ),
     },
     {
       header: "Actions",
@@ -267,13 +277,14 @@ const Residence = () => {
   ];
 
   return (
+    // FIX 2: Ensure proper Flexbox height calculation so footer sticks
     <div className="p-6 w-full h-[calc(100vh-80px)] flex flex-col font-sans">
       {/* Header */}
       <div className="mb-6 flex flex-col xl:flex-row xl:items-center justify-between gap-4 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Residence Jobs</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Manage recurring wash schedules and tasks
+            Daily Work Schedule & Status
           </p>
         </div>
         <div className="flex gap-3">
@@ -293,7 +304,7 @@ const Residence = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-4 flex flex-col xl:flex-row gap-4 items-end">
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-4 flex flex-col xl:flex-row gap-4 items-end flex-shrink-0">
         <div className="w-full xl:w-auto">
           <RichDateRangePicker
             startDate={filters.startDate}
@@ -356,8 +367,9 @@ const Residence = () => {
         </button>
       </div>
 
-      {/* Table */}
-      <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+      {/* Table Container */}
+      {/* min-h-0 is CRITICAL here to allow the flex child to scroll properly */}
+      <div className="flex-1 min-h-0 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col">
         <DataTable
           columns={columns}
           data={data}

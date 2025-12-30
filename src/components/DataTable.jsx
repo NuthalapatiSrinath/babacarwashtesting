@@ -15,333 +15,261 @@ const DataTable = ({
   columns = [],
   data = [],
   loading = false,
-  // Server-Side Props (Optional)
-  pagination: serverPagination,
-  onPageChange: serverOnPageChange,
-  onLimitChange: serverOnLimitChange,
-  onSearch: serverOnSearch,
+
+  pagination,
+  onPageChange,
+  onLimitChange,
+  onSearch,
+
   actionButton,
   renderExpandedRow,
 }) => {
-  // --- CLIENT-SIDE STATE (Fallback) ---
-  const [clientPage, setClientPage] = useState(1);
-  const [clientLimit, setClientLimit] = useState(10);
-  const [clientSearch, setClientSearch] = useState("");
+  const isServer = !!(pagination && onPageChange);
+
+  const [localPage, setLocalPage] = useState(1);
+  const [localLimit, setLocalLimit] = useState(10);
+  const [localSearch, setLocalSearch] = useState("");
   const [expandedRows, setExpandedRows] = useState([]);
 
-  // Detect Mode
-  const isServerSide = !!(serverPagination && serverOnPageChange);
-
-  // --- 1. SEARCH LOGIC ---
   const handleSearch = (e) => {
     const value = e.target.value;
-    if (isServerSide && serverOnSearch) {
-      serverOnSearch(value);
-    } else {
-      setClientSearch(value);
-      setClientPage(1);
+
+    if (isServer && onSearch) onSearch(value);
+    else {
+      setLocalSearch(value);
+      setLocalPage(1);
     }
   };
 
-  // --- 2. DATA PROCESSING ---
-  const processedData = useMemo(() => {
-    let processed = data;
-    // Client Filter
-    if (!isServerSide && clientSearch) {
-      processed = processed.filter((row) =>
-        Object.values(row).some((val) =>
-          String(val).toLowerCase().includes(clientSearch.toLowerCase())
+  // CLIENT SEARCH
+  const processed = useMemo(() => {
+    if (!isServer && localSearch) {
+      return data.filter((row) =>
+        Object.values(row).some((v) =>
+          String(v).toLowerCase().includes(localSearch.toLowerCase())
         )
       );
     }
-    return processed;
-  }, [data, clientSearch, isServerSide]);
+    return data;
+  }, [data, localSearch, isServer]);
 
-  // --- 3. PAGINATION CALCULATIONS ---
-  const currentLimit = isServerSide ? serverPagination.limit : clientLimit;
-  const currentPage = isServerSide ? serverPagination.page : clientPage;
-  const totalRecords = isServerSide
-    ? serverPagination.total
-    : processedData.length;
-  const totalPages = Math.ceil(totalRecords / currentLimit) || 1;
+  const limit = isServer ? pagination.limit : localLimit;
+  const page = isServer ? pagination.page : localPage;
+  const total = isServer ? pagination.total : processed.length;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  // Determine Visible Rows
-  const visibleRows = isServerSide
+  const rows = isServer
     ? data
-    : processedData.slice(
-        (currentPage - 1) * currentLimit,
-        currentPage * currentLimit
+    : processed.slice((page - 1) * limit, page * limit);
+
+  const changePage = (p) => {
+    if (p < 1 || p > totalPages) return;
+    if (isServer) onPageChange(p);
+    else setLocalPage(p);
+  };
+
+  const changeLimit = (l) => {
+    if (isServer && onLimitChange) onLimitChange(l);
+    else {
+      setLocalLimit(l);
+      setLocalPage(1);
+    }
+  };
+
+  const pages = (() => {
+    const list = [];
+    if (totalPages <= 6) {
+      for (let i = 1; i <= totalPages; i++) list.push(i);
+    } else if (page <= 3) list.push(1, 2, 3, 4, "...", totalPages);
+    else if (page >= totalPages - 2)
+      list.push(
+        1,
+        "...",
+        totalPages - 3,
+        totalPages - 2,
+        totalPages - 1,
+        totalPages
       );
-
-  // --- 4. HANDLERS ---
-  const handlePageChange = (newPage) => {
-    if (newPage < 1 || newPage > totalPages) return;
-    if (isServerSide) {
-      serverOnPageChange(newPage);
-    } else {
-      setClientPage(newPage);
-    }
-  };
-
-  const handleLimitChange = (newLimit) => {
-    if (isServerSide && serverOnLimitChange) {
-      serverOnLimitChange(newLimit);
-    } else {
-      setClientLimit(newLimit);
-      setClientPage(1);
-    }
-  };
-
-  const toggleRow = (id) => {
-    if (expandedRows.includes(id)) {
-      setExpandedRows(expandedRows.filter((rowId) => rowId !== id));
-    } else {
-      setExpandedRows([...expandedRows, id]);
-    }
-  };
-
-  const getPageNumbers = () => {
-    const pages = [];
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      if (currentPage <= 4) pages.push(1, 2, 3, 4, 5, "...", totalPages);
-      else if (currentPage >= totalPages - 3)
-        pages.push(
-          1,
-          "...",
-          totalPages - 4,
-          totalPages - 3,
-          totalPages - 2,
-          totalPages - 1,
-          totalPages
-        );
-      else
-        pages.push(
-          1,
-          "...",
-          currentPage - 1,
-          currentPage,
-          currentPage + 1,
-          "...",
-          totalPages
-        );
-    }
-    return pages;
-  };
+    else list.push(1, "...", page - 1, page, page + 1, "...", totalPages);
+    return list;
+  })();
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col w-full h-full min-h-[500px] overflow-hidden">
+    <div className="flex flex-col w-full h-full min-h-[420px] bg-white rounded-2xl border border-slate-200 shadow-sm">
       {/* HEADER */}
-      <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white z-20 flex-shrink-0">
+      <div className="p-5 border-b flex flex-col md:flex-row justify-between gap-3 flex-shrink-0">
         <div>
           <h2 className="text-lg font-bold text-slate-800">{title}</h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Found {totalRecords} records
-          </p>
+          <p className="text-xs text-slate-500 mt-1">Found {total} records</p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <div className="relative group w-full sm:w-auto">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-            </div>
+        <div className="flex gap-3 items-center">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
             <input
-              type="text"
               placeholder="Search..."
-              defaultValue={isServerSide ? "" : clientSearch}
+              defaultValue={isServer ? "" : localSearch}
               onChange={handleSearch}
-              className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all w-full md:w-64"
+              className="pl-9 pr-3 py-2 bg-slate-50 border rounded-lg text-sm"
             />
           </div>
+
           {actionButton}
         </div>
       </div>
 
-      {/* TABLE BODY */}
-      <div className="flex-1 overflow-hidden relative w-full">
-        <div className="absolute inset-0 overflow-auto custom-scrollbar">
+      {/* TABLE BODY — auto stretch + scroll */}
+      <div className="flex-1 min-h-0 flex">
+        <div className="flex-1 overflow-auto custom-scrollbar relative">
+          {/* Loader */}
           <AnimatePresence>
             {loading && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-white/80 backdrop-blur-[2px] z-30 flex items-center justify-center min-h-[300px]"
+                className="absolute inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center z-20"
               >
-                <div className="flex flex-col items-center gap-3 bg-white px-6 py-4 rounded-xl shadow-lg border border-slate-100">
-                  <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
-                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    Loading...
-                  </span>
+                <div className="px-6 py-4 bg-white rounded-xl border shadow">
+                  <Loader2 className="animate-spin w-6 h-6 text-indigo-600 mx-auto" />
+                  <p className="text-xs mt-2 font-bold text-slate-600">
+                    Loading…
+                  </p>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+          <table className="w-full">
+            <thead className="sticky top-0 bg-slate-50 border-b z-10">
               <tr>
-                {columns.map((col, idx) => (
+                {columns.map((c, i) => (
                   <th
-                    key={idx}
-                    className={`px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-50 whitespace-nowrap ${
-                      col.className || ""
+                    key={i}
+                    className={`px-6 py-3 text-xs font-bold uppercase text-slate-500 ${
+                      c.className || ""
                     }`}
                   >
-                    {col.header}
+                    {c.header}
                   </th>
                 ))}
-                {renderExpandedRow && (
-                  <th className="px-6 py-4 w-10 bg-slate-50" />
-                )}
+                {renderExpandedRow && <th className="w-8" />}
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-slate-100">
-              {visibleRows.length > 0
-                ? visibleRows.map((row, rowIndex) => {
-                    const rowId = row.uniqueId || row._id || row.id || rowIndex;
-                    const isExpanded = expandedRows.includes(rowId);
-                    return (
-                      <React.Fragment key={rowId}>
-                        <tr
-                          className={`hover:bg-slate-50/80 transition-colors duration-150 group ${
-                            isExpanded ? "bg-slate-50" : "bg-white"
-                          }`}
+            <tbody className="divide-y">
+              {!loading && rows.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={columns.length + 1}
+                    className="py-24 text-center text-slate-400"
+                  >
+                    <Inbox className="w-8 h-8 mx-auto mb-2" />
+                    No records found
+                  </td>
+                </tr>
+              )}
+
+              {rows.map((row, i) => {
+                const id = row._id || row.id || i;
+                const expanded = expandedRows.includes(id);
+
+                return (
+                  <React.Fragment key={id}>
+                    <tr className={expanded ? "bg-slate-50" : ""}>
+                      {columns.map((c, j) => (
+                        <td
+                          key={j}
+                          className={`px-6 py-3 text-sm ${c.className || ""}`}
                         >
-                          {columns.map((col, i) => (
-                            <td
-                              key={i}
-                              className={`px-6 py-4 text-sm text-slate-600 ${
-                                col.className || ""
-                              }`}
-                            >
-                              <div
-                                className="max-w-[200px] truncate"
-                                title={
-                                  typeof row[col.accessor] === "string"
-                                    ? row[col.accessor]
-                                    : ""
-                                }
-                              >
-                                {col.render
-                                  ? col.render(row, rowIndex)
-                                  : row[col.accessor]}
-                              </div>
-                            </td>
-                          ))}
-                          {renderExpandedRow && (
-                            <td className="px-6 py-4 text-right whitespace-nowrap">
-                              <button
-                                onClick={() => toggleRow(rowId)}
-                                className={`p-1.5 rounded-full transition-all ${
-                                  isExpanded
-                                    ? "bg-indigo-100 text-indigo-600"
-                                    : "hover:bg-slate-100 text-slate-400 hover:text-slate-600"
-                                }`}
-                              >
-                                {isExpanded ? (
-                                  <ChevronUp className="w-4 h-4" />
-                                ) : (
-                                  <ChevronDown className="w-4 h-4" />
-                                )}
-                              </button>
-                            </td>
-                          )}
-                        </tr>
-                        {isExpanded && renderExpandedRow && (
-                          <tr className="bg-slate-50/30">
-                            <td
-                              colSpan={columns.length + 1}
-                              className="px-0 py-0 border-b border-slate-100"
-                            >
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="p-4">
-                                  {renderExpandedRow(row)}
-                                </div>
-                              </motion.div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })
-                : !loading && (
-                    <tr>
-                      <td
-                        colSpan={columns.length + (renderExpandedRow ? 1 : 0)}
-                        className="px-6 py-24 text-center text-slate-400"
-                      >
-                        <div className="flex flex-col items-center justify-center gap-3">
-                          <Inbox className="w-8 h-8 text-slate-300" />
-                          <p className="text-sm font-medium">
-                            No records found
-                          </p>
-                        </div>
-                      </td>
+                          {c.render ? c.render(row, i) : row[c.accessor]}
+                        </td>
+                      ))}
+
+                      {renderExpandedRow && (
+                        <td>
+                          <button
+                            onClick={() =>
+                              setExpandedRows(
+                                expanded
+                                  ? expandedRows.filter((x) => x !== id)
+                                  : [...expandedRows, id]
+                              )
+                            }
+                            className="p-1 rounded-full hover:bg-slate-100"
+                          >
+                            {expanded ? <ChevronUp /> : <ChevronDown />}
+                          </button>
+                        </td>
+                      )}
                     </tr>
-                  )}
+
+                    {expanded && renderExpandedRow && (
+                      <tr>
+                        <td colSpan={columns.length + 1}>
+                          <motion.div
+                            initial={{ height: 0 }}
+                            animate={{ height: "auto" }}
+                          >
+                            <div className="p-4 bg-slate-50 border-t">
+                              {renderExpandedRow(row)}
+                            </div>
+                          </motion.div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* FOOTER */}
-      <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white z-20 flex-shrink-0">
-        <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
-          <span>Rows per page:</span>
+      {/* FOOTER — pinned, no gaps */}
+      <div className="px-6 py-3 border-t flex flex-wrap gap-3 items-center justify-between flex-shrink-0">
+        <div className="text-xs flex gap-2 items-center">
+          Rows per page:
           <select
-            value={currentLimit}
-            onChange={(e) => handleLimitChange(Number(e.target.value))}
-            className="bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 cursor-pointer text-slate-700"
+            value={limit}
+            onChange={(e) => changeLimit(Number(e.target.value))}
+            className="border px-2 py-1 rounded"
           >
-            <option value={5}>5</option>
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
+            {[5, 10, 20, 50].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
           </select>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex gap-1 items-center">
           <button
-            onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1 || loading}
-            className="p-1.5 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            disabled={page === 1}
+            onClick={() => changePage(page - 1)}
+            className="p-1.5 border rounded"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft />
           </button>
-          <div className="flex items-center gap-1 mx-2">
-            {getPageNumbers().map((pageNum, idx) => (
-              <button
-                key={idx}
-                onClick={() =>
-                  typeof pageNum === "number" && handlePageChange(pageNum)
-                }
-                disabled={pageNum === "..." || loading}
-                className={`min-w-[28px] h-7 rounded-md text-xs font-bold transition-all border ${
-                  pageNum === currentPage
-                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                    : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600"
-                }`}
-              >
-                {pageNum}
-              </button>
-            ))}
-          </div>
+
+          {pages.map((p, i) => (
+            <button
+              key={i}
+              disabled={p === "..."}
+              onClick={() => typeof p === "number" && changePage(p)}
+              className={`min-w-[28px] h-7 border rounded text-xs ${
+                p === page ? "bg-indigo-600 text-white" : ""
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+
           <button
-            onClick={() =>
-              handlePageChange(Math.min(totalPages, currentPage + 1))
-            }
-            disabled={currentPage === totalPages || loading}
-            className="p-1.5 rounded-md border border-slate-200 hover:bg-slate-50 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            disabled={page === totalPages}
+            onClick={() => changePage(page + 1)}
+            className="p-1.5 border rounded"
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight />
           </button>
         </div>
       </div>
