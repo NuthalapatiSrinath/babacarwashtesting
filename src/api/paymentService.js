@@ -26,7 +26,13 @@ export const paymentService = {
 
   // Update Payment (Generic)
   updatePayment: async (id, data) => {
+    console.log("🔵 [API] Calling PUT /payments/:id", {
+      id,
+      data,
+      url: `/payments/${id}`,
+    });
     const response = await api.put(`/payments/${id}`, data);
+    console.log("✅ [API] PUT /payments/:id Response:", response.data);
     return response.data;
   },
 
@@ -38,6 +44,23 @@ export const paymentService = {
       payment_date: date,
     };
     const response = await api.put(`/payments/${id}/collect`, payload);
+    return response.data;
+  },
+
+  // Settle Payment
+  settlePayment: async (payload) => {
+    const response = await api.put("/payments/collect/settle", payload);
+    return response.data;
+  },
+
+  // Delete Payment
+  deletePayment: async (id) => {
+    console.log("🔵 [API] Calling DELETE /payments/:id", {
+      id,
+      url: `/payments/${id}`,
+    });
+    const response = await api.delete(`/payments/${id}`);
+    console.log("✅ [API] DELETE /payments/:id Response:", response.data);
     return response.data;
   },
 
@@ -72,10 +95,9 @@ export const paymentService = {
 
   // 1. Get List of Settlements
   getSettlements: async (page = 1, limit = 10) => {
-    // FIX: Send 'page' directly (e.g., 1).
-    // Do NOT send 'page - 1' because that sends 0, causing a Backend Crash (400).
+    // Backend uses 0-based pagination: page 1 should send pageNo: 0
     const params = {
-      pageNo: page,
+      pageNo: page - 1,
       pageSize: limit,
     };
     const response = await api.get("/payments/settlements/list", { params });

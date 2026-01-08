@@ -74,4 +74,15 @@ export const jobService = {
     });
     return response.data;
   },
+
+  /**
+   * Settle Payment
+   * Matches API: PUT /payments/collect/settle
+   */
+  settlePayment: async (jobId) => {
+    console.log(`💰 [JobService] Settling payment for job ${jobId}`);
+    const response = await api.put("/payments/collect/settle", { jobId });
+    console.log("✅ [JobService] Settle success:", response.data);
+    return response.data;
+  },
 };

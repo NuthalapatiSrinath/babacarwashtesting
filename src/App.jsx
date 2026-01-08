@@ -4,13 +4,13 @@ import { Suspense, useState, useEffect } from "react";
 
 // Layouts & Pages
 import MainLayout from "./layouts/MainLayout";
-import Login from "./pages/Login";
+import Login from "./pages/auth/Login";
 import { routes } from "./routes"; // Your route config file
 
 // Components
 import ProtectedRoute from "./components/ProtectedRoute";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
+import TermsOfService from "./pages/legal/TermsOfService";
 
 // --- Custom Loading Screen ---
 const LoadingScreen = () => (

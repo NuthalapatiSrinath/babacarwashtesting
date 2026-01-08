@@ -100,6 +100,29 @@ const OneWashModal = ({ isOpen, onClose, job, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Frontend validation
+    if (!formData.worker) {
+      toast.error("Please select a worker");
+      return;
+    }
+    if (!formData.amount || formData.amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    if (!formData.registration_no) {
+      toast.error("Please enter registration number");
+      return;
+    }
+    if (formData.service_type === "mall" && !formData.mall) {
+      toast.error("Please select a mall");
+      return;
+    }
+    if (formData.service_type === "residence" && !formData.building) {
+      toast.error("Please select a building");
+      return;
+    }
+
     setLoading(true);
     try {
       if (job) {
@@ -112,7 +135,12 @@ const OneWashModal = ({ isOpen, onClose, job, onSuccess }) => {
       onSuccess();
       onClose();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Operation failed");
+      const errorMessage =
+        error.response?.data?.error?.message ||
+        error.response?.data?.message ||
+        error.message ||
+        "Operation failed";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

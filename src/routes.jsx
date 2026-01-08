@@ -18,31 +18,35 @@ import {
 } from "lucide-react";
 
 // Page Imports
-import Dashboard from "./pages/Dashboard";
-import Locations from "./pages/Locations";
-import Buildings from "./pages/Buildings";
-import Malls from "./pages/Malls";
-import Sites from "./pages/Sites";
-import Supervisors from "./pages/Supervisors";
-import Workers from "./pages/Workers";
-import Staff from "./pages/Staff";
-import Attendance from "./pages/Attendance";
-import PlaceholderPage from "./pages/PlaceholderPage";
-import Settings from "./pages/Settings";
-import ImportLogs from "./pages/ImportLogs";
-import Bookings from "./pages/Bookings";
-import Enquiry from "./pages/Enquiry";
-import Pricing from "./pages/Pricing";
-import Customers from "./pages/Customers";
-import CustomerHistory from "./pages/CustomerHistory"; // NEW IMPORT
-import OneWash from "./pages/OneWash";
-import Residence from "./pages/Residence";
-import Payments from "./pages/Payments";
-import OneWashPayments from "./pages/OneWashPayments";
-import ResidencePayments from "./pages/ResidencePayments";
-import WorkRecords from "./pages/WorkRecords";
-import CollectionSheet from "./pages/CollectionSheet";
-import Settlements from "./pages/Settlements";
+import Dashboard from "./pages/overview/Dashboard";
+import Locations from "./pages/management/Locations";
+import Buildings from "./pages/management/Buildings";
+import Malls from "./pages/management/Malls";
+import Sites from "./pages/management/Sites";
+import Supervisors from "./pages/supervisors/Supervisors";
+import Workers from "./pages/workers-management/Workers";
+import Staff from "./pages/workers-management/Staff";
+import Attendance from "./pages/workers-management/Attendance";
+import PlaceholderPage from "./pages/overview/PlaceholderPage";
+import Settings from "./pages/support/Settings";
+import ImportLogs from "./pages/support/ImportLogs";
+import Bookings from "./pages/support/Bookings";
+import Enquiry from "./pages/support/Enquiry";
+import Pricing from "./pages/finance/Pricing";
+import Customers from "./pages/customers/Customers";
+import CustomerHistory from "./pages/customers/CustomerHistory";
+import OneWash from "./pages/washes/OneWash";
+import Residence from "./pages/washes/Residence";
+import Payments from "./pages/finance/Payments";
+import OneWashPayments from "./pages/finance/OneWashPayments";
+import ResidencePayments from "./pages/finance/ResidencePayments";
+import WorkRecords from "./pages/finance/WorkRecords";
+import CollectionSheet from "./pages/finance/CollectionSheet";
+import Settlements from "./pages/finance/Settlements";
+import WorkerCustomers from "./pages/workers-management/WorkerCustomers";
+import WorkerPayments from "./pages/workers-management/WorkerPayments";
+import WorkerWashedCars from "./pages/workers-management/WorkerWashedCars";
+import WorkerHistory from "./pages/workers-management/WorkerHistory";
 
 export const routes = [
   // --- OVERVIEW ---
@@ -77,6 +81,32 @@ export const routes = [
     title: "Workers",
     component: <Workers />,
     icon: UserCheck,
+  },
+  // Hidden Worker Detail Routes
+  {
+    path: "/workers/:id/customers",
+    title: "Worker Customers",
+    component: <WorkerCustomers />,
+  },
+  {
+    path: "/workers/:id/payments",
+    title: "Worker Payments",
+    component: <WorkerPayments />,
+  },
+  {
+    path: "/workers/:id/washed-cars",
+    title: "Worker Washed Cars",
+    component: <WorkerWashedCars />,
+  },
+  {
+    path: "/workers/:id/history",
+    title: "Worker History",
+    component: <WorkerHistory />,
+  },
+  {
+    path: "/workers/:id/history",
+    title: "Worker History",
+    component: <WorkerHistory />,
   },
   {
     path: "/workers/staff",

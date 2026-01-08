@@ -1,15 +1,19 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useDispatch } from "react-redux";
 import { X, User, MapPin, Loader2, Building, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 
 // APIs
-import { bookingService } from "../../api/bookingService";
 import { attendanceService } from "../../api/attendanceService";
 import { locationService } from "../../api/locationService";
 import { buildingService } from "../../api/buildingService";
 
+// Redux
+import { assignWorker } from "../../redux/slices/bookingSlice";
+
 const AssignWorkerModal = ({ isOpen, onClose, booking, onSuccess }) => {
+  const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
 
@@ -104,12 +108,17 @@ const AssignWorkerModal = ({ isOpen, onClose, booking, onSuccess }) => {
 
     setLoading(true);
     try {
-      await bookingService.assignWorker(booking._id, formData);
+      await dispatch(
+        assignWorker({
+          id: booking._id,
+          payload: formData,
+        })
+      ).unwrap();
       toast.success("Worker assigned successfully");
       onSuccess();
       onClose();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Assignment failed");
+      toast.error(error || "Assignment failed");
     } finally {
       setLoading(false);
     }

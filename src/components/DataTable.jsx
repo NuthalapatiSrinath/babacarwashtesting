@@ -93,7 +93,7 @@ const DataTable = ({
   })();
 
   return (
-    <div className="flex flex-col h-full w-full max-w-full bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden relative">
+    <div className="flex flex-col h-full w-full bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden relative">
       {/* HEADER */}
       <div className="p-5 border-b flex flex-col sm:flex-row justify-between gap-4 flex-shrink-0 bg-white z-20">
         <div>

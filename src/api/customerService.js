@@ -3,13 +3,21 @@ import api from "./axiosInstance";
 export const customerService = {
   // List
   list: async (page = 1, limit = 10, search = "", status = 1) => {
+    console.log("📞 [CUSTOMER SERVICE] API Call:", {
+      page,
+      limit,
+      search,
+      status,
+    });
     const params = {
       pageNo: page - 1,
       pageSize: limit,
       search,
       status, // 1 = Active, 2 = Inactive
     };
+    console.log("📦 [CUSTOMER SERVICE] Request params:", params);
     const response = await api.get("/customers", { params });
+    console.log("✅ [CUSTOMER SERVICE] Response:", response.data);
     return response.data;
   },
 

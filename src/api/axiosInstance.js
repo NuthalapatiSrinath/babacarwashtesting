@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 // HARDCODED BASE URL
 // This forces the request to be relative (e.g., https://your-site.com/api/...)
 // It relies entirely on your proxy configuration (vercel.json or vite.config.js)
-const baseURL = "/api";
+const baseURL = "http://localhost:3002/api";
 
 const api = axios.create({
   baseURL: baseURL,
@@ -18,8 +18,21 @@ api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
 
-    // Debugging logs
-    console.log(`[🚀 Request] ${config.method?.toUpperCase()} ${config.url}`);
+    // Enhanced logging with timestamp and page context
+    const timestamp = new Date().toLocaleTimeString();
+    const currentPage = window.location.pathname;
+
+    console.group(`🚀 [API Request] ${timestamp}`);
+    console.log(`📄 Page: ${currentPage}`);
+    console.log(`🔗 Method: ${config.method?.toUpperCase()}`);
+    console.log(`🌐 URL: ${config.baseURL}${config.url}`);
+    if (config.params) {
+      console.log(`📝 Params:`, config.params);
+    }
+    if (config.data && config.headers["Content-Type"] === "application/json") {
+      console.log(`📦 Data:`, config.data);
+    }
+    console.groupEnd();
 
     if (token) {
       // IMPORTANT — Preserving your logic: RAW token (No Bearer prefix)
@@ -37,16 +50,36 @@ api.interceptors.request.use(
 // --- RESPONSE INTERCEPTOR ---
 api.interceptors.response.use(
   (response) => {
-    // console.log(`[✅ Success] ${response.config.url}`, response.status);
+    // Enhanced success logging
+    const timestamp = new Date().toLocaleTimeString();
+    const duration = response.config.metadata?.startTime
+      ? Date.now() - response.config.metadata.startTime
+      : "N/A";
+
+    console.group(`✅ [API Response] ${timestamp}`);
+    console.log(`🔗 Method: ${response.config.method?.toUpperCase()}`);
+    console.log(`🌐 URL: ${response.config.url}`);
+    console.log(`📊 Status: ${response.status} ${response.statusText}`);
+    console.log(`⏱️ Duration: ${duration}ms`);
+    if (response.data) {
+      console.log(`📦 Response Data:`, response.data);
+    }
+    console.groupEnd();
+
     return response;
   },
 
   (error) => {
-    console.error(
-      `[🔥 Response Error] ${error.config?.url}`,
-      error.response?.status,
-      error.message
-    );
+    const timestamp = new Date().toLocaleTimeString();
+
+    console.group(`❌ [API Error] ${timestamp}`);
+    console.error(`🔗 URL: ${error.config?.url}`);
+    console.error(`📊 Status: ${error.response?.status}`);
+    console.error(`💬 Message: ${error.message}`);
+    if (error.response?.data) {
+      console.error(`📦 Error Data:`, error.response.data);
+    }
+    console.groupEnd();
 
     // Logout ONLY when API returns 401
     if (error.response?.status === 401) {

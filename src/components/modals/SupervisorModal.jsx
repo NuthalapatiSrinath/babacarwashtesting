@@ -236,7 +236,7 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess, editData }) => {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
-          className="bg-white w-full max-w-xl rounded-lg shadow-xl overflow-hidden relative z-10 max-h-[90vh] flex flex-col"
+          className="bg-white w-full max-w-xl rounded-lg shadow-xl relative z-10 max-h-[90vh] flex flex-col"
         >
           {/* Header */}
           <div className="px-8 py-5 border-b border-gray-100 flex items-center justify-between">
@@ -297,13 +297,13 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess, editData }) => {
                     Password
                   </label>
                   <input
-                    type="password"
+                    type="text"
                     value={formData.password}
                     onChange={(e) =>
                       setFormData({ ...formData, password: e.target.value })
                     }
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
-                    placeholder="••••••••"
+                    placeholder="Enter password"
                   />
                 </div>
 
@@ -316,7 +316,7 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess, editData }) => {
                     Confirm Password
                   </label>
                   <input
-                    type="password"
+                    type="text"
                     value={formData.confirmPassword}
                     onChange={(e) =>
                       setFormData({
@@ -329,7 +329,7 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess, editData }) => {
                         ? "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                         : "border-red-400 focus:ring-red-200 focus:border-red-500"
                     }`}
-                    placeholder="••••••••"
+                    placeholder="Confirm password"
                   />
                   {!passwordsMatch && (
                     <p className="text-xs text-red-500 mt-1">
@@ -393,7 +393,7 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess, editData }) => {
 
               {/* Option B: BUILDING MULTI-SELECT (The Chip Input) */}
               {formData.serviceType === "residence" && (
-                <div className="space-y-1" ref={dropdownRef}>
+                <div className="space-y-1 relative" ref={dropdownRef}>
                   <label className="text-sm font-medium text-gray-600 block">
                     Building
                   </label>
@@ -442,7 +442,7 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess, editData }) => {
 
                   {/* Custom Dropdown */}
                   {isBuildingDropdownOpen && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    <div className="absolute z-[60] left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                       {fetchingData ? (
                         <div className="p-3 text-center text-sm text-gray-400 flex items-center justify-center gap-2">
                           <Loader2 className="w-4 h-4 animate-spin" />{" "}

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
+import { useDispatch } from "react-redux";
 import { X, Phone, Car, MapPin, Loader2, Save } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 
-// API
-import { enquiryService } from "../../api/enquiryService";
+// Redux
+import { createEnquiry, updateEnquiry } from "../../redux/slices/enquirySlice";
 
 const EnquiryModal = ({ isOpen, onClose, enquiry, onSuccess }) => {
+  const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -47,16 +49,18 @@ const EnquiryModal = ({ isOpen, onClose, enquiry, onSuccess }) => {
     setLoading(true);
     try {
       if (enquiry) {
-        await enquiryService.update(enquiry._id, formData);
+        await dispatch(
+          updateEnquiry({ id: enquiry._id, data: formData })
+        ).unwrap();
         toast.success("Enquiry updated successfully");
       } else {
-        await enquiryService.create(formData);
+        await dispatch(createEnquiry(formData)).unwrap();
         toast.success("Enquiry created successfully");
       }
       onSuccess();
       onClose();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Operation failed");
+      toast.error(error || "Operation failed");
     } finally {
       setLoading(false);
     }
