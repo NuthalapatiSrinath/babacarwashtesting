@@ -97,14 +97,27 @@ export const customerService = {
     return response.data;
   },
 
-  exportData: async () => {
+  exportData: async (status = 1) => {
     const response = await api.get("/customers/export/list", {
-      responseType: "blob", // Critical: Tells axios to handle binary data
+      params: { status },
+      responseType: "blob",
     });
+
+    // Create a download link in the browser
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute(
+      "download",
+      `customers_export_${new Date().getTime()}.xlsx`
+    );
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+
     return response.data;
   },
-
-  // 2. IMPORT (Keep as is)
+  // Remove the extra 'new FormData()' inside this function
   importData: async (formData) => {
     const response = await api.post("/customers/import/list", formData, {
       headers: { "Content-Type": "multipart/form-data" },

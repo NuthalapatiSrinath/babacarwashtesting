@@ -1,7 +1,8 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { customerService } from "../../api/customerService";
 
-// Async Thunks
+// --- Async Thunks ---
+
 export const fetchCustomers = createAsyncThunk(
   "customer/fetchCustomers",
   async (
@@ -20,7 +21,7 @@ export const fetchCustomers = createAsyncThunk(
       return response;
     } catch (error) {
       console.error("❌ [CUSTOMER SLICE] Fetch Customers Error:", error);
-      return rejectWithValue(error);
+      return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
@@ -35,7 +36,7 @@ export const createCustomer = createAsyncThunk(
       return response;
     } catch (error) {
       console.error("❌ [CUSTOMER SLICE] Create Customer Error:", error);
-      return rejectWithValue(error);
+      return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
@@ -50,7 +51,7 @@ export const updateCustomer = createAsyncThunk(
       return response;
     } catch (error) {
       console.error("❌ [CUSTOMER SLICE] Update Customer Error:", error);
-      return rejectWithValue(error);
+      return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
@@ -65,7 +66,7 @@ export const deleteCustomer = createAsyncThunk(
       return response;
     } catch (error) {
       console.error("❌ [CUSTOMER SLICE] Delete Customer Error:", error);
-      return rejectWithValue(error);
+      return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
@@ -88,7 +89,7 @@ export const toggleVehicle = createAsyncThunk(
       return response;
     } catch (error) {
       console.error("❌ [CUSTOMER SLICE] Toggle Vehicle Error:", error);
-      return rejectWithValue(error);
+      return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
@@ -103,7 +104,7 @@ export const archiveCustomer = createAsyncThunk(
       return response;
     } catch (error) {
       console.error("❌ [CUSTOMER SLICE] Archive Customer Error:", error);
-      return rejectWithValue(error);
+      return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
@@ -136,7 +137,7 @@ export const fetchCustomerHistory = createAsyncThunk(
       return response;
     } catch (error) {
       console.error("❌ [CUSTOMER SLICE] Fetch Customer History Error:", error);
-      return rejectWithValue(error);
+      return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
@@ -144,40 +145,30 @@ export const fetchCustomerHistory = createAsyncThunk(
 export const exportCustomerHistory = createAsyncThunk(
   "customer/exportCustomerHistory",
   async ({ id, startDate = "", endDate = "" }, { rejectWithValue }) => {
-    console.log("📤 [CUSTOMER SLICE] Export Customer History API Call:", {
-      id,
-      startDate,
-      endDate,
-    });
     try {
       const response = await customerService.exportHistory(
         id,
         startDate,
         endDate
       );
-      console.log("✅ [CUSTOMER SLICE] Export Customer History Success");
       return response;
     } catch (error) {
-      console.error(
-        "❌ [CUSTOMER SLICE] Export Customer History Error:",
-        error
-      );
-      return rejectWithValue(error);
+      return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
 
 export const exportCustomers = createAsyncThunk(
   "customer/exportCustomers",
-  async (_, { rejectWithValue }) => {
+  async (status, { rejectWithValue }) => {
     console.log("📤 [CUSTOMER SLICE] Export Customers API Call");
     try {
-      const response = await customerService.exportData();
+      const response = await customerService.exportData(status);
       console.log("✅ [CUSTOMER SLICE] Export Customers Success");
       return response;
     } catch (error) {
       console.error("❌ [CUSTOMER SLICE] Export Customers Error:", error);
-      return rejectWithValue(error);
+      return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
@@ -192,10 +183,12 @@ export const importCustomers = createAsyncThunk(
       return response;
     } catch (error) {
       console.error("❌ [CUSTOMER SLICE] Import Customers Error:", error);
-      return rejectWithValue(error);
+      return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
+
+// --- Slice ---
 
 const customerSlice = createSlice({
   name: "customer",
@@ -209,6 +202,7 @@ const customerSlice = createSlice({
       totalPages: 1,
     },
     loading: false,
+    importing: false, // For import spinner
     error: null,
   },
   reducers: {
@@ -217,7 +211,7 @@ const customerSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // Fetch Customers
+    // List Handling
     builder
       .addCase(fetchCustomers.pending, (state) => {
         state.loading = true;
@@ -240,49 +234,21 @@ const customerSlice = createSlice({
         state.error = action.payload;
       });
 
-    // Create Customer
+    // Import Handling
     builder
-      .addCase(createCustomer.pending, (state) => {
-        state.loading = true;
+      .addCase(importCustomers.pending, (state) => {
+        state.importing = true;
         state.error = null;
       })
-      .addCase(createCustomer.fulfilled, (state) => {
-        state.loading = false;
+      .addCase(importCustomers.fulfilled, (state) => {
+        state.importing = false;
       })
-      .addCase(createCustomer.rejected, (state, action) => {
-        state.loading = false;
+      .addCase(importCustomers.rejected, (state, action) => {
+        state.importing = false;
         state.error = action.payload;
       });
 
-    // Update Customer
-    builder
-      .addCase(updateCustomer.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(updateCustomer.fulfilled, (state) => {
-        state.loading = false;
-      })
-      .addCase(updateCustomer.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
-
-    // Delete Customer
-    builder
-      .addCase(deleteCustomer.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(deleteCustomer.fulfilled, (state) => {
-        state.loading = false;
-      })
-      .addCase(deleteCustomer.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
-
-    // Fetch Customer History
+    // History Handling
     builder
       .addCase(fetchCustomerHistory.pending, (state) => {
         state.loading = true;
@@ -296,6 +262,30 @@ const customerSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       });
+
+    // CRUD & Generic Actions (Create, Update, Delete, Toggle, Archive)
+    const genericActions = [
+      createCustomer,
+      updateCustomer,
+      deleteCustomer,
+      toggleVehicle,
+      archiveCustomer,
+    ];
+
+    genericActions.forEach((action) => {
+      builder
+        .addCase(action.pending, (state) => {
+          state.loading = true;
+          state.error = null;
+        })
+        .addCase(action.fulfilled, (state) => {
+          state.loading = false;
+        })
+        .addCase(action.rejected, (state, action) => {
+          state.loading = false;
+          state.error = action.payload;
+        });
+    });
   },
 });
 

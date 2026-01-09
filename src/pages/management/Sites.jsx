@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Map, Globe } from "lucide-react";
+import { Plus, Edit2, Trash2, Map } from "lucide-react";
 import toast from "react-hot-toast";
 
 // Components
@@ -14,7 +14,7 @@ const Sites = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
 
-  // -- Modals --
+  // -- Modal States --
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSite, setSelectedSite] = useState(null);
 
@@ -30,14 +30,11 @@ const Sites = () => {
     totalPages: 1,
   });
 
-  // Track search term locally
+  // --- Search State ---
   const [currentSearch, setCurrentSearch] = useState("");
 
   // --- Fetch Data ---
-  const fetchData = async (page = 1, limit = 10, search = "") => {
-    console.log(
-      `[SitesPage] Fetching... Page:${page}, Limit:${limit}, Search:"${search}"`
-    );
+  const fetchData = async (page = 1, limit = 50, search = "") => {
     setLoading(true);
     setCurrentSearch(search);
 
@@ -45,30 +42,35 @@ const Sites = () => {
       let resultData = [];
       let totalRecords = 0;
 
+      // STRATEGY:
+      // If searching: Fetch ALL items (limit=1000) and filter locally
+      // If not searching: Use standard server-side pagination.
+
       if (search) {
-        // CLIENT-SIDE SEARCH: Fetch all (limit=1000) then filter
+        // 1. Fetch EVERYTHING
         const response = await siteService.list(1, 1000, "");
 
+        // 2. Filter Locally
         const allItems = response.data || [];
         resultData = allItems.filter((item) =>
           item.name.toLowerCase().includes(search.toLowerCase())
         );
+
         totalRecords = resultData.length;
-        console.log(`[SitesPage] Local search found ${totalRecords} results`);
       } else {
-        // NORMAL FETCH
+        // Normal Server Fetch
         const response = await siteService.list(page, limit, "");
         resultData = response.data || [];
         totalRecords = response.total || 0;
       }
 
+      // 3. Update State
       setData(resultData);
 
-      // Calculate pages
       const totalPages = Math.ceil(totalRecords / limit) || 1;
       setPagination({ page, limit, total: totalRecords, totalPages });
     } catch (error) {
-      console.error("[SitesPage] Fetch error:", error);
+      console.error(error);
       toast.error("Failed to load sites");
     } finally {
       setLoading(false);
@@ -76,21 +78,19 @@ const Sites = () => {
   };
 
   useEffect(() => {
-    fetchData(pagination.page, pagination.limit);
+    fetchData(pagination.page, pagination.limit, currentSearch);
   }, []);
 
-  // --- Helper: Slice Data for Pagination ---
+  // --- Helper: Get Data for Current Page ---
   const getDisplayData = () => {
     if (!data) return [];
 
-    // Slice if searching OR if backend returns unpaginated list
-    if (
-      (currentSearch && data.length > pagination.limit) ||
-      data.length > pagination.limit
-    ) {
+    // If we are searching or if backend sent all data, handle client-side slicing
+    if (data.length > pagination.limit) {
       const startIndex = (pagination.page - 1) * pagination.limit;
       return data.slice(startIndex, startIndex + pagination.limit);
     }
+
     return data;
   };
 
@@ -117,9 +117,9 @@ const Sites = () => {
       await siteService.delete(siteToDelete._id);
       toast.success("Site deleted successfully");
       setIsDeleteModalOpen(false);
+      // Refresh with current state
       fetchData(pagination.page, pagination.limit, currentSearch);
     } catch (error) {
-      console.error("[SitesPage] Delete error:", error);
       toast.error(error.message || "Failed to delete site");
     } finally {
       setDeleteLoading(false);
@@ -131,9 +131,13 @@ const Sites = () => {
     {
       header: "#",
       accessor: "id",
-      className: "w-16",
-      render: (row) => (
-        <span className="text-slate-400 font-mono">#{row.id}</span>
+      className: "w-16 text-center",
+      render: (row, idx) => (
+        <div className="flex justify-center">
+          <span className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs font-mono border border-slate-200">
+            {(pagination.page - 1) * pagination.limit + idx + 1}
+          </span>
+        </div>
       ),
     },
     {
@@ -141,35 +145,29 @@ const Sites = () => {
       accessor: "name",
       render: (row) => (
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center border border-teal-100">
-            <Globe className="w-4 h-4" />
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-fuchsia-600 flex items-center justify-center shadow-sm text-white">
+            <Map className="w-4 h-4" />
           </div>
-          <span className="font-medium text-slate-700">{row.name}</span>
+          <span className="font-bold text-slate-700 text-sm">{row.name}</span>
         </div>
       ),
     },
     {
-      header: "Created By",
-      accessor: "createdBy",
-      render: (row) => (
-        <span className="text-xs text-slate-400">{row.createdBy}</span>
-      ),
-    },
-    {
       header: "Actions",
-      className: "text-right",
+      className:
+        "text-right w-24 sticky right-0 bg-white shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]",
       render: (row) => (
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-1.5 pr-2">
           <button
             onClick={() => handleEdit(row)}
-            className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"
+            className="p-2 hover:bg-purple-50 text-slate-400 hover:text-purple-600 rounded-lg transition-all"
             title="Edit"
           >
             <Edit2 className="w-4 h-4" />
           </button>
           <button
             onClick={() => openDeleteModal(row)}
-            className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
+            className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all"
             title="Delete"
           >
             <Trash2 className="w-4 h-4" />
@@ -180,36 +178,36 @@ const Sites = () => {
   ];
 
   return (
-    <div className="p-3 w-full">
-      {/* <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800">Sites</h1>
-        <p className="text-slate-500 mt-1">
-          Manage operational sites and locations
-        </p>
-      </div> */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 p-6 font-sans">
+      {/* --- TABLE SECTION --- */}
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <DataTable
+          title="Manage Sites"
+          columns={columns}
+          data={getDisplayData()}
+          loading={loading}
+          pagination={pagination}
+          // Pagination Handlers
+          onPageChange={(newPage) =>
+            fetchData(newPage, pagination.limit, currentSearch)
+          }
+          onLimitChange={(newLimit) => fetchData(1, newLimit, currentSearch)}
+          // Search Handler (Integrated into Table Header)
+          onSearch={(term) => fetchData(1, pagination.limit, term)}
+          // Add Button (Integrated into Table Header)
+          actionButton={
+            <button
+              onClick={handleAdd}
+              className="h-10 px-5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4" />
+              Add Site
+            </button>
+          }
+        />
+      </div>
 
-      <DataTable
-        title="All Sites"
-        columns={columns}
-        data={getDisplayData()}
-        loading={loading}
-        pagination={pagination}
-        onPageChange={(newPage) =>
-          fetchData(newPage, pagination.limit, currentSearch)
-        }
-        onLimitChange={(newLimit) => fetchData(1, newLimit, currentSearch)}
-        onSearch={(term) => fetchData(1, pagination.limit, term)}
-        actionButton={
-          <button
-            onClick={handleAdd}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            Add Site
-          </button>
-        }
-      />
-
+      {/* --- MODALS --- */}
       <SiteModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

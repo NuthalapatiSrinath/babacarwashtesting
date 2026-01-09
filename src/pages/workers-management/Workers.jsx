@@ -9,6 +9,7 @@ import {
   ShoppingBag,
   Eye,
   Calendar,
+  User,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -56,13 +57,6 @@ const Workers = () => {
       const fetchStatus =
         status !== undefined ? status : activeTab === "active" ? 1 : 2;
 
-      console.log("🔍 [WORKERS] Fetching:", {
-        page,
-        limit,
-        search,
-        status: fetchStatus,
-      });
-
       const response = await workerService.list(
         page,
         limit,
@@ -72,13 +66,6 @@ const Workers = () => {
 
       const records = response.data || [];
       const totalRecords = response.total || 0;
-
-      console.log(
-        "✅ [WORKERS] Fetched:",
-        records.length,
-        "records, total:",
-        totalRecords
-      );
 
       setData(records);
       setPagination({
@@ -150,16 +137,8 @@ const Workers = () => {
     navigate(`/workers/${worker._id}/payments`, { state: { worker } });
   };
 
-  const handleViewWashedCars = (worker) => {
-    navigate(`/workers/${worker._id}/washed-cars`, { state: { worker } });
-  };
-
   const handleViewHistory = (worker) => {
     navigate(`/workers/${worker._id}/history`, { state: { worker } });
-  };
-
-  const handleViewCustomers = (worker) => {
-    navigate(`/workers/${worker._id}/customers`, { state: { worker } });
   };
 
   // Format date helper
@@ -169,14 +148,18 @@ const Workers = () => {
     return date.toLocaleDateString("en-GB");
   };
 
-  // --- Columns ---
+  // --- Columns (Rich CSS) ---
   const columns = [
     {
-      header: "Id",
+      header: "#",
       accessor: "id",
-      className: "w-16",
+      className: "w-16 text-center",
       render: (row, idx) => (
-        <span className="text-slate-400 font-mono">#{row.id}</span>
+        <div className="flex justify-center">
+          <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs font-mono border border-indigo-100">
+            {row.id || (pagination.page - 1) * pagination.limit + idx + 1}
+          </span>
+        </div>
       ),
     },
     {
@@ -184,10 +167,10 @@ const Workers = () => {
       accessor: "name",
       render: (row) => (
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold border border-blue-100">
-            {row.name?.charAt(0).toUpperCase()}
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-sm text-white font-bold text-sm">
+            {row.name?.charAt(0).toUpperCase() || <User className="w-4 h-4" />}
           </div>
-          <span className="font-medium text-slate-800">{row.name}</span>
+          <span className="font-bold text-slate-700 text-sm">{row.name}</span>
         </div>
       ),
     },
@@ -195,9 +178,13 @@ const Workers = () => {
       header: "Mobile",
       accessor: "mobile",
       render: (row) => (
-        <div className="flex items-center gap-2 text-slate-600 text-sm font-mono">
-          <Phone className="w-3.5 h-3.5 text-slate-400" />
-          {row.mobile}
+        <div className="flex items-center gap-2 text-slate-600 text-sm font-medium">
+          <div className="p-1.5 rounded-lg bg-slate-100 text-slate-500">
+            <Phone className="w-3.5 h-3.5" />
+          </div>
+          {row.mobile || (
+            <span className="text-slate-400 italic">No Number</span>
+          )}
         </div>
       ),
     },
@@ -205,96 +192,77 @@ const Workers = () => {
       header: "Start Date",
       accessor: "createdAt",
       render: (row) => (
-        <div className="flex items-center gap-2 text-slate-600 text-sm">
-          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+        <div className="flex items-center gap-2 text-slate-600 text-sm font-medium">
+          <Calendar className="w-3.5 h-3.5 text-indigo-500" />
           {formatDate(row.createdAt)}
         </div>
       ),
     },
     {
-      header: "Payments",
-      className: "text-center",
+      header: "Quick Links",
+      className: "text-center min-w-[120px]",
       render: (row) => (
-        <button
-          onClick={() => handleViewPayments(row)}
-          className="p-1.5 hover:bg-green-50 text-slate-400 hover:text-green-600 rounded transition-colors"
-          title="View Payments"
-        >
-          <Eye className="w-4 h-4" />
-        </button>
-      ),
-    },
-    {
-      header: "Washed Cars",
-      className: "text-center",
-      render: (row) => (
-        <button
-          onClick={() => handleViewWashedCars(row)}
-          className="p-1.5 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded transition-colors"
-          title="View Washed Cars"
-        >
-          <Eye className="w-4 h-4" />
-        </button>
-      ),
-    },
-    {
-      header: "History",
-      className: "text-center",
-      render: (row) => (
-        <button
-          onClick={() => handleViewHistory(row)}
-          className="p-1.5 hover:bg-purple-50 text-slate-400 hover:text-purple-600 rounded transition-colors"
-          title="View History"
-        >
-          <Eye className="w-4 h-4" />
-        </button>
-      ),
-    },
-    {
-      header: "Customers",
-      className: "text-center",
-      render: (row) => (
-        <button
-          onClick={() => handleViewCustomers(row)}
-          className="p-1.5 hover:bg-orange-50 text-slate-400 hover:text-orange-600 rounded transition-colors"
-          title="View Customers"
-        >
-          <Eye className="w-4 h-4" />
-        </button>
+        <div className="flex items-center justify-center gap-2">
+          {/* Only Payments & History */}
+          <button
+            onClick={() => handleViewPayments(row)}
+            className="p-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 hover:text-green-700 transition-colors shadow-sm border border-green-100"
+            title="Payments"
+          >
+            <span className="text-[10px] font-bold px-1">$</span>
+          </button>
+
+          <button
+            onClick={() => handleViewHistory(row)}
+            className="p-1.5 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 hover:text-purple-700 transition-colors shadow-sm border border-purple-100"
+            title="History"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+          </button>
+        </div>
       ),
     },
     {
       header: "Status",
       accessor: "status",
+      className: "text-center w-24",
       render: (row) => (
-        <div
-          onClick={() => toggleStatus(row)}
-          className={`w-9 h-5 rounded-full relative cursor-pointer transition-colors ${
-            row.status === 1 ? "bg-blue-500" : "bg-slate-300"
-          }`}
-        >
+        <div className="flex justify-center">
           <div
-            className={`absolute top-1 w-3 h-3 bg-white rounded-full shadow-sm transition-all ${
-              row.status === 1 ? "left-5" : "left-1"
+            onClick={() => toggleStatus(row)}
+            className={`w-11 h-6 rounded-full relative cursor-pointer transition-all duration-300 shadow-inner ${
+              row.status === 1
+                ? "bg-gradient-to-r from-emerald-400 to-emerald-600"
+                : "bg-slate-200"
             }`}
-          ></div>
+            title={row.status === 1 ? "Deactivate" : "Activate"}
+          >
+            <div
+              className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-300 ${
+                row.status === 1 ? "left-6" : "left-1"
+              }`}
+            />
+          </div>
         </div>
       ),
     },
     {
       header: "Actions",
-      className: "text-right",
+      className:
+        "text-right w-24 sticky right-0 bg-white shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]",
       render: (row) => (
-        <div className="flex justify-end items-center gap-2">
+        <div className="flex justify-end gap-1.5 pr-2">
           <button
             onClick={() => handleEdit(row)}
-            className="p-1.5 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded transition-colors"
+            className="p-2 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition-all"
+            title="Edit"
           >
             <Edit2 className="w-4 h-4" />
           </button>
           <button
             onClick={() => handleDeleteAction(row)}
-            className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded transition-colors"
+            className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all"
+            title="Delete"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -303,39 +271,43 @@ const Workers = () => {
     },
   ];
 
-  // Expanded Row (Assignments)
+  // --- Expanded Row Content (Assignments) ---
   const renderDetailsRow = (row) => {
     const buildings = row.buildings || [];
     const malls = row.malls || [];
     const hasAssignments = buildings.length > 0 || malls.length > 0;
 
     return (
-      <div className="flex items-start gap-4 text-sm py-1">
-        <span className="font-bold text-slate-700 mt-1.5">Assigned To:</span>
+      <div className="flex items-start gap-4 text-sm py-2 px-4 bg-slate-50/50 rounded-lg border border-slate-100 mt-2 mx-4 mb-2">
+        <div className="flex items-center gap-2 text-slate-500 font-bold mt-1.5 min-w-[100px]">
+          <Briefcase className="w-4 h-4 text-indigo-500" />
+          <span>Assigned To:</span>
+        </div>
+
         <div className="flex flex-wrap gap-2">
           {hasAssignments ? (
             <>
               {malls.map((m, i) => (
                 <span
                   key={`m-${i}`}
-                  className="bg-[#2a2e3e] text-white text-xs px-3 py-1.5 rounded-md font-medium tracking-wide shadow-sm flex items-center gap-1"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold text-xs shadow-sm"
                 >
-                  <ShoppingBag className="w-3 h-3 opacity-70" />{" "}
+                  <ShoppingBag className="w-3.5 h-3.5 text-purple-500" />
                   {typeof m === "object" ? m.name : `Mall ${m}`}
                 </span>
               ))}
               {buildings.map((b, i) => (
                 <span
                   key={`b-${i}`}
-                  className="bg-[#2a2e3e] text-white text-xs px-3 py-1.5 rounded-md font-medium tracking-wide shadow-sm flex items-center gap-1"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold text-xs shadow-sm"
                 >
-                  <Briefcase className="w-3 h-3 opacity-70" />{" "}
+                  <Briefcase className="w-3.5 h-3.5 text-blue-500" />
                   {typeof b === "object" ? b.name : `Bldg ${b}`}
                 </span>
               ))}
             </>
           ) : (
-            <span className="text-slate-400 italic mt-1 px-2">
+            <span className="text-slate-400 italic text-xs mt-1.5">
               No active assignments
             </span>
           )}
@@ -345,61 +317,67 @@ const Workers = () => {
   };
 
   return (
-    <div className="p-3 w-full">
-      {/* Tabs for Active/Inactive */}
-      <div className="mb-4 flex gap-2 border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab("active")}
-          className={`px-6 py-3 font-medium text-sm transition-all ${
-            activeTab === "active"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Active Workers
-        </button>
-        <button
-          onClick={() => setActiveTab("inactive")}
-          className={`px-6 py-3 font-medium text-sm transition-all ${
-            activeTab === "inactive"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Inactive Workers
-        </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6 font-sans">
+      {/* --- TABLE SECTION --- */}
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        {/* Custom Tabs Header within the Card */}
+        <div className="flex border-b border-gray-100 bg-slate-50/50">
+          <button
+            onClick={() => setActiveTab("active")}
+            className={`px-6 py-4 text-sm font-bold transition-all relative ${
+              activeTab === "active"
+                ? "text-indigo-600 bg-white border-t-2 border-t-indigo-600 shadow-sm z-10"
+                : "text-slate-500 hover:text-slate-700 hover:bg-slate-100/50"
+            }`}
+          >
+            Active Workers
+          </button>
+          <button
+            onClick={() => setActiveTab("inactive")}
+            className={`px-6 py-4 text-sm font-bold transition-all relative ${
+              activeTab === "inactive"
+                ? "text-indigo-600 bg-white border-t-2 border-t-indigo-600 shadow-sm z-10"
+                : "text-slate-500 hover:text-slate-700 hover:bg-slate-100/50"
+            }`}
+          >
+            Inactive Workers
+          </button>
+        </div>
+
+        <DataTable
+          columns={columns}
+          data={data}
+          loading={loading}
+          // Pagination props
+          pagination={pagination}
+          onPageChange={(p) => {
+            const status = activeTab === "active" ? 1 : 2;
+            fetchData(p, pagination.limit, currentSearch, status);
+          }}
+          onLimitChange={(l) => {
+            const status = activeTab === "active" ? 1 : 2;
+            fetchData(1, l, currentSearch, status);
+          }}
+          // Search & Action
+          onSearch={(term) => {
+            const status = activeTab === "active" ? 1 : 2;
+            fetchData(1, pagination.limit, term, status);
+          }}
+          actionButton={
+            <button
+              onClick={handleAdd}
+              className="h-10 px-5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all active:scale-95 whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4" />
+              Add Worker
+            </button>
+          }
+          // Expanded Row
+          renderExpandedRow={renderDetailsRow}
+        />
       </div>
 
-      <DataTable
-        title={`${activeTab === "active" ? "Active" : "Inactive"} Workers`}
-        columns={columns}
-        data={data}
-        loading={loading}
-        pagination={pagination}
-        // Pagination Events
-        onPageChange={(p) => {
-          const status = activeTab === "active" ? 1 : 2;
-          fetchData(p, pagination.limit, currentSearch, status);
-        }}
-        onLimitChange={(l) => {
-          const status = activeTab === "active" ? 1 : 2;
-          fetchData(1, l, currentSearch, status);
-        }}
-        onSearch={(term) => {
-          const status = activeTab === "active" ? 1 : 2;
-          fetchData(1, pagination.limit, term, status);
-        }}
-        renderExpandedRow={renderDetailsRow}
-        actionButton={
-          <button
-            onClick={handleAdd}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
-          >
-            <Plus className="w-4 h-4" /> Add Worker
-          </button>
-        }
-      />
-
+      {/* --- MODALS --- */}
       <WorkerModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -416,6 +394,7 @@ const Workers = () => {
         onConfirm={confirmDelete}
         loading={deleteLoading}
         title="Delete Worker"
+        message={`Are you sure you want to delete "${workerToDelete?.name}"?`}
       />
     </div>
   );

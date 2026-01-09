@@ -6,6 +6,15 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  History,
+  Calendar,
+  Car,
+  MapPin,
+  Building,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  LayoutDashboard,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -26,12 +35,12 @@ const CustomerHistory = () => {
 
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 50, // <--- CHANGED: Default to 50
+    limit: 50, // <--- Default to 50 as requested
     total: 0,
     totalPages: 1,
   });
 
-  // <--- CHANGED: Default limit to 50
+  // <--- Logic preserved: Default limit to 50
   const fetchData = async (page = 1, limit = 50) => {
     setLoading(true);
     try {
@@ -50,20 +59,6 @@ const CustomerHistory = () => {
         endDate
       );
 
-      console.log("✅ Customer history response:", res);
-      console.log("📊 Total records:", res.total);
-      console.log("📦 Data length:", res.data?.length);
-      if (res.data && res.data.length > 0) {
-        console.log("🔍 Sample record:", {
-          scheduleId: res.data[0].scheduleId,
-          assignedDate: res.data[0].assignedDate,
-          status: res.data[0].status,
-          vehicle: res.data[0].vehicle,
-          building: res.data[0].building,
-          customer: res.data[0].customer,
-        });
-      }
-
       setData(res.data || []);
       setPagination({
         page: Number(page),
@@ -80,7 +75,7 @@ const CustomerHistory = () => {
   };
 
   useEffect(() => {
-    fetchData(1, 50); // <--- CHANGED: Default to 50
+    fetchData(1, 50);
   }, [id]);
 
   const handleDateChange = (field, value) => {
@@ -128,27 +123,35 @@ const CustomerHistory = () => {
       accessor: "scheduleId",
       className: "w-16 text-center",
       render: (row, idx) => (
-        <span className="text-slate-500 text-xs font-mono">
-          {row.scheduleId || (pagination.page - 1) * pagination.limit + idx + 1}
-        </span>
+        <div className="flex justify-center">
+          <span className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs font-mono border border-slate-200">
+            {row.scheduleId ||
+              (pagination.page - 1) * pagination.limit + idx + 1}
+          </span>
+        </div>
       ),
     },
     {
-      header: "Date",
+      header: "Date & Time",
       accessor: "assignedDate",
       render: (row) => (
-        <span className="text-slate-700 text-sm whitespace-nowrap font-medium">
-          {row.assignedDate
-            ? new Date(row.assignedDate).toLocaleString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              })
-            : "-"}
-        </span>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+            <Calendar className="w-4 h-4" />
+          </div>
+          <span className="text-slate-700 text-sm whitespace-nowrap font-medium">
+            {row.assignedDate
+              ? new Date(row.assignedDate).toLocaleString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                  hour12: true,
+                })
+              : "-"}
+          </span>
+        </div>
       ),
     },
     {
@@ -156,62 +159,72 @@ const CustomerHistory = () => {
       accessor: "status",
       render: (row) => {
         const status = (row.status || "PENDING").toUpperCase();
-        let colorClass = "text-amber-600 bg-amber-50 border-amber-100";
-        if (status === "COMPLETED")
-          colorClass = "text-emerald-600 bg-emerald-50 border-emerald-100";
-        if (status === "CANCELLED")
-          colorClass = "text-red-600 bg-red-50 border-red-100";
+        let colorClass = "text-amber-700 bg-amber-50 border-amber-100";
+        let Icon = Clock;
+
+        if (status === "COMPLETED") {
+          colorClass = "text-emerald-700 bg-emerald-50 border-emerald-100";
+          Icon = CheckCircle2;
+        }
+        if (status === "CANCELLED") {
+          colorClass = "text-rose-700 bg-rose-50 border-rose-100";
+          Icon = XCircle;
+        }
 
         return (
           <span
-            className={`text-[10px] font-bold px-2 py-0.5 rounded border ${colorClass}`}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${colorClass}`}
           >
+            <Icon className="w-3.5 h-3.5" />
             {status}
           </span>
         );
       },
     },
     {
-      header: "Vehicle No",
+      header: "Vehicle Info",
       accessor: "vehicle.registration_no",
       render: (row) => (
-        <span className="text-slate-800 font-bold font-mono">
-          {row.vehicle?.registration_no || "-"}
-        </span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Car className="w-3.5 h-3.5 text-blue-500" />
+            <span className="text-slate-800 font-bold font-mono text-xs bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+              {row.vehicle?.registration_no || "-"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-500 ml-0.5">
+            <span className="font-medium">P:</span>
+            <span>{row.vehicle?.parking_no || "-"}</span>
+          </div>
+        </div>
       ),
     },
     {
-      header: "Parking No",
-      accessor: "vehicle.parking_no",
-      render: (row) => (
-        <span className="text-slate-600 text-sm">
-          {row.vehicle?.parking_no || "-"}
-        </span>
-      ),
-    },
-    {
-      header: "Building",
+      header: "Building / Location",
       accessor: "building.name",
       render: (row) => (
-        <span className="text-slate-600 text-sm uppercase font-medium">
-          {row.building?.name || "-"}
-        </span>
-      ),
-    },
-    {
-      header: "Location",
-      accessor: "location.address",
-      render: (row) => (
-        <span className="text-slate-600 text-sm uppercase font-medium">
-          {row.location?.address || "-"}
-        </span>
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+            <Building className="w-3.5 h-3.5 text-indigo-500" />
+            <span>{row.building?.name || "-"}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
+            <MapPin className="w-3 h-3" />
+            <span
+              className="truncate max-w-[150px]"
+              title={row.location?.address}
+            >
+              {row.location?.address || "-"}
+            </span>
+          </div>
+        </div>
       ),
     },
     {
       header: "Customer",
       accessor: "customer.mobile",
       render: (row) => (
-        <span className="text-slate-700 font-mono text-sm">
+        <span className="text-slate-600 font-mono text-sm bg-slate-50 px-2 py-1 rounded border border-slate-100">
           {row.customer?.mobile || "-"}
         </span>
       ),
@@ -219,102 +232,109 @@ const CustomerHistory = () => {
   ];
 
   return (
-    // 1. CHANGED: min-h-screen (instead of h-screen) and removed overflow-hidden.
-    // This allows the page to grow vertically and scroll normally.
-    <div className="flex flex-col min-h-screen bg-slate-50 font-sans">
-      {/* HEADER */}
-      <div className="bg-[#009ef7] px-6 py-4 flex items-center justify-between text-white shadow-md flex-shrink-0 z-20">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6 font-sans">
+      {/* HEADER SECTION */}
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          {/* Title & Back Button */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate(-1)}
+              className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 flex items-center justify-center transition-all shadow-sm"
+              title="Go Back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
 
-          <div>
-            <h1 className="text-lg font-bold tracking-wide leading-tight">
-              Washes Report
-            </h1>
-            <p className="text-xs text-blue-100 opacity-90">History Details</p>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200">
+                <History className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-indigo-800 bg-clip-text text-transparent">
+                  Washes Report
+                </h1>
+                <div className="flex items-center gap-2 text-sm text-slate-500 font-medium">
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  <span>History Details</span>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleExport}
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-            title="Download CSV"
-          >
-            <Download className="w-5 h-5" />
-          </button>
-
-          <div className="bg-white/20 px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-3 border border-white/10">
-            <span>
-              {(pagination.page - 1) * pagination.limit + 1} –{" "}
-              {Math.min(pagination.page * pagination.limit, pagination.total)}{" "}
-              of {pagination.total}
-            </span>
-
-            <div className="flex gap-1 pl-3 border-l border-white/30">
+          {/* Actions: Export & Pagination Controls */}
+          <div className="flex flex-wrap items-center gap-3 justify-end">
+            {/* Pagination Controls */}
+            <div className="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200">
+              <div className="px-3 text-xs font-bold text-slate-500 uppercase">
+                {pagination.total} Records
+              </div>
+              <div className="w-px h-4 bg-slate-300 mx-1"></div>
               <button
                 disabled={pagination.page === 1}
                 onClick={() => fetchData(pagination.page - 1, pagination.limit)}
-                className="disabled:opacity-40 hover:text-white/80 transition-opacity"
+                className="p-1.5 hover:bg-white rounded-lg text-slate-500 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-
+              <span className="text-xs font-mono font-medium px-2 text-slate-700">
+                {pagination.page}/{pagination.totalPages}
+              </span>
               <button
                 disabled={pagination.page === pagination.totalPages}
                 onClick={() => fetchData(pagination.page + 1, pagination.limit)}
-                className="disabled:opacity-40 hover:text-white/80 transition-opacity"
+                className="p-1.5 hover:bg-white rounded-lg text-slate-500 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
+
+            <button
+              onClick={handleExport}
+              className="h-10 px-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Export CSV</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* 2. CHANGED: Content Wrapper 
-          - Removed flex-1, min-h-0, overflow-hidden
-          - This lets the container expand based on content height
-      */}
-      <div className="w-full max-w-7xl mx-auto p-6 md:p-8">
-        {/* Search Section */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-4">
-          <div className="flex flex-col md:flex-row items-end gap-4">
+      {/* SEARCH SECTION */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
+        <div className="flex flex-col md:flex-row items-end gap-4">
+          <div className="w-full md:flex-1">
+            <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase ml-1">
+              Filter by Date Range
+            </label>
             <RichDateRangePicker
               startDate={startDate}
               endDate={endDate}
               onChange={handleDateChange}
+              className="w-full"
             />
-
-            <button
-              onClick={handleSearch}
-              className="w-full md:w-auto px-8 py-2.5 bg-[#009ef7] hover:bg-[#0095e8] text-white font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-2 h-[50px]"
-            >
-              <Search className="w-4 h-4" />
-              Search
-            </button>
           </div>
-        </div>
 
-        {/* 3. CHANGED: Table Wrapper
-            - Removed flex/height constraints
-            - Kept styling for visuals
-        */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <DataTable
-            columns={columns}
-            data={data}
-            loading={loading}
-            pagination={pagination}
-            onPageChange={(p) => fetchData(p, pagination.limit)}
-            onLimitChange={(l) => fetchData(1, l)}
-          />
+          <button
+            onClick={handleSearch}
+            className="w-full md:w-auto h-[42px] px-6 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold rounded-xl shadow-md hover:shadow-xl transition-all flex items-center justify-center gap-2 active:scale-95"
+          >
+            <Search className="w-4 h-4" />
+            <span>Search</span>
+          </button>
         </div>
+      </div>
+
+      {/* TABLE SECTION */}
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden flex flex-col flex-1">
+        <DataTable
+          columns={columns}
+          data={data}
+          loading={loading}
+          pagination={pagination}
+          onPageChange={(p) => fetchData(p, pagination.limit)}
+          onLimitChange={(l) => fetchData(1, l)}
+        />
       </div>
     </div>
   );

@@ -8,6 +8,8 @@ import {
   Info,
   RotateCcw,
   Palette,
+  Sun,
+  Moon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { configurationService } from "../../api/configurationService";
@@ -28,18 +30,36 @@ const DEFAULT_GRAPH_SETTINGS = {
   },
 };
 
-// --- DEFAULT THEME COLORS ---
-const DEFAULT_THEME_COLORS = {
-  primary: "#3b82f6",
-  emerald: "#10b981",
-  indigo: "#6366f1",
-  purple: "#a855f7",
-  teal: "#14b8a6",
-  amber: "#f59e0b",
-  rose: "#f43f5e",
-  success: "#10b981",
-  danger: "#ef4444",
-  warning: "#f59e0b",
+// --- DEFAULT THEME CONFIGURATION ---
+const DEFAULT_THEME_CONFIG = {
+  light: {
+    primary: "#3b82f6",
+    page: "#f8fafc",
+    card: "#ffffff",
+    border: "#e2e8f0",
+    textMain: "#0f172a",
+    textSub: "#475569",
+    textMuted: "#94a3b8",
+    // Accents
+    indigo: "#6366f1",
+    purple: "#a855f7",
+    emerald: "#10b981",
+    teal: "#14b8a6",
+    amber: "#f59e0b",
+    rose: "#f43f5e",
+    success: "#10b981",
+    danger: "#ef4444",
+    warning: "#f59e0b",
+  },
+  dark: {
+    primary: "#3b82f6",
+    page: "#0f172a",
+    card: "#1e293b",
+    border: "#334155",
+    textMain: "#f3f4f6",
+    textSub: "#94a3b8",
+    textMuted: "#64748b",
+  },
 };
 
 const Settings = () => {
@@ -53,7 +73,7 @@ const Settings = () => {
     contactNumber: "",
     primaryColor: "#2563eb",
     graphs: DEFAULT_GRAPH_SETTINGS,
-    themeColors: DEFAULT_THEME_COLORS,
+    themeConfig: DEFAULT_THEME_CONFIG,
   });
 
   useEffect(() => {
@@ -68,12 +88,8 @@ const Settings = () => {
             contactNumber: response.data.contactNumber || "",
             primaryColor: response.data.primaryColor || "#2563eb",
           }));
-          if (response.data.primaryColor) {
-            document.documentElement.style.setProperty(
-              "--color-primary",
-              response.data.primaryColor
-            );
-          }
+          // Note: We leave the general primary color handling here for legacy support,
+          // but the Theme Config below overrides the visual styles.
         }
 
         // 2. Fetch Local Storage Graph Settings
@@ -82,12 +98,32 @@ const Settings = () => {
           setFormData((prev) => ({ ...prev, graphs: JSON.parse(savedGraphs) }));
         }
 
-        // 3. Fetch Theme Colors from LocalStorage
-        const savedThemeColors = localStorage.getItem("themeColors");
-        if (savedThemeColors) {
-          const colors = JSON.parse(savedThemeColors);
-          setFormData((prev) => ({ ...prev, themeColors: colors }));
-          applyThemeColors(colors);
+        // 3. Fetch Theme Config from LocalStorage
+        const savedThemeConfig = localStorage.getItem("themeConfigV2");
+        if (savedThemeConfig) {
+          const config = JSON.parse(savedThemeConfig);
+          // Merge with defaults to ensure all keys exist if new ones are added later
+          const mergedConfig = {
+            light: { ...DEFAULT_THEME_CONFIG.light, ...config.light },
+            dark: { ...DEFAULT_THEME_CONFIG.dark, ...config.dark },
+          };
+          setFormData((prev) => ({ ...prev, themeConfig: mergedConfig }));
+          applyThemeStyles(mergedConfig);
+        } else {
+          // If no V2 config, check for V1 (flat themeColors) or use defaults
+          const savedOldColors = localStorage.getItem("themeColors");
+          if (savedOldColors) {
+            // Attempt to migrate old flat structure to new structure temporarily
+            const old = JSON.parse(savedOldColors);
+            const migrated = {
+              ...DEFAULT_THEME_CONFIG,
+              light: { ...DEFAULT_THEME_CONFIG.light, ...old },
+            };
+            setFormData((prev) => ({ ...prev, themeConfig: migrated }));
+            applyThemeStyles(migrated);
+          } else {
+            applyThemeStyles(DEFAULT_THEME_CONFIG);
+          }
         }
       } catch (error) {
         // Silent fail
@@ -98,18 +134,61 @@ const Settings = () => {
     fetchSettings();
   }, []);
 
-  const applyThemeColors = (colors) => {
-    const root = document.documentElement;
-    root.style.setProperty("--color-primary", colors.primary);
-    root.style.setProperty("--color-emerald", colors.emerald);
-    root.style.setProperty("--color-indigo", colors.indigo);
-    root.style.setProperty("--color-purple", colors.purple);
-    root.style.setProperty("--color-teal", colors.teal);
-    root.style.setProperty("--color-amber", colors.amber);
-    root.style.setProperty("--color-rose", colors.rose);
-    root.style.setProperty("--color-success", colors.success);
-    root.style.setProperty("--color-danger", colors.danger);
-    root.style.setProperty("--color-warning", colors.warning);
+  const applyThemeStyles = (config) => {
+    // We inject a style tag to handle both :root and .dark overrides robustly
+    const styleId = "dynamic-theme-styles";
+    let styleTag = document.getElementById(styleId);
+
+    if (!styleTag) {
+      styleTag = document.createElement("style");
+      styleTag.id = styleId;
+      document.head.appendChild(styleTag);
+    }
+
+    const css = `
+      :root {
+        /* Base / Light Mode Colors */
+        --color-primary: ${config.light.primary};
+        --color-page: ${config.light.page};
+        --color-card: ${config.light.card};
+        --color-border: ${config.light.border};
+        --color-text-main: ${config.light.textMain};
+        --color-text-sub: ${config.light.textSub};
+        --color-text-muted: ${config.light.textMuted};
+
+        /* Accents */
+        --color-indigo: ${config.light.indigo};
+        --color-purple: ${config.light.purple};
+        --color-emerald: ${config.light.emerald};
+        --color-teal: ${config.light.teal};
+        --color-amber: ${config.light.amber};
+        --color-rose: ${config.light.rose};
+        --color-success: ${config.light.success};
+        --color-danger: ${config.light.danger};
+        --color-warning: ${config.light.warning};
+        
+        /* Input Defaults (Derived from light vars) */
+        --color-input-bg: ${config.light.page};
+        --color-input-border: ${config.light.border};
+        --color-input-focus: ${config.light.primary};
+      }
+
+      .dark {
+        /* Dark Mode Overrides */
+        --color-primary: ${config.dark.primary};
+        --color-page: ${config.dark.page};
+        --color-card: ${config.dark.card};
+        --color-border: ${config.dark.border};
+        --color-text-main: ${config.dark.textMain};
+        --color-text-sub: ${config.dark.textSub};
+        --color-text-muted: ${config.dark.textMuted};
+        
+        --color-input-bg: ${config.dark.page};
+        --color-input-border: ${config.dark.border};
+      }
+    `;
+
+    styleTag.innerHTML = css;
   };
 
   const handleGraphColorChange = (graphKey, colorType, value) => {
@@ -125,39 +204,39 @@ const Settings = () => {
     }));
   };
 
-  const handleThemeColorChange = (key, value) => {
-    const newColors = { ...formData.themeColors, [key]: value };
-    setFormData((prev) => ({ ...prev, themeColors: newColors }));
-    applyThemeColors(newColors);
+  const handleThemeColorChange = (mode, key, value) => {
+    setFormData((prev) => {
+      const newConfig = {
+        ...prev.themeConfig,
+        [mode]: {
+          ...prev.themeConfig[mode],
+          [key]: value,
+        },
+      };
+      // Apply immediately for live preview
+      applyThemeStyles(newConfig);
+      return { ...prev, themeConfig: newConfig };
+    });
   };
 
-  // --- NEW: RESET HANDLER ---
   const handleResetDefaults = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to reset all graph colors to default?"
-      )
-    ) {
+    if (window.confirm("Reset GRAPH colors to default?")) {
       setFormData((prev) => ({
         ...prev,
         graphs: DEFAULT_GRAPH_SETTINGS,
       }));
-      toast.success("Colors reset to default. Click Save to apply.");
+      toast.success("Graph colors reset.");
     }
   };
 
   const handleResetThemeColors = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to reset all theme colors to default?"
-      )
-    ) {
+    if (window.confirm("Reset ALL theme colors (Light & Dark) to default?")) {
       setFormData((prev) => ({
         ...prev,
-        themeColors: DEFAULT_THEME_COLORS,
+        themeConfig: DEFAULT_THEME_CONFIG,
       }));
-      applyThemeColors(DEFAULT_THEME_COLORS);
-      toast.success("Theme colors reset to default. Click Save to apply.");
+      applyThemeStyles(DEFAULT_THEME_CONFIG);
+      toast.success("Theme colors reset to default.");
     }
   };
 
@@ -180,6 +259,12 @@ const Settings = () => {
       localStorage.setItem(
         "admin_graph_colors",
         JSON.stringify(formData.graphs)
+      );
+
+      // Save Theme Config to LocalStorage (New V2 Key)
+      localStorage.setItem(
+        "themeConfigV2",
+        JSON.stringify(formData.themeConfig)
       );
 
       toast.success("All settings saved successfully");
@@ -215,9 +300,9 @@ const Settings = () => {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-4xl grid gap-8">
-        {/* --- 1. GENERAL SETTINGS --- */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <form onSubmit={handleSubmit} className="max-w-6xl grid gap-8">
+        {/* --- 1. GENERAL SETTINGS (Untouched) --- */}
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm max-w-4xl">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
             <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
               <Info className="w-5 h-5" />
@@ -248,8 +333,8 @@ const Settings = () => {
           </div>
         </div>
 
-        {/* --- 2. GRAPH APPEARANCE --- */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        {/* --- 2. GRAPH APPEARANCE (Untouched logic) --- */}
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm max-w-4xl">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
             <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
               <BarChart3 className="w-5 h-5" />
@@ -264,7 +349,6 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* Graph Tabs */}
           <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
             {graphTabs.map((tab) => (
               <button
@@ -282,122 +366,222 @@ const Settings = () => {
             ))}
           </div>
 
-          {/* Color Pickers for Active Tab */}
           <div className="grid md:grid-cols-3 gap-6 bg-slate-50 p-6 rounded-xl border border-dashed border-slate-300">
-            {/* Completed Color */}
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">
-                Completed Color
-              </label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={formData.graphs[activeGraphTab].completed}
-                  onChange={(e) =>
-                    handleGraphColorChange(
-                      activeGraphTab,
-                      "completed",
-                      e.target.value
-                    )
-                  }
-                  className="w-12 h-12 rounded cursor-pointer border-0 p-0"
-                />
-                <input
-                  type="text"
-                  value={formData.graphs[activeGraphTab].completed}
-                  onChange={(e) =>
-                    handleGraphColorChange(
-                      activeGraphTab,
-                      "completed",
-                      e.target.value
-                    )
-                  }
-                  className="w-24 px-2 py-1 text-xs border rounded bg-white font-mono uppercase"
-                />
+            {["completed", "pending", "point"].map((type) => (
+              <div key={type}>
+                <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">
+                  {type === "point" ? "Point (Dot)" : type} Color
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={formData.graphs[activeGraphTab][type]}
+                    onChange={(e) =>
+                      handleGraphColorChange(
+                        activeGraphTab,
+                        type,
+                        e.target.value
+                      )
+                    }
+                    className="w-12 h-12 rounded cursor-pointer border-0 p-0"
+                  />
+                  <input
+                    type="text"
+                    value={formData.graphs[activeGraphTab][type]}
+                    onChange={(e) =>
+                      handleGraphColorChange(
+                        activeGraphTab,
+                        type,
+                        e.target.value
+                      )
+                    }
+                    className="w-24 px-2 py-1 text-xs border rounded bg-white font-mono uppercase"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* --- 3. THEME COLORS (Split View) --- */}
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg text-indigo-600">
+                <Palette className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-800">
+                  Theme Customization
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Customize both Light and Dark mode palettes
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleResetThemeColors}
+              className="text-xs font-semibold text-slate-600 hover:text-slate-800 flex items-center gap-1 bg-slate-100 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <RotateCcw className="w-3 h-3" /> Reset Themes
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* === LEFT COLUMN: LIGHT MODE / GLOBAL === */}
+            <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-100">
+              <div className="flex items-center gap-2 mb-4 text-amber-600">
+                <Sun className="w-5 h-5" />
+                <h3 className="font-bold text-slate-800">
+                  Light Mode & Global
+                </h3>
+              </div>
+
+              <div className="space-y-6">
+                {/* Essential Light Vars */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Base Colors
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      { key: "primary", label: "Primary Brand" },
+                      { key: "page", label: "Page Background" },
+                      { key: "card", label: "Card Background" },
+                      { key: "border", label: "Borders" },
+                      { key: "textMain", label: "Main Text" },
+                      { key: "textSub", label: "Secondary Text" },
+                    ].map(({ key, label }) => (
+                      <div
+                        key={key}
+                        className="flex items-center gap-3 p-2 bg-white rounded border border-slate-200"
+                      >
+                        <input
+                          type="color"
+                          value={formData.themeConfig.light[key]}
+                          onChange={(e) =>
+                            handleThemeColorChange("light", key, e.target.value)
+                          }
+                          className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-slate-700">
+                            {label}
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-mono">
+                            {formData.themeConfig.light[key]}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Accents */}
+                <div className="space-y-3 pt-2 border-t border-slate-200">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Accents & Status
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      { key: "emerald", label: "Emerald" },
+                      { key: "indigo", label: "Indigo" },
+                      { key: "purple", label: "Purple" },
+                      { key: "teal", label: "Teal" },
+                      { key: "amber", label: "Amber" },
+                      { key: "rose", label: "Rose" },
+                      { key: "success", label: "Success (Green)" },
+                      { key: "danger", label: "Danger (Red)" },
+                      { key: "warning", label: "Warning (Orange)" },
+                    ].map(({ key, label }) => (
+                      <div
+                        key={key}
+                        className="flex items-center gap-3 p-2 bg-white rounded border border-slate-200"
+                      >
+                        <input
+                          type="color"
+                          value={formData.themeConfig.light[key]}
+                          onChange={(e) =>
+                            handleThemeColorChange("light", key, e.target.value)
+                          }
+                          className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-slate-700">
+                            {label}
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-mono">
+                            {formData.themeConfig.light[key]}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Pending Color */}
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">
-                Pending Color
-              </label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={formData.graphs[activeGraphTab].pending}
-                  onChange={(e) =>
-                    handleGraphColorChange(
-                      activeGraphTab,
-                      "pending",
-                      e.target.value
-                    )
-                  }
-                  className="w-12 h-12 rounded cursor-pointer border-0 p-0"
-                />
-                <input
-                  type="text"
-                  value={formData.graphs[activeGraphTab].pending}
-                  onChange={(e) =>
-                    handleGraphColorChange(
-                      activeGraphTab,
-                      "pending",
-                      e.target.value
-                    )
-                  }
-                  className="w-24 px-2 py-1 text-xs border rounded bg-white font-mono uppercase"
-                />
+            {/* === RIGHT COLUMN: DARK MODE OVERRIDES === */}
+            <div className="bg-slate-900 p-5 rounded-xl border border-slate-800">
+              <div className="flex items-center gap-2 mb-4 text-blue-400">
+                <Moon className="w-5 h-5" />
+                <h3 className="font-bold text-white">Dark Mode Overrides</h3>
               </div>
-            </div>
+              <p className="text-xs text-slate-400 mb-6">
+                These colors specifically override the base colors when Dark
+                Mode is active.
+              </p>
 
-            {/* Point Color */}
-            <div>
-              <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">
-                Point (Dot) Color
-              </label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={formData.graphs[activeGraphTab].point}
-                  onChange={(e) =>
-                    handleGraphColorChange(
-                      activeGraphTab,
-                      "point",
-                      e.target.value
-                    )
-                  }
-                  className="w-12 h-12 rounded cursor-pointer border-0 p-0"
-                />
-                <input
-                  type="text"
-                  value={formData.graphs[activeGraphTab].point}
-                  onChange={(e) =>
-                    handleGraphColorChange(
-                      activeGraphTab,
-                      "point",
-                      e.target.value
-                    )
-                  }
-                  className="w-24 px-2 py-1 text-xs border rounded bg-white font-mono uppercase"
-                />
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { key: "primary", label: "Primary Brand (Dark)" },
+                    { key: "page", label: "Page Background (Dark)" },
+                    { key: "card", label: "Card Background (Dark)" },
+                    { key: "border", label: "Borders (Dark)" },
+                    { key: "textMain", label: "Main Text (Dark)" },
+                    { key: "textSub", label: "Secondary Text (Dark)" },
+                  ].map(({ key, label }) => (
+                    <div
+                      key={key}
+                      className="flex items-center gap-3 p-2 bg-slate-800 rounded border border-slate-700 hover:border-slate-600 transition-colors"
+                    >
+                      <input
+                        type="color"
+                        value={formData.themeConfig.dark[key]}
+                        onChange={(e) =>
+                          handleThemeColorChange("dark", key, e.target.value)
+                        }
+                        className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-slate-200">
+                          {label}
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-mono">
+                          {formData.themeConfig.dark[key]}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         {/* --- ACTIONS BUTTONS --- */}
-        <div className="flex justify-end pt-4 gap-3">
-          {/* RESET BUTTON */}
+        <div className="flex justify-end pt-4 gap-3 max-w-4xl">
           <button
             type="button"
             onClick={handleResetDefaults}
             disabled={saving}
             className="bg-white border border-slate-300 text-slate-700 px-6 py-3 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-50 transition-all disabled:opacity-70"
           >
-            <RotateCcw className="w-4 h-4" /> Reset Defaults
+            <RotateCcw className="w-4 h-4" /> Reset Graphs
           </button>
 
-          {/* SAVE BUTTON */}
           <button
             type="submit"
             disabled={saving}

@@ -6,6 +6,10 @@ import {
   DollarSign,
   Calendar,
   X,
+  Landmark,
+  Banknote,
+  CreditCard,
+  Briefcase,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import DataTable from "../../components/DataTable";
@@ -20,9 +24,14 @@ const Settlements = () => {
   const dispatch = useDispatch();
   const [showApproveModal, setShowApproveModal] = useState(false);
 
-  const { settlements, total, loading, currentPage, totalPages, selectedSettlement } = useSelector(
-    (state) => state.settlement
-  );
+  const {
+    settlements,
+    total,
+    loading,
+    currentPage,
+    totalPages,
+    selectedSettlement,
+  } = useSelector((state) => state.settlement);
 
   useEffect(() => {
     dispatch(fetchSettlements({ page: 1, limit: 50 }));
@@ -58,9 +67,12 @@ const Settlements = () => {
     {
       key: "index",
       header: "#",
+      className: "w-16 text-center",
       render: (row, index) => (
-        <div className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
-          {(currentPage - 1) * 50 + index + 1}
+        <div className="flex justify-center">
+          <span className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs font-mono border border-slate-200">
+            {(currentPage - 1) * 50 + index + 1}
+          </span>
         </div>
       ),
     },
@@ -68,13 +80,20 @@ const Settlements = () => {
       key: "date",
       header: "Date",
       render: (row) => (
-        <div className="flex flex-col">
-          <div className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--color-text)' }}>
-            <Calendar className="w-4 h-4" style={{ color: 'var(--color-text-light)' }} />
-            {new Date(row.createdAt).toLocaleDateString()}
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
+            <Calendar className="w-4 h-4" />
           </div>
-          <div className="text-xs ml-6" style={{ color: 'var(--color-text-light)' }}>
-            {new Date(row.createdAt).toLocaleTimeString()}
+          <div className="flex flex-col">
+            <span className="text-sm font-bold text-slate-700">
+              {new Date(row.createdAt).toLocaleDateString()}
+            </span>
+            <span className="text-[10px] text-slate-400 font-mono">
+              {new Date(row.createdAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
           </div>
         </div>
       ),
@@ -84,16 +103,10 @@ const Settlements = () => {
       header: "Supervisor",
       render: (row) => (
         <div className="flex items-center gap-2">
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs"
-            style={{
-              backgroundColor: 'var(--color-primary-light)',
-              color: 'var(--color-primary)',
-            }}
-          >
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center font-bold text-xs text-indigo-600 border border-indigo-200 shadow-sm">
             {row.supervisor?.name?.charAt(0) || "U"}
           </div>
-          <span className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>
+          <span className="text-sm font-semibold text-slate-700">
             {row.supervisor?.name || "Unknown"}
           </span>
         </div>
@@ -102,12 +115,13 @@ const Settlements = () => {
     {
       key: "amount",
       header: "Total Amount",
+      className: "text-right",
       render: (row) => (
         <div className="text-right">
-          <span className="text-lg font-bold" style={{ color: 'var(--color-text)' }}>
+          <span className="text-lg font-bold text-slate-800">
             {row.amount || 0}
           </span>
-          <span className="text-xs ml-1" style={{ color: 'var(--color-text-light)' }}>
+          <span className="text-[10px] font-medium text-slate-400 ml-1">
             AED
           </span>
         </div>
@@ -117,39 +131,24 @@ const Settlements = () => {
       key: "breakdown",
       header: "Breakdown",
       render: (row) => (
-        <div className="flex justify-center gap-2 text-xs">
+        <div className="flex flex-wrap gap-2 text-[10px] font-bold">
           <span
-            className="px-2 py-1 rounded border font-medium"
-            style={{
-              backgroundColor: 'var(--color-success-light)',
-              color: 'var(--color-success)',
-              borderColor: 'var(--color-success-light)',
-            }}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-50 text-emerald-600 border border-emerald-100"
             title="Cash"
           >
-            💵 {row.cash || 0}
+            <Banknote className="w-3 h-3" /> {row.cash || 0}
           </span>
           <span
-            className="px-2 py-1 rounded border font-medium"
-            style={{
-              backgroundColor: 'var(--color-primary-light)',
-              color: 'var(--color-primary)',
-              borderColor: 'var(--color-primary-light)',
-            }}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-50 text-blue-600 border border-blue-100"
             title="Card"
           >
-            💳 {row.card || 0}
+            <CreditCard className="w-3 h-3" /> {row.card || 0}
           </span>
           <span
-            className="px-2 py-1 rounded border font-medium"
-            style={{
-              backgroundColor: '#f3e8ff',
-              color: '#7c3aed',
-              borderColor: '#e9d5ff',
-            }}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-purple-50 text-purple-600 border border-purple-100"
             title="Bank"
           >
-            🏦 {row.bank || 0}
+            <Landmark className="w-3 h-3" /> {row.bank || 0}
           </span>
         </div>
       ),
@@ -157,58 +156,46 @@ const Settlements = () => {
     {
       key: "status",
       header: "Status",
-      render: (row) => (
-        <div className="text-center">
-          <span
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border"
-            style={
-              row.status === "completed"
-                ? {
-                    backgroundColor: 'var(--color-success-light)',
-                    color: 'var(--color-success)',
-                    borderColor: 'var(--color-success-light)',
-                  }
-                : {
-                    backgroundColor: 'var(--color-warning-light)',
-                    color: 'var(--color-warning)',
-                    borderColor: 'var(--color-warning-light)',
-                  }
-            }
-          >
-            {row.status === "completed" ? (
-              <CheckCircle className="w-3 h-3" />
-            ) : (
-              <Clock className="w-3 h-3" />
-            )}
-            {row.status || "Pending"}
-          </span>
-        </div>
-      ),
+      className: "text-center",
+      render: (row) => {
+        const isCompleted = row.status === "completed";
+        return (
+          <div className="flex justify-center">
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${
+                isCompleted
+                  ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                  : "bg-amber-50 text-amber-600 border-amber-100"
+              }`}
+            >
+              {isCompleted ? (
+                <CheckCircle className="w-3 h-3" />
+              ) : (
+                <Clock className="w-3 h-3" />
+              )}
+              {row.status || "Pending"}
+            </span>
+          </div>
+        );
+      },
     },
     {
       key: "action",
       header: "Action",
+      className: "text-right",
       render: (row) => (
-        <div className="text-right">
+        <div className="flex justify-end">
           {row.status !== "completed" ? (
             <button
               onClick={() => handleApproveClick(row)}
-              className="px-4 py-2 text-white text-xs font-bold rounded-lg shadow-sm transition-all active:scale-95"
-              style={{
-                backgroundColor: 'var(--color-primary)',
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)')
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = 'var(--color-primary)')
-              }
+              className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-1"
             >
+              <CheckCircle className="w-3 h-3" />
               Approve
             </button>
           ) : (
-            <span className="text-xs font-medium italic" style={{ color: 'var(--color-text-light)' }}>
-              No actions
+            <span className="text-xs font-medium text-slate-400 italic px-4 py-1.5 bg-slate-50 rounded-lg border border-slate-100">
+              Settled
             </span>
           )}
         </div>
@@ -217,42 +204,33 @@ const Settlements = () => {
   ];
 
   return (
-    <div className="p-2 w-full">
-      {/* DataTable */}
-      <DataTable
-        title="Settlements"
-        columns={columns}
-        data={settlements}
-        loading={loading}
-        pagination={{
-          page: currentPage,
-          limit: 50,
-          total: total,
-        }}
-        onPageChange={handlePageChange}
-        emptyMessage="No settlements found"
-      />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-3 font-sans">
+      {/* TABLE */}
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <DataTable
+          columns={columns}
+          data={settlements}
+          loading={loading}
+          pagination={{
+            page: currentPage,
+            limit: 50,
+            total: total,
+          }}
+          onPageChange={handlePageChange}
+          emptyMessage="No settlements found"
+        />
+      </div>
 
-      {/* Approve Modal */}
+      {/* APPROVE MODAL */}
       {showApproveModal && selectedSettlement && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div
-            className="rounded-xl shadow-2xl max-w-md w-full"
-            style={{ backgroundColor: "var(--color-card)" }}
-          >
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 transform transition-all scale-100">
             {/* Modal Header */}
-            <div
-              className="p-6 border-b flex items-center justify-between"
-              style={{ borderColor: "var(--color-border)" }}
-            >
-              <h2
-                className="text-xl font-bold flex items-center gap-2"
-                style={{ color: "var(--color-text)" }}
-              >
-                <CheckCircle
-                  className="w-6 h-6"
-                  style={{ color: "var(--color-primary)" }}
-                />
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600">
+                  <CheckCircle className="w-5 h-5" />
+                </div>
                 Approve Settlement
               </h2>
               <button
@@ -260,136 +238,90 @@ const Settlements = () => {
                   setShowApproveModal(false);
                   dispatch(clearSelectedSettlement());
                 }}
-                className="p-1 rounded-lg transition-colors"
-                style={{ color: "var(--color-text-light)" }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = "var(--color-page)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = "transparent")
-                }
+                className="p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 space-y-4">
-              <p style={{ color: "var(--color-text)" }}>
-                Are you sure you want to approve this settlement?
+            <div className="p-6 space-y-5">
+              <p className="text-slate-600 text-sm">
+                Are you sure you want to verify and approve this settlement
+                report?
               </p>
 
-              <div
-                className="p-4 rounded-lg"
-                style={{ backgroundColor: "var(--color-page)" }}
-              >
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span style={{ color: "var(--color-text-light)" }}>
-                      Supervisor:
-                    </span>
-                    <span
-                      className="font-semibold"
-                      style={{ color: "var(--color-text)" }}
-                    >
-                      {selectedSettlement.supervisor?.name || "Unknown"}
-                    </span>
+              <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-3">
+                <div className="flex justify-between items-center text-sm border-b border-slate-200 pb-2">
+                  <span className="text-slate-500">Supervisor</span>
+                  <span className="font-bold text-slate-800">
+                    {selectedSettlement.supervisor?.name || "Unknown"}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-500 font-medium">
+                    Total Amount
+                  </span>
+                  <span className="font-bold text-lg text-indigo-600">
+                    {selectedSettlement.amount || 0} AED
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 pt-2">
+                  <div className="bg-white p-2 rounded border border-slate-100 text-center">
+                    <p className="text-[10px] text-slate-400 uppercase font-bold">
+                      Cash
+                    </p>
+                    <p className="text-sm font-bold text-emerald-600">
+                      {selectedSettlement.cash || 0}
+                    </p>
                   </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: "var(--color-text-light)" }}>
-                      Total Amount:
-                    </span>
-                    <span
-                      className="font-bold text-lg"
-                      style={{ color: "var(--color-primary)" }}
-                    >
-                      {selectedSettlement.amount || 0} AED
-                    </span>
+                  <div className="bg-white p-2 rounded border border-slate-100 text-center">
+                    <p className="text-[10px] text-slate-400 uppercase font-bold">
+                      Card
+                    </p>
+                    <p className="text-sm font-bold text-blue-600">
+                      {selectedSettlement.card || 0}
+                    </p>
                   </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: "var(--color-text-light)" }}>
-                      Cash:
-                    </span>
-                    <span
-                      className="font-semibold"
-                      style={{ color: "var(--color-success)" }}
-                    >
-                      {selectedSettlement.cash || 0} AED
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: "var(--color-text-light)" }}>
-                      Card:
-                    </span>
-                    <span
-                      className="font-semibold"
-                      style={{ color: "var(--color-primary)" }}
-                    >
-                      {selectedSettlement.card || 0} AED
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: "var(--color-text-light)" }}>
-                      Bank:
-                    </span>
-                    <span
-                      className="font-semibold"
-                      style={{ color: "var(--color-text)" }}
-                    >
-                      {selectedSettlement.bank || 0} AED
-                    </span>
+                  <div className="bg-white p-2 rounded border border-slate-100 text-center">
+                    <p className="text-[10px] text-slate-400 uppercase font-bold">
+                      Bank
+                    </p>
+                    <p className="text-sm font-bold text-purple-600">
+                      {selectedSettlement.bank || 0}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <p
-                className="text-sm"
-                style={{ color: "var(--color-text-light)" }}
-              >
-                This action cannot be undone.
-              </p>
+              <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-700 text-xs rounded-lg border border-amber-100">
+                <Clock className="w-4 h-4 flex-shrink-0" />
+                <p>
+                  This action will mark the settlement as completed and cannot
+                  be undone.
+                </p>
+              </div>
             </div>
 
             {/* Modal Footer */}
-            <div
-              className="p-6 border-t flex gap-3 justify-end"
-              style={{ borderColor: "var(--color-border)" }}
-            >
+            <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3 justify-end">
               <button
                 onClick={() => {
                   setShowApproveModal(false);
                   dispatch(clearSelectedSettlement());
                 }}
-                className="px-4 py-2 rounded-lg font-medium transition-colors"
-                style={{
-                  backgroundColor: "var(--color-page)",
-                  color: "var(--color-text)",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor =
-                    "var(--color-border)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = "var(--color-page)")
-                }
+                className="px-5 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-50 transition-all shadow-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={handleApproveConfirm}
-                className="px-4 py-2 text-white rounded-lg font-medium transition-all"
-                style={{
-                  backgroundColor: "var(--color-success)",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = "#059669")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor =
-                    "var(--color-success)")
-                }
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-lg hover:shadow-emerald-200 transition-all active:scale-95 flex items-center gap-2"
               >
-                Approve Settlement
+                <CheckCircle className="w-4 h-4" />
+                Confirm Approval
               </button>
             </div>
           </div>

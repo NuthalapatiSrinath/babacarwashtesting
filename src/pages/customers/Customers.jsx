@@ -10,10 +10,19 @@ import {
   Loader2,
   FileSpreadsheet,
   Server,
+  Search,
+  Users,
+  Car,
+  Calendar,
+  Hash,
+  CreditCard,
+  Building,
+  Home,
+  Briefcase,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-import * as XLSX from "xlsx"; // <--- IMPORT THIS for Excel generation
+import * as XLSX from "xlsx";
 
 // Components
 import DataTable from "../../components/DataTable";
@@ -44,16 +53,9 @@ const Customers = () => {
 
   // --- Fetch Data ---
   const fetchData = async (page = 1, limit = 50, search = "", status = 1) => {
-    console.log("🔄 [CUSTOMERS PAGE] Fetching data:", {
-      page,
-      limit,
-      search,
-      status,
-    });
     setLoading(true);
     try {
       const res = await customerService.list(page, limit, search, status);
-      console.log("📊 [CUSTOMERS PAGE] Received data:", res);
       setServerData(res.data || []);
       setPagination({
         page: Number(page),
@@ -61,7 +63,6 @@ const Customers = () => {
         total: res.total || 0,
         totalPages: Math.ceil((res.total || 0) / Number(limit)) || 1,
       });
-      console.log("✅ [CUSTOMERS PAGE] State updated successfully");
     } catch (e) {
       console.error("❌ [CUSTOMERS PAGE] Error:", e);
       toast.error("Failed to load customers");
@@ -71,7 +72,8 @@ const Customers = () => {
   };
 
   useEffect(() => {
-    fetchData(1, 50, "", activeTab);
+    fetchData(1, pagination.limit, searchTerm, activeTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   // --- Flatten Data for Table ---
@@ -105,9 +107,10 @@ const Customers = () => {
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
-  const handleSearch = (term) => {
-    setSearchTerm(term);
-    fetchData(1, pagination.limit, term, activeTab);
+  const handleSearchEnter = (e) => {
+    if (e.key === "Enter") {
+      fetchData(1, pagination.limit, searchTerm, activeTab);
+    }
   };
 
   const handleCreate = () => {
@@ -157,14 +160,68 @@ const Customers = () => {
     }
   };
 
-  // ==========================================
-  //  1. EXPORT ALL DATA (Frontend -> .xlsx)
-  // ==========================================
-  const handleExportFrontendXLSX = async () => {
-    const toastId = toast.loading("Fetching all records for Excel export...");
+  // --- Import / Export Handlers ---
+
+  const handleImportClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    event.target.value = null; // Reset input
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    setImportLoading(true);
+    const toastId = toast.loading("Importing data...");
 
     try {
-      // 1. Fetch EVERYTHING (Limit 10,000)
+      console.log("📤 [FRONTEND] Uploading file:", file.name);
+      const res = await customerService.importData(formData);
+      console.log("📥 [FRONTEND] Import response:", res);
+
+      if (res.success || res.statusCode === 200) {
+        const summary = res.data || res;
+        toast.success(
+          `Import completed: ${summary.success || 0} success, ${
+            summary.errors?.length || 0
+          } errors`,
+          { id: toastId, duration: 5000 }
+        );
+
+        // Show detailed errors if any
+        if (summary.errors && summary.errors.length > 0) {
+          console.error("❌ [FRONTEND] Import errors:", summary.errors);
+          summary.errors.slice(0, 3).forEach((err, idx) => {
+            toast.error(`${err.row || `Row ${idx + 1}`}: ${err.error}`, {
+              duration: 8000,
+            });
+          });
+        }
+
+        fetchData(1, pagination.limit, searchTerm, activeTab);
+      } else {
+        toast.error(res.message || "Import failed", { id: toastId });
+      }
+    } catch (error) {
+      console.error("💥 [FRONTEND] Import error:", error);
+      const errorMsg =
+        error.response?.data?.message ||
+        error.message ||
+        "Import failed. Check file format.";
+      toast.error(errorMsg, { id: toastId, duration: 8000 });
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleExportFrontendXLSX = async () => {
+    const toastId = toast.loading("Fetching all records for Excel export...");
+    try {
       const res = await customerService.list(1, 10000, searchTerm, activeTab);
       const allData = res.data || [];
 
@@ -173,7 +230,6 @@ const Customers = () => {
         return;
       }
 
-      // 2. Flatten Data (Same logic as table)
       const rows = [];
       allData.forEach((customer) => {
         if (customer.vehicles && customer.vehicles.length > 0) {
@@ -190,7 +246,6 @@ const Customers = () => {
         }
       });
 
-      // 3. Format Data for Excel
       const excelData = rows.map((row) => ({
         "Customer Name": `${row.customer.firstName || ""} ${
           row.customer.lastName || ""
@@ -202,20 +257,21 @@ const Customers = () => {
         Building: row.customer.building?.name || "",
         Flat: row.customer.flat_no || "",
         Amount: row.amount || 0,
+        Advance: row.advance || 0,
         Status: row.status === 1 ? "Active" : "Inactive",
         Cleaner: row.worker?.name || "Unassigned",
         Schedule: row.schedule_days?.map((d) => d.day).join(", ") || "",
+        "Onboard Date": row.onboard_date
+          ? new Date(row.onboard_date).toLocaleDateString()
+          : "",
         "Start Date": row.start_date
           ? new Date(row.start_date).toLocaleDateString()
           : "",
       }));
 
-      // 4. Create Workbook using XLSX
       const worksheet = XLSX.utils.json_to_sheet(excelData);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Customers");
-
-      // 5. Download File
       const fileName = `All_Customers_${
         activeTab === 1 ? "Active" : "Inactive"
       }.xlsx`;
@@ -230,9 +286,53 @@ const Customers = () => {
     }
   };
 
-  // ==========================================
-  //  2. EXPORT SERVER SIDE (Keep as is)
-  // ==========================================
+  const handleDownloadTemplate = () => {
+    // Create sample data with the exact format expected by backend - SINGLE ROW ONLY
+    const templateData = [
+      {
+        "Customer Name": "John Doe",
+        Mobile: "9876543210",
+        Email: "john@example.com",
+        "Vehicle No": "KA01AB1234",
+        "Parking No": "A101",
+        Building: "Tower A",
+        "Flat No": "101",
+        Amount: 1500,
+        Advance: 500,
+        "Cleaner Name": "Ravi Kumar",
+        "Schedule Type": "daily",
+        "Schedule Days": "Mon,Wed,Fri",
+        "Start Date": "2026-01-10",
+      },
+    ];
+
+    // Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Customers");
+
+    // Set column widths for better readability
+    worksheet["!cols"] = [
+      { wch: 20 }, // Customer Name
+      { wch: 15 }, // Mobile
+      { wch: 25 }, // Email
+      { wch: 15 }, // Vehicle No
+      { wch: 12 }, // Parking No
+      { wch: 15 }, // Building
+      { wch: 10 }, // Flat No
+      { wch: 10 }, // Amount
+      { wch: 10 }, // Advance
+      { wch: 20 }, // Cleaner Name
+      { wch: 15 }, // Schedule Type
+      { wch: 25 }, // Schedule Days
+      { wch: 15 }, // Start Date
+    ];
+
+    // Download file
+    XLSX.writeFile(workbook, "Customer_Import_Template.xlsx");
+    toast.success("Template downloaded! Fill it and import.");
+  };
+
   const handleExportServerSide = async () => {
     const toastId = toast.loading("Requesting server export...");
     try {
@@ -245,7 +345,6 @@ const Customers = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-
       toast.success("Server export downloaded", { id: toastId });
     } catch (error) {
       console.error(error);
@@ -255,84 +354,14 @@ const Customers = () => {
     }
   };
 
-  // ==========================================
-  //  3. DOWNLOAD TEMPLATE
-  // ==========================================
-  const handleDownloadTemplate = () => {
-    const headers = [
-      "mobile",
-      "firstName",
-      "lastName",
-      "email",
-      "location",
-      "building",
-      "registration_no",
-      "parking_no",
-      "worker",
-      "amount",
-      "schedule_type",
-      "schedule_days",
-      "start_date",
-    ];
-    const sampleRow = [
-      "971501234567",
-      "John",
-      "Doe",
-      "john@example.com",
-      "Downtown Dubai",
-      "Burj Khalifa",
-      "DXB 12345",
-      "B1-202",
-      "Ali (Cleaner)",
-      "150",
-      "weekly",
-      "Monday,Wednesday,Friday",
-      "2024-01-01",
-    ];
-
-    const csvContent = [headers.join(","), sampleRow.join(",")].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "customer_import_template.csv");
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  };
-
-  // ==========================================
-  //  4. IMPORT
-  // ==========================================
-  const handleImportClick = () => fileInputRef.current?.click();
-
-  const handleFileChange = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    event.target.value = null;
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    setImportLoading(true);
-    const toastId = toast.loading("Importing data...");
-
-    try {
-      const res = await customerService.importData(formData);
-      if (res.success > 0 || res.statusCode === 200) {
-        toast.success(`Imported successfully`, { id: toastId });
-        fetchData(pagination.page, pagination.limit, searchTerm, activeTab);
-      } else {
-        toast.error(res.message || "Import finished with errors", {
-          id: toastId,
-        });
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Import failed. Check file format.", { id: toastId });
-    } finally {
-      setImportLoading(false);
-    }
+  // --- Helper for Date Formatting ---
+  const formatDateForTable = (dateString) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}/${month}/${day}`;
   };
 
   // --- Render Table Row ---
@@ -340,63 +369,85 @@ const Customers = () => {
     const c = row.customer;
     const workerName = row.worker?.name || "Unassigned";
     const schedule =
-      row.schedule_days?.map((d) => d.day).join(", ") || "No Schedule";
+      row.schedule_days?.map((d) => d.day).join(",") || "No Schedule";
 
     return (
       <div className="bg-slate-50 p-5 rounded-lg border border-slate-200 ml-12 shadow-inner">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 border-b border-slate-200 pb-3">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 pb-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-xl shadow-sm">
               {c.firstName?.[0]?.toUpperCase() || "U"}
             </div>
             <div>
-              <h4 className="font-bold text-slate-800 text-base">
+              <h4 className="font-bold text-slate-800 text-lg">
                 {c.firstName} {c.lastName}
               </h4>
-              <p className="text-xs text-slate-500 font-mono">ID: {c._id}</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 font-mono bg-slate-200 px-2 py-0.5 rounded">
+                  ID: {c._id}
+                </span>
+                <span className="text-xs text-slate-500 flex items-center gap-1">
+                  <Hash className="w-3 h-3" /> {c.customerCode || "N/A"}
+                </span>
+              </div>
             </div>
           </div>
           <div className="mt-3 md:mt-0 flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-500 uppercase">
-                Cleaner:
-              </span>
-              <span className="bg-white border border-slate-300 px-3 py-1 rounded-md text-sm font-semibold text-slate-700 shadow-sm">
-                {workerName}
-              </span>
-            </div>
             <button
               onClick={() => navigate(`/customers/${c._id}/history`)}
-              className="px-4 py-1.5 bg-white border border-slate-300 rounded-md text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+              className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm flex items-center gap-2"
             >
-              Show Work
+              <Calendar className="w-4 h-4" /> Show History
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="bg-white p-3 rounded border border-slate-200">
-            <span className="block text-[10px] text-slate-400 uppercase font-bold mb-1">
-              Vehicle
-            </span>
-            <span className="font-mono font-bold text-slate-800">
-              {row.registration_no}
-            </span>
+
+        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50 text-gray-700 font-bold border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 min-w-[100px]">Vehicle</th>
+                  <th className="px-6 py-3 min-w-[120px]">Schedule</th>
+                  <th className="px-6 py-3 min-w-[100px]">Amount</th>
+                  <th className="px-6 py-3 min-w-[100px]">Advance</th>
+                  <th className="px-6 py-3 min-w-[120px]">Onboard Date</th>
+                  <th className="px-6 py-3 min-w-[120px]">Start Date</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-slate-100">
+                <tr>
+                  <td className="px-6 py-4 font-mono font-medium text-slate-700">
+                    {row.registration_no}
+                  </td>
+                  <td className="px-6 py-4 text-slate-700">{schedule}</td>
+                  <td className="px-6 py-4 text-slate-700 font-medium">
+                    {row.amount}
+                  </td>
+                  <td className="px-6 py-4 text-slate-700">
+                    {row.advance || 0}
+                  </td>
+                  <td className="px-6 py-4 text-slate-700">
+                    {formatDateForTable(row.onboard_date)}
+                  </td>
+                  <td className="px-6 py-4 text-slate-700">
+                    {formatDateForTable(row.start_date)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          <div className="bg-white p-3 rounded border border-slate-200">
-            <span className="block text-[10px] text-slate-400 uppercase font-bold mb-1">
-              Schedule
-            </span>
-            <span className="font-medium text-slate-700 text-sm">
-              {schedule}
-            </span>
-          </div>
-          <div className="bg-white p-3 rounded border border-slate-200">
-            <span className="block text-[10px] text-slate-400 uppercase font-bold mb-1">
-              Amount
-            </span>
-            <span className="font-bold text-emerald-600 text-sm">
-              {row.amount || 0} AED
-            </span>
+
+          <div className="flex flex-col sm:flex-row justify-between items-center px-6 py-4 bg-gray-50/50 border-t border-gray-200 gap-4">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-900 text-sm">Cleaner:</span>
+              <span className="text-slate-700 text-sm uppercase">
+                {workerName}
+              </span>
+            </div>
+            {/* <button className="px-4 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded shadow-sm text-sm font-medium transition-all">
+              Show Work
+            </button> */}
           </div>
         </div>
       </div>
@@ -407,59 +458,81 @@ const Customers = () => {
     {
       header: "#",
       accessor: "uniqueId",
-      className: "w-12 text-center",
+      className: "w-16 text-center",
       render: (row, idx) => (
-        <span className="text-slate-400 text-xs font-mono">
-          {(pagination.page - 1) * pagination.limit + idx + 1}
-        </span>
-      ),
-    },
-    {
-      header: "Mobile",
-      accessor: "customer.mobile",
-      render: (row) => (
-        <div className="flex flex-col">
-          <span className="font-mono text-slate-700 font-medium">
-            {row.customer.mobile}
-          </span>
-          <span className="text-[10px] text-slate-400 font-bold">
-            {row.customer.firstName}
+        <div className="flex items-center justify-center">
+          <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-50 to-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs border border-slate-200">
+            {(pagination.page - 1) * pagination.limit + idx + 1}
           </span>
         </div>
       ),
     },
     {
-      header: "Vehicle",
-      accessor: "registration_no",
+      header: "Customer",
+      accessor: "customer.mobile",
+      className: "min-w-[200px]",
       render: (row) => (
-        <span className="bg-slate-100 px-2 py-1 rounded text-xs font-bold uppercase tracking-wide text-slate-700 border border-slate-200">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-md text-white font-bold text-xs">
+            {row.customer.firstName?.[0] || "C"}
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold text-slate-800 text-sm">
+              {row.customer.firstName} {row.customer.lastName}
+            </span>
+            <span className="text-xs text-slate-500 font-mono flex items-center gap-1">
+              {row.customer.mobile}
+            </span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: "Vehicle Info",
+      accessor: "registration_no",
+      className: "min-w-[120px]",
+      render: (row) => (
+        <span className="bg-slate-100 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide text-slate-700 border border-slate-200 text-center shadow-sm">
           {row.registration_no}
         </span>
       ),
     },
     {
-      header: "Flat",
-      accessor: "customer.flat_no",
+      header: "Parking No",
+      accessor: "parking_no",
+      className: "min-w-[100px]",
       render: (row) => (
-        <span className="text-slate-600 text-sm font-medium">
-          {row.customer.flat_no || "-"}
+        <span className="text-sm font-medium text-slate-600">
+          {row.parking_no || "-"}
         </span>
       ),
     },
     {
       header: "Building",
       accessor: "customer.building",
+      className: "min-w-[150px]",
       render: (row) => (
-        <div className="flex flex-col">
-          <span className="text-slate-700 font-medium text-sm truncate max-w-[150px]">
+        <div className="flex items-center gap-1.5">
+          <Building className="w-3.5 h-3.5 text-indigo-500" />
+          <span
+            className="text-slate-800 font-semibold text-xs truncate max-w-[140px]"
+            title={row.customer.building?.name}
+          >
             {row.customer.building?.name || "-"}
           </span>
-          {row.customer.building?.location_id && (
-            <span className="text-[10px] text-slate-400 uppercase font-bold flex items-center gap-1">
-              <MapPin className="w-3 h-3" />{" "}
-              {row.customer.building.location_id.address}
-            </span>
-          )}
+        </div>
+      ),
+    },
+    {
+      header: "Flat No",
+      accessor: "customer.flat_no",
+      className: "min-w-[80px]",
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <Home className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-sm text-slate-700">
+            {row.customer.flat_no || "-"}
+          </span>
         </div>
       ),
     },
@@ -469,7 +542,8 @@ const Customers = () => {
             header: "Reason",
             accessor: "deactivateReason",
             render: (row) => (
-              <span className="text-red-600 text-[10px] font-bold bg-red-50 border border-red-100 px-2 py-1 rounded uppercase">
+              <span className="inline-flex items-center gap-1 text-red-600 text-[10px] font-bold bg-red-50 border border-red-100 px-2 py-1 rounded-full uppercase">
+                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
                 {row.deactivateReason || "Stopped"}
               </span>
             ),
@@ -478,61 +552,64 @@ const Customers = () => {
             header: "Deactivate Date",
             accessor: "deactivateDate",
             render: (row) => (
-              <span className="text-slate-500 text-xs font-mono">
-                {row.deactivateDate
-                  ? new Date(row.deactivateDate).toLocaleDateString()
-                  : "-"}
-              </span>
+              <div className="flex items-center gap-1 text-slate-500 text-xs">
+                <Calendar className="w-3 h-3" />
+                <span className="font-mono">
+                  {row.deactivateDate
+                    ? new Date(row.deactivateDate).toLocaleDateString()
+                    : "-"}
+                </span>
+              </div>
             ),
           },
         ]
       : []),
     {
       header: "Actions",
-      className: "text-right",
+      className:
+        "text-right sticky right-0 bg-white shadow-[-10px_0_10px_-10px_rgba(0,0,0,0.1)] min-w-[140px]",
       render: (row) => (
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-1.5 pr-2">
           <button
             onClick={() => handleEdit(row.customer)}
-            className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 transition-colors"
+            className="p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-100 transition-all shadow-sm hover:shadow-md"
             title="Edit"
           >
-            <Edit2 className="w-4 h-4" />
+            <Edit2 className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => handleArchive(row.customer._id)}
-            className="p-1.5 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-100 transition-colors"
+            className="p-2 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-500 hover:text-white border border-orange-100 transition-all shadow-sm hover:shadow-md"
             title="Archive"
           >
-            <Archive className="w-4 h-4" />
+            <Archive className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => handleDelete(row.customer._id)}
-            className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 transition-colors"
+            className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-100 transition-all shadow-sm hover:shadow-md"
             title="Delete"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
-          <div className="pl-2 border-l border-slate-200 ml-1">
-            <button
-              onClick={() => handleToggleStatus(row)}
-              className={`w-9 h-5 rounded-full p-1 flex items-center transition-colors duration-300 shadow-inner ${
-                row.status === 1
-                  ? "bg-emerald-500 justify-end"
-                  : "bg-slate-300 justify-start"
-              }`}
-              title={row.status === 1 ? "Deactivate" : "Activate"}
-            >
-              <div className="w-3.5 h-3.5 bg-white rounded-full shadow-sm" />
-            </button>
-          </div>
+          <div className="w-px h-6 bg-slate-200 mx-1"></div>
+          <button
+            onClick={() => handleToggleStatus(row)}
+            className={`w-10 h-6 rounded-full p-1 flex items-center transition-all duration-300 shadow-inner ${
+              row.status === 1
+                ? "bg-gradient-to-r from-emerald-400 to-emerald-600 justify-end"
+                : "bg-slate-200 justify-start"
+            }`}
+            title={row.status === 1 ? "Deactivate" : "Activate"}
+          >
+            <div className="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform" />
+          </button>
         </div>
       ),
     },
   ];
 
   return (
-    <div className="p-3 w-full">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
       <input
         type="file"
         accept=".csv, .xlsx"
@@ -541,85 +618,142 @@ const Customers = () => {
         className="hidden"
       />
 
-      <div className="mb-0 flex-shrink-0">
-        <div className="flex flex-col md:flex-row justify-between items-end md:items-center mb-4 gap-4">
-          <div className="flex border-b border-slate-200">
-            <button
-              onClick={() => handleTabChange(1)}
-              className={`px-6 py-2 text-sm font-bold border-b-2 transition-all ${
-                activeTab === 1
-                  ? "border-sky-500 text-sky-600 bg-sky-50/50"
-                  : "border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              Active
-            </button>
-            <button
-              onClick={() => handleTabChange(2)}
-              className={`px-6 py-2 text-sm font-bold border-b-2 transition-all ${
-                activeTab === 2
-                  ? "border-sky-500 text-sky-600 bg-sky-50/50"
-                  : "border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              In Active
-            </button>
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+                <Users className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  Customer Management
+                </h1>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Manage customers, vehicles and subscriptions
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+              <div className="relative w-full max-w-md">
+                <input
+                  type="text"
+                  placeholder="Search customers..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={handleSearchEnter}
+                  className="w-full h-11 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-xl pl-11 pr-16 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all"
+                />
+                <Search className="absolute left-4 top-3 w-5 h-5 text-gray-400" />
+                <button
+                  onClick={() =>
+                    fetchData(1, pagination.limit, searchTerm, activeTab)
+                  }
+                  className="absolute right-2 top-2 px-3 py-1 bg-white rounded-lg text-xs font-semibold text-indigo-600 border border-indigo-100 hover:bg-indigo-50 shadow-sm transition-all"
+                >
+                  Search
+                </button>
+              </div>
+
+              <div className="flex p-1 bg-gray-100 rounded-xl">
+                <button
+                  onClick={() => handleTabChange(1)}
+                  className={`px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
+                    activeTab === 1
+                      ? "bg-white text-indigo-600 shadow"
+                      : "bg-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Active
+                </button>
+                <button
+                  onClick={() => handleTabChange(2)}
+                  className={`px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
+                    activeTab === 2
+                      ? "bg-white text-red-600 shadow"
+                      : "bg-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Inactive
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 justify-end">
-            {/* Template */}
             <button
               onClick={handleDownloadTemplate}
-              className="px-3 py-2 bg-slate-50 border border-slate-300 text-slate-600 rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-slate-100 transition-all shadow-sm"
-              title="Download Import Template"
+              className="h-10 px-4 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-sm"
             >
-              <FileSpreadsheet className="w-4 h-4" /> Template
+              <FileSpreadsheet className="w-4 h-4" />
+              <span className="hidden xl:inline">Template</span>
             </button>
 
-            {/* Server Export */}
             <button
               onClick={handleExportServerSide}
-              className="px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm"
-              title="Server Export (CSV)"
+              className="h-10 px-4 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-sm"
             >
-              <Server className="w-4 h-4" /> Export Server
+              <Server className="w-4 h-4" />
+              <span className="hidden xl:inline">Server Export</span>
             </button>
 
-            {/* Frontend Export XLSX */}
             <button
               onClick={handleExportFrontendXLSX}
-              className="px-3 py-2 bg-white border border-slate-300 text-emerald-700 rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-emerald-50 transition-all shadow-sm"
-              title="Download Data from Frontend (XLSX)"
+              className="h-10 px-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
             >
-              <Download className="w-4 h-4" /> Export Data Frontend(XLSX)
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Export</span>
             </button>
 
-            {/* Import */}
             <button
               onClick={handleImportClick}
               disabled={importLoading}
-              className="px-3 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-70"
+              className="h-10 px-4 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all disabled:opacity-60"
             >
               {importLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <UploadCloud className="w-4 h-4" />
-              )}{" "}
-              Import
+              )}
+              <span className="hidden sm:inline">Import</span>
             </button>
 
-            {/* Add */}
             <button
               onClick={handleCreate}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-md ml-2"
+              className="h-10 px-5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg hover:shadow-xl transition-all active:scale-95"
             >
-              <UserPlus className="w-4 h-4" /> Add
+              <UserPlus className="w-4 h-4" />
+              <span>Add Customer</span>
             </button>
           </div>
         </div>
+
+        {pagination.total > 0 && (
+          <div className="mt-6 pt-4 border-t border-gray-100 flex items-center gap-6 overflow-x-auto">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+              <span className="text-xs font-bold text-gray-500 uppercase">
+                Total Records:
+              </span>
+              <span className="text-sm font-bold text-gray-800">
+                {pagination.total}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+              <span className="text-xs font-bold text-gray-500 uppercase">
+                Page:
+              </span>
+              <span className="text-sm font-bold text-gray-800">
+                {pagination.page} / {pagination.totalPages}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="flex-1 bg-white shadow-sm border border-t-0 border-slate-200 overflow-hidden flex flex-col rounded-b-xl rounded-t-xl">
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
         <DataTable
           key={activeTab}
           columns={columns}
@@ -630,7 +764,6 @@ const Customers = () => {
             fetchData(p, pagination.limit, searchTerm, activeTab)
           }
           onLimitChange={(l) => fetchData(1, l, searchTerm, activeTab)}
-          onSearch={handleSearch}
           renderExpandedRow={renderExpandedRow}
         />
       </div>

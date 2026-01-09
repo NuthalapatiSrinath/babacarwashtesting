@@ -7,6 +7,7 @@ import {
   FileSpreadsheet,
   Layers,
   Calendar,
+  Filter,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { downloadWorkRecordsStatement } from "../../redux/slices/workRecordsSlice";
@@ -91,112 +92,131 @@ const WorkRecords = () => {
   const years = [2024, 2025, 2026, 2027];
 
   return (
-    <div className="p-3 w-full">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <FileSpreadsheet className="w-8 h-8 text-indigo-600" />
-          Work Records
-        </h1>
-        <p className="text-slate-500 mt-1 ml-10">
-          Generate and download monthly work statements.
-        </p>
-      </div>
-
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-          {/* Service Type */}
-          <div className="relative group">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">
-              Service Type
-            </label>
-            <div className="relative">
-              <select
-                name="serviceType"
-                value={filters.serviceType}
-                onChange={handleFilterChange}
-                className="w-full h-12 bg-slate-50 border border-slate-200 text-slate-700 font-medium rounded-xl pl-10 pr-10 appearance-none outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all cursor-pointer hover:border-slate-300"
-              >
-                <option value="onewash">Onewash</option>
-                <option value="residence">Residence</option>
-              </select>
-              <Layers className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
-              <ChevronDown className="absolute right-3 top-4 w-4 h-4 text-slate-400 pointer-events-none" />
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6 font-sans">
+      {/* --- HEADER --- */}
+      <div className="max-w-7xl mx-auto mb-8">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-200">
+            <FileSpreadsheet className="w-7 h-7 text-white" />
           </div>
-
-          {/* Month */}
-          <div className="relative group">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">
-              Month
-            </label>
-            <div className="relative">
-              <select
-                name="month"
-                value={filters.month}
-                onChange={handleFilterChange}
-                className="w-full h-12 bg-slate-50 border border-slate-200 text-slate-700 font-medium rounded-xl pl-10 pr-10 appearance-none outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all cursor-pointer hover:border-slate-300"
-              >
-                {months.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-              <Calendar className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
-              <ChevronDown className="absolute right-3 top-4 w-4 h-4 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Year */}
-          <div className="relative group">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">
-              Year
-            </label>
-            <div className="relative">
-              <select
-                name="year"
-                value={filters.year}
-                onChange={handleFilterChange}
-                className="w-full h-12 bg-slate-50 border border-slate-200 text-slate-700 font-medium rounded-xl pl-10 pr-10 appearance-none outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all cursor-pointer hover:border-slate-300"
-              >
-                {years.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
-              <Calendar className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
-              <ChevronDown className="absolute right-3 top-4 w-4 h-4 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Download Button */}
           <div>
-            <button
-              onClick={handleDownload}
-              disabled={downloading}
-              className="w-full h-12 bg-[#009ef7] hover:bg-[#0086d6] text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:shadow-blue-300 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {downloading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Download className="w-5 h-5" />
-              )}
-              {downloading ? "Downloading..." : "Download"}
-            </button>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-indigo-800 bg-clip-text text-transparent">
+              Work Records
+            </h1>
+            <p className="text-slate-500 font-medium mt-1">
+              Generate and download monthly work statements
+            </p>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center text-slate-400 mt-8">
-        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm border border-slate-100">
-          <FileSpreadsheet className="w-10 h-10 text-slate-300" />
+      {/* --- FILTER CARD --- */}
+      <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden relative">
+        {/* Top Decorative Line */}
+        <div className="h-1.5 w-full bg-gradient-to-r from-indigo-400 via-blue-500 to-cyan-500"></div>
+
+        <div className="p-6 md:p-8">
+          <div className="flex items-center gap-2 mb-6 text-slate-400 text-xs font-bold uppercase tracking-wider">
+            <Filter className="w-4 h-4" /> Statement Parameters
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
+            {/* Service Type */}
+            <div className="relative group">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block ml-1">
+                Service Type
+              </label>
+              <div className="relative">
+                <select
+                  name="serviceType"
+                  value={filters.serviceType}
+                  onChange={handleFilterChange}
+                  className="w-full h-12 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium rounded-xl pl-11 pr-8 appearance-none outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all cursor-pointer shadow-sm"
+                >
+                  <option value="onewash">Onewash</option>
+                  <option value="residence">Residence</option>
+                </select>
+                <Layers className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                <ChevronDown className="absolute right-3 top-4 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Month */}
+            <div className="relative group">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block ml-1">
+                Month
+              </label>
+              <div className="relative">
+                <select
+                  name="month"
+                  value={filters.month}
+                  onChange={handleFilterChange}
+                  className="w-full h-12 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium rounded-xl pl-11 pr-8 appearance-none outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all cursor-pointer shadow-sm"
+                >
+                  {months.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+                <Calendar className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                <ChevronDown className="absolute right-3 top-4 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Year */}
+            <div className="relative group">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block ml-1">
+                Year
+              </label>
+              <div className="relative">
+                <select
+                  name="year"
+                  value={filters.year}
+                  onChange={handleFilterChange}
+                  className="w-full h-12 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium rounded-xl pl-11 pr-8 appearance-none outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all cursor-pointer shadow-sm"
+                >
+                  {years.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+                <Calendar className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                <ChevronDown className="absolute right-3 top-4 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Download Button */}
+            <div>
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                className="w-full h-12 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl shadow-indigo-200 hover:shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {downloading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Download className="w-5 h-5" />
+                )}
+                <span>{downloading ? "Processing..." : "Download Report"}</span>
+              </button>
+            </div>
+          </div>
         </div>
-        <h3 className="text-lg font-semibold text-slate-600">
-          Ready to Export
-        </h3>
-        <p className="text-sm max-w-xs text-center mt-1">
-          Select the service type, month, and year to download the Excel report.
+      </div>
+
+      {/* --- EMPTY STATE ILLUSTRATION --- */}
+      <div className="max-w-7xl mx-auto mt-16 flex flex-col items-center justify-center text-center opacity-70">
+        <div className="w-32 h-32 rounded-full bg-white border-4 border-slate-100 flex items-center justify-center mb-6 shadow-sm">
+          <div className="w-24 h-24 rounded-full bg-slate-50 flex items-center justify-center">
+            <FileSpreadsheet className="w-10 h-10 text-slate-300" />
+          </div>
+        </div>
+        <h3 className="text-xl font-bold text-slate-700">Ready to Export</h3>
+        <p className="text-slate-500 mt-2 max-w-sm">
+          Select the service type, month, and year from the panel above to
+          generate and download the work records statement.
         </p>
       </div>
     </div>

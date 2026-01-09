@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, MapPin } from "lucide-react";
+import { Plus, Edit2, Trash2, MapPin, Navigation } from "lucide-react";
 import toast from "react-hot-toast";
 
 // Components
@@ -14,7 +14,7 @@ const Locations = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
 
-  // -- Modal States --
+  // -- Modals --
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
 
@@ -22,63 +22,67 @@ const Locations = () => {
   const [locationToDelete, setLocationToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // -- Pagination State --
+  // -- Pagination --
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 50, // <--- CHANGED: Default limit set to 50
+    limit: 50,
     total: 0,
     totalPages: 1,
   });
 
+  // --- Search State ---
+  const [currentSearch, setCurrentSearch] = useState("");
+
   // --- Fetch Data ---
-  // CHANGED: Default limit parameter set to 50
   const fetchData = async (page = 1, limit = 50, search = "") => {
     setLoading(true);
+    setCurrentSearch(search);
+
     try {
+      // 1. Fetch Data
       const response = await locationService.list(page, limit, search);
 
-      // Backend usually returns: { total: 100, data: [...] }
-      const totalRecords = response.total || response.data.length || 0;
-      const totalPages = Math.ceil(totalRecords / limit) || 1;
+      // 2. Handle Search / Pagination Logic
+      let resultData = response.data || [];
+      let totalRecords = response.total || resultData.length;
 
-      setData(response.data);
-      setPagination({
-        page,
-        limit,
-        total: totalRecords,
-        totalPages,
-      });
+      // Fallback: If API doesn't filter, we filter client-side
+      if (search && response.total === undefined) {
+        resultData = resultData.filter(
+          (item) =>
+            item.name?.toLowerCase().includes(search.toLowerCase()) ||
+            item.address?.toLowerCase().includes(search.toLowerCase())
+        );
+        totalRecords = resultData.length;
+      }
+
+      setData(resultData);
+
+      const totalPages = Math.ceil(totalRecords / limit) || 1;
+      setPagination({ page, limit, total: totalRecords, totalPages });
     } catch (error) {
-      console.error("Error fetching locations:", error);
+      console.error("[LocationsPage] Fetch error:", error);
       toast.error("Failed to load locations");
     } finally {
       setLoading(false);
     }
   };
 
-  // Initial Load
   useEffect(() => {
-    fetchData(pagination.page, pagination.limit);
+    fetchData(pagination.page, pagination.limit, currentSearch);
   }, []);
 
-  // --- Helper: Handle Backend Pagination Issues ---
-  // If the backend returns ALL data (ignores page/limit), we slice it here manually.
+  // --- Helper: Get Data for Current Page ---
   const getDisplayData = () => {
     if (!data) return [];
-
-    // If backend returned more items than the limit, it means server-side pagination failed.
-    // We fix it by slicing the array client-side.
     if (data.length > pagination.limit) {
       const startIndex = (pagination.page - 1) * pagination.limit;
-      const endIndex = startIndex + pagination.limit;
-      return data.slice(startIndex, endIndex);
+      return data.slice(startIndex, startIndex + pagination.limit);
     }
-
-    // Otherwise, backend works fine, return data as is.
     return data;
   };
 
-  // --- Handlers: Add / Edit ---
+  // --- Handlers ---
   const handleAdd = () => {
     setSelectedLocation(null);
     setIsModalOpen(true);
@@ -89,7 +93,6 @@ const Locations = () => {
     setIsModalOpen(true);
   };
 
-  // --- Handlers: Delete ---
   const openDeleteModal = (location) => {
     setLocationToDelete(location);
     setIsDeleteModalOpen(true);
@@ -97,68 +100,83 @@ const Locations = () => {
 
   const confirmDelete = async () => {
     if (!locationToDelete) return;
-
     setDeleteLoading(true);
     try {
       await locationService.delete(locationToDelete._id);
       toast.success("Location deleted successfully");
       setIsDeleteModalOpen(false);
-      // Refresh page data
-      fetchData(pagination.page, pagination.limit);
+      fetchData(pagination.page, pagination.limit, currentSearch);
     } catch (error) {
-      console.error(error);
+      console.error("[LocationsPage] Delete error:", error);
       toast.error(error.message || "Failed to delete location");
     } finally {
       setDeleteLoading(false);
     }
   };
 
-  // --- Table Configuration ---
+  // --- Columns ---
   const columns = [
     {
       header: "#",
       accessor: "id",
-      className: "w-20",
-      render: (row) => (
-        <span className="text-slate-400 font-mono">#{row.id}</span>
-      ),
-    },
-    {
-      header: "Address",
-      accessor: "address",
-      render: (row) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
-            <MapPin className="w-4 h-4" />
-          </div>
-          <span className="font-medium text-slate-700">{row.address}</span>
+      className: "w-16 text-center",
+      render: (row, idx) => (
+        <div className="flex justify-center">
+          <span className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs font-mono border border-slate-200">
+            {(pagination.page - 1) * pagination.limit + idx + 1}
+          </span>
         </div>
       ),
     },
     {
-      header: "Created At",
-      accessor: "createdAt",
+      header: "Location Details",
+      accessor: "name", // Using name as key accessor, but render uses both
       render: (row) => (
-        <span className="text-sm text-slate-500">
-          {new Date(row.createdAt).toLocaleDateString()}
-        </span>
+        <div className="flex items-start gap-3">
+          {/* Icon */}
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex-shrink-0 flex items-center justify-center shadow-sm text-white mt-1">
+            <MapPin className="w-5 h-5" />
+          </div>
+
+          {/* Combined Text Content */}
+          <div className="flex flex-col">
+            <span className="font-bold text-slate-700 text-sm">{row.name}</span>
+
+            <div className="flex items-center gap-1.5 text-slate-500 text-xs mt-0.5">
+              <Navigation className="w-3 h-3 text-teal-500" />
+              <span className="truncate max-w-[300px]" title={row.address}>
+                {row.address || (
+                  <span className="italic text-slate-400">No Address</span>
+                )}
+              </span>
+            </div>
+
+            {/* Optional: Lat/Long as tiny text below address if needed */}
+            {(row.latitude || row.longitude) && (
+              <span className="text-[10px] text-slate-400 font-mono mt-0.5 ml-4">
+                {row.latitude || 0}, {row.longitude || 0}
+              </span>
+            )}
+          </div>
+        </div>
       ),
     },
     {
       header: "Actions",
-      className: "text-right",
+      className:
+        "text-right w-24 sticky right-0 bg-white shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]",
       render: (row) => (
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-1.5 pr-2">
           <button
             onClick={() => handleEdit(row)}
-            className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"
+            className="p-2 hover:bg-teal-50 text-slate-400 hover:text-teal-600 rounded-lg transition-all"
             title="Edit"
           >
             <Edit2 className="w-4 h-4" />
           </button>
           <button
             onClick={() => openDeleteModal(row)}
-            className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors"
+            className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all"
             title="Delete"
           >
             <Trash2 className="w-4 h-4" />
@@ -169,46 +187,52 @@ const Locations = () => {
   ];
 
   return (
-    <div className="p-3 w-full">
-      {/* Table */}
-      <DataTable
-        title="Location List"
-        columns={columns}
-        data={getDisplayData()}
-        loading={loading}
-        pagination={pagination}
-        onPageChange={(newPage) => fetchData(newPage, pagination.limit)}
-        onLimitChange={(newLimit) => fetchData(1, newLimit)}
-        onSearch={(term) => fetchData(1, pagination.limit, term)}
-        actionButton={
-          <button
-            onClick={handleAdd}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            Add Location
-          </button>
-        }
-      />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-teal-50/30 to-emerald-50/30 p-6 font-sans">
+      {/* --- TABLE SECTION --- */}
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <DataTable
+          title="Location List"
+          columns={columns}
+          data={getDisplayData()}
+          loading={loading}
+          pagination={pagination}
+          // Pagination Handlers
+          onPageChange={(newPage) =>
+            fetchData(newPage, pagination.limit, currentSearch)
+          }
+          onLimitChange={(newLimit) => fetchData(1, newLimit, currentSearch)}
+          // Search Handler
+          onSearch={(term) => fetchData(1, pagination.limit, term)}
+          // Add Button
+          actionButton={
+            <button
+              onClick={handleAdd}
+              className="h-10 px-5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              Add Location
+            </button>
+          }
+        />
+      </div>
 
-      {/* -- Modals -- */}
-
-      {/* Add / Edit Modal */}
+      {/* --- MODALS --- */}
       <LocationModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={() => fetchData(pagination.page, pagination.limit)}
+        onSuccess={() =>
+          fetchData(pagination.page, pagination.limit, currentSearch)
+        }
         editData={selectedLocation}
       />
 
-      {/* Delete Confirmation Modal */}
       <DeleteModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={confirmDelete}
         loading={deleteLoading}
         title="Delete Location"
-        message={`Are you sure you want to delete "${locationToDelete?.address}"?`}
+        message={`Are you sure you want to delete "${locationToDelete?.name}"?`}
       />
     </div>
   );

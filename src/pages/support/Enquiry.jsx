@@ -9,6 +9,8 @@ import {
   XCircle,
   Phone,
   Car,
+  User,
+  Calendar,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -16,6 +18,8 @@ import toast from "react-hot-toast";
 import DataTable from "../../components/DataTable";
 import EnquiryModal from "../../components/modals/EnquiryModal";
 import EnquiryFilterBar from "../../components/filters/EnquiryFilterBar";
+import DeleteModal from "../../components/modals/DeleteModal";
+// Note: Added DeleteModal import assuming it exists based on other files
 
 // Redux
 import {
@@ -40,6 +44,11 @@ const Enquiry = () => {
     page: 1,
     limit: 50,
   });
+
+  // For Delete Modal
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [enquiryToDelete, setEnquiryToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Fetch data on mount and when pagination/filters change
   useEffect(() => {
@@ -98,13 +107,22 @@ const Enquiry = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (row) => {
-    if (!window.confirm("Delete this enquiry?")) return;
+  const openDeleteModal = (row) => {
+    setEnquiryToDelete(row);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!enquiryToDelete) return;
+    setDeleteLoading(true);
     try {
-      await dispatch(deleteEnquiry(row._id)).unwrap();
-      toast.success("Deleted");
+      await dispatch(deleteEnquiry(enquiryToDelete._id)).unwrap();
+      toast.success("Enquiry deleted successfully");
+      setIsDeleteModalOpen(false);
     } catch (error) {
       toast.error(error || "Delete failed");
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -120,21 +138,15 @@ const Enquiry = () => {
     );
   };
 
-  // --- Columns with Enhanced CSS ---
+  // --- Columns with Rich CSS ---
   const columns = [
     {
       header: "#",
       accessor: "id",
       className: "w-16 text-center",
       render: (row, idx) => (
-        <div className="flex items-center justify-center">
-          <span
-            className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs"
-            style={{
-              background: "var(--color-primary)",
-              color: "var(--color-text-inverse)",
-            }}
-          >
+        <div className="flex justify-center">
+          <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs font-mono border border-indigo-100">
             {(currentPage - 1) * pagination.limit + idx + 1}
           </span>
         </div>
@@ -146,22 +158,21 @@ const Enquiry = () => {
       render: (row) => {
         const dateObj = new Date(row.createdAt);
         return (
-          <div className="flex flex-col gap-0.5">
-            <span
-              className="text-sm font-medium"
-              style={{ color: "var(--color-text-main)" }}
-            >
-              {dateObj.toLocaleDateString()}
-            </span>
-            <span
-              className="text-xs"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              {dateObj.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-slate-700">
+                {dateObj.toLocaleDateString()}
+              </span>
+              <span className="text-xs text-slate-400 font-mono">
+                {dateObj.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
           </div>
         );
       },
@@ -171,48 +182,33 @@ const Enquiry = () => {
       accessor: "mobile",
       render: (row) => (
         <div className="flex items-center gap-2">
-          <Phone
-            className="w-4 h-4"
-            style={{ color: "var(--color-primary)" }}
-          />
-          <span
-            className="font-semibold text-sm font-mono"
-            style={{ color: "var(--color-text-main)" }}
-          >
+          <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+            <Phone className="w-3.5 h-3.5" />
+          </div>
+          <span className="font-semibold text-sm font-mono text-slate-700">
             {row.mobile || "---"}
           </span>
         </div>
       ),
     },
     {
-      header: "Vehicle No",
+      header: "Vehicle Details",
       accessor: "registration_no",
       render: (row) => (
-        <div className="flex items-center gap-2">
-          <Car
-            className="w-4 h-4"
-            style={{ color: "var(--color-text-muted)" }}
-          />
-          <span
-            className="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide font-mono border"
-            style={{
-              background: "var(--color-input-bg)",
-              color: "var(--color-text-main)",
-              borderColor: "var(--color-border)",
-            }}
-          >
-            {row.registration_no || "---"}
-          </span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Car className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-xs font-bold uppercase tracking-wide bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+              {row.registration_no || "N/A"}
+            </span>
+          </div>
+          {row.parking_no && (
+            <span className="text-[10px] text-slate-400 pl-6">
+              Parking:{" "}
+              <span className="font-mono text-slate-600">{row.parking_no}</span>
+            </span>
+          )}
         </div>
-      ),
-    },
-    {
-      header: "Parking",
-      accessor: "parking_no",
-      render: (row) => (
-        <span className="text-sm" style={{ color: "var(--color-text-sub)" }}>
-          {row.parking_no || "-"}
-        </span>
       ),
     },
     {
@@ -221,18 +217,15 @@ const Enquiry = () => {
       render: (row) => {
         const hasWorker = row.worker?.name || row.worker;
         return hasWorker ? (
-          <span
-            className="text-sm font-medium"
-            style={{ color: "var(--color-primary)" }}
-          >
-            {row.worker?.name || row.worker}
-          </span>
+          <div className="flex items-center gap-2">
+            <User className="w-3.5 h-3.5 text-purple-500" />
+            <span className="text-sm font-medium text-purple-700">
+              {row.worker?.name || row.worker}
+            </span>
+          </div>
         ) : (
-          <span
-            className="text-sm italic"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            System
+          <span className="text-xs italic text-slate-400 bg-slate-50 px-2 py-1 rounded">
+            Unassigned
           </span>
         );
       },
@@ -245,23 +238,17 @@ const Enquiry = () => {
 
         const statusConfig = {
           completed: {
-            bg: "var(--color-success-bg)",
-            text: "var(--color-success)",
-            border: "var(--color-success)",
+            classes: "bg-emerald-50 text-emerald-600 border-emerald-100",
             icon: CheckCircle,
             label: "Completed",
           },
           cancelled: {
-            bg: "var(--color-danger-bg)",
-            text: "var(--color-danger)",
-            border: "var(--color-danger)",
+            classes: "bg-red-50 text-red-600 border-red-100",
             icon: XCircle,
             label: "Cancelled",
           },
           pending: {
-            bg: "var(--color-primary-light)",
-            text: "var(--color-primary-text)",
-            border: "var(--color-primary)",
+            classes: "bg-blue-50 text-blue-600 border-blue-100",
             icon: Clock,
             label: "Pending",
           },
@@ -272,12 +259,7 @@ const Enquiry = () => {
 
         return (
           <div
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase w-fit"
-            style={{
-              background: config.bg,
-              color: config.text,
-              borderColor: config.border,
-            }}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase w-fit ${config.classes}`}
           >
             <Icon className="w-3 h-3" />
             {config.label}
@@ -287,35 +269,20 @@ const Enquiry = () => {
     },
     {
       header: "Actions",
-      className: "sticky right-0 w-[120px]",
+      className:
+        "text-right w-24 sticky right-0 bg-white shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]",
       render: (row) => (
-        <div
-          className="flex items-center justify-end gap-2 pr-4"
-          style={{
-            background: "var(--color-card)",
-            boxShadow: "-10px 0 10px -10px var(--shadow-color)",
-          }}
-        >
+        <div className="flex justify-end gap-1.5 pr-2">
           <button
             onClick={() => handleEdit(row)}
-            className="p-2 rounded-lg border transition-all shadow-sm hover:shadow"
-            style={{
-              background: "var(--color-primary-light)",
-              color: "var(--color-primary)",
-              borderColor: "var(--color-border)",
-            }}
+            className="p-2 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition-all"
             title="Edit"
           >
             <Edit2 className="w-4 h-4" />
           </button>
           <button
-            onClick={() => handleDelete(row)}
-            className="p-2 rounded-lg border transition-all shadow-sm hover:shadow"
-            style={{
-              background: "var(--color-danger-bg)",
-              color: "var(--color-danger)",
-              borderColor: "var(--color-border)",
-            }}
+            onClick={() => openDeleteModal(row)}
+            className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all"
             title="Delete"
           >
             <Trash2 className="w-4 h-4" />
@@ -326,43 +293,47 @@ const Enquiry = () => {
   ];
 
   return (
-    <div className="w-full h-full flex flex-col p-2">
-      {/* Filter Bar */}
-      <div className="mb-3 flex-shrink-0">
-        <EnquiryFilterBar onFilterApply={handleFilterApply} loading={loading} />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6 font-sans">
+      {/* --- TABLE SECTION --- */}
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        {/* Integrated Filter Bar Area */}
+        <div className="border-b border-gray-100 bg-slate-50/50 p-4">
+          <EnquiryFilterBar
+            onFilterApply={handleFilterApply}
+            loading={loading}
+          />
+        </div>
+
+        <DataTable
+          title="Enquiries"
+          columns={columns}
+          data={filteredData}
+          loading={loading}
+          // Pagination props
+          pagination={{
+            page: currentPage,
+            limit: pagination.limit,
+            total: total,
+            totalPages: totalPages,
+          }}
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          // Search & Action Button
+          onSearch={handleClientSearch}
+          searchPlaceholder="Search mobile, vehicle..."
+          actionButton={
+            <button
+              onClick={handleCreate}
+              className="h-10 px-5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all active:scale-95 whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4" />
+              New Enquiry
+            </button>
+          }
+        />
       </div>
 
-      {/* Table */}
-      <DataTable
-        columns={columns}
-        data={filteredData}
-        loading={loading}
-        pagination={{
-          page: currentPage,
-          limit: pagination.limit,
-          total: total,
-          totalPages: totalPages,
-        }}
-        onPageChange={handlePageChange}
-        onLimitChange={handleLimitChange}
-        onSearch={handleClientSearch}
-        searchPlaceholder="Search by mobile, vehicle, or parking..."
-        actionButton={
-          <button
-            onClick={handleCreate}
-            className="px-4 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 shadow-md transition-all"
-            style={{
-              background: "var(--color-primary)",
-              color: "var(--color-text-inverse)",
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            New Enquiry
-          </button>
-        }
-      />
-
-      {/* Modal */}
+      {/* --- MODALS --- */}
       <EnquiryModal
         isOpen={isModalOpen}
         onClose={() => {
@@ -371,6 +342,16 @@ const Enquiry = () => {
         }}
         enquiry={useSelector((state) => state.enquiry.selectedEnquiry)}
         onSuccess={handleModalSuccess}
+      />
+
+      {/* Added generic DeleteModal to match style consistency */}
+      <DeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        loading={deleteLoading}
+        title="Delete Enquiry"
+        message="Are you sure you want to delete this enquiry?"
       />
     </div>
   );

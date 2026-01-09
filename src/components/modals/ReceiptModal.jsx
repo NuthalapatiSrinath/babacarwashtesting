@@ -318,35 +318,48 @@ const ReceiptModal = ({ isOpen, onClose, data, onSave }) => {
 };
 
 // --- HELPER COMPONENT FOR ROWS (Dotted Leader Style) ---
+
 const ReceiptRow = ({ label, value, isEditing, onChange, isUppercase }) => (
-  <div className="flex items-end justify-between w-full">
+  <div className="flex items-center w-full mb-1">
     {/* Label */}
-    <span className="font-bold text-gray-900 shrink-0 w-32 md:w-48 pb-1 whitespace-nowrap">
+    <span className="font-bold text-gray-900 shrink-0 w-40 md:w-56 whitespace-nowrap">
       {label}:
     </span>
-
-    {/* Dotted Line */}
-    <div className="flex-1 border-b-2 border-dotted border-gray-400 mb-2 mx-2"></div>
-
-    {/* Value */}
-    <div className="shrink-0 pb-1 relative top-0.5 max-w-[50%] text-right">
+    {/* Dotted line with value overlay */}
+    <div className="relative flex-1 mx-2">
+      <span
+        className="block w-full border-b-2 border-dotted border-gray-400 absolute top-1/2 left-0 z-0"
+        style={{ transform: "translateY(-50%)" }}
+      ></span>
       {isEditing ? (
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={`w-full text-right bg-transparent outline-none border-b border-indigo-300 p-0 focus:ring-0 text-indigo-700 font-bold ${
+          className={`absolute right-0 top-1/2 z-10 bg-white text-right outline-none border-none p-0 focus:ring-0 text-indigo-700 font-bold ${
             isUppercase ? "uppercase" : ""
           }`}
+          style={{
+            transform: "translateY(-50%)",
+            minWidth: "60px",
+            maxWidth: "70%",
+            background: "white",
+          }}
         />
       ) : (
-        <div
-          className={`font-bold text-gray-800 leading-relaxed ${
+        <span
+          className={`absolute right-0 top-1/2 z-10 bg-white px-1 font-bold text-gray-800 leading-relaxed ${
             isUppercase ? "uppercase" : ""
           }`}
+          style={{
+            transform: "translateY(-50%)",
+            minWidth: "60px",
+            maxWidth: "70%",
+            textAlign: "right",
+          }}
         >
           {value || "-"}
-        </div>
+        </span>
       )}
     </div>
   </div>
