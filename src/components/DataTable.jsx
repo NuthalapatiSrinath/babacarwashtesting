@@ -21,6 +21,9 @@ const DataTable = ({
   onLimitChange,
   onSearch,
 
+  // New prop to control search visibility
+  hideSearch = false,
+
   actionButton,
   renderExpandedRow,
 }) => {
@@ -106,15 +109,18 @@ const DataTable = ({
         </div>
 
         <div className="flex gap-2 items-center w-full sm:w-auto">
-          <div className="relative flex-1 sm:flex-none">
-            <Search className="w-5 h-5 absolute left-3 top-3 text-slate-400" />
-            <input
-              placeholder="Search..."
-              defaultValue={isServer ? "" : localSearch}
-              onChange={handleSearch}
-              className="pl-10 pr-4 py-2.5 bg-slate-50 border rounded-lg text-base md:text-sm w-full sm:w-[240px] outline-none focus:border-indigo-500 transition-colors"
-            />
-          </div>
+          {/* Only render search input if hideSearch is false */}
+          {!hideSearch && (
+            <div className="relative flex-1 sm:flex-none">
+              <Search className="w-5 h-5 absolute left-3 top-3 text-slate-400" />
+              <input
+                placeholder="Search..."
+                defaultValue={isServer ? "" : localSearch}
+                onChange={handleSearch}
+                className="pl-10 pr-4 py-2.5 bg-slate-50 border rounded-lg text-base md:text-sm w-full sm:w-[240px] outline-none focus:border-indigo-500 transition-colors"
+              />
+            </div>
+          )}
           {actionButton}
         </div>
       </div>
