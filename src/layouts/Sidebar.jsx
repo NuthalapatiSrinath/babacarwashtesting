@@ -386,7 +386,7 @@ const NavItem = ({ to, icon: Icon, label, onClick, isMobile }) => (
         `flex items-center px-4 py-3.5 rounded-lg mb-1 transition-all duration-200 group/item relative overflow-hidden
         ${
           isActive
-            ? "bg-primary-light text-primary-text font-semibold shadow-sm"
+            ? "bg-primary text-white font-semibold shadow-sm" // Changed: Solid Blue Background, White Text
             : "text-text-sub hover:bg-page hover:text-text-main"
         }`
       }
@@ -394,13 +394,14 @@ const NavItem = ({ to, icon: Icon, label, onClick, isMobile }) => (
       {({ isActive }) => (
         <>
           {isActive && (
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
+            // Changed: White indicator to contrast with blue background
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white rounded-r-full" />
           )}
 
           <Icon
             className={`w-5 h-5 mr-3 shrink-0 ${
               isActive
-                ? "text-primary"
+                ? "text-white" // Changed: White Icon
                 : "text-text-sub group-hover/item:text-primary"
             }`}
           />

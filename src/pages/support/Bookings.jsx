@@ -123,8 +123,8 @@ const Bookings = () => {
           <span
             className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs"
             style={{
-              background: "var(--color-primary)",
-              color: "var(--color-text-inverse)",
+              background: "#2563eb", // Blue-600
+              color: "#ffffff",
             }}
           >
             {row.id || (currentPage - 1) * pagination.limit + idx + 1}
@@ -138,7 +138,7 @@ const Bookings = () => {
       render: (row) => (
         <span
           className="font-semibold text-sm"
-          style={{ color: "var(--color-text-main)" }}
+          style={{ color: "#111827" }} // Gray-900
         >
           {row.customer?.mobile || ""}
         </span>
@@ -164,11 +164,11 @@ const Bookings = () => {
               <div className="flex items-center gap-1.5">
                 <Calendar
                   className="w-3.5 h-3.5"
-                  style={{ color: "var(--color-primary)" }}
+                  style={{ color: "#2563eb" }} // Blue-600
                 />
                 <span
                   className="text-sm font-medium"
-                  style={{ color: "var(--color-text-main)" }}
+                  style={{ color: "#111827" }} // Gray-900
                 >
                   {dateObj.toLocaleDateString("en-US", {
                     month: "short",
@@ -182,11 +182,11 @@ const Bookings = () => {
               <div className="flex items-center gap-1.5">
                 <Clock
                   className="w-3.5 h-3.5"
-                  style={{ color: "var(--color-primary)" }}
+                  style={{ color: "#2563eb" }} // Blue-600
                 />
                 <span
                   className="text-xs"
-                  style={{ color: "var(--color-text-sub)" }}
+                  style={{ color: "#6b7280" }} // Gray-500
                 >
                   {timeStr}
                 </span>
@@ -205,18 +205,18 @@ const Bookings = () => {
             <>
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: "var(--color-success)" }}
+                style={{ background: "#16a34a" }} // Green-600
               >
                 <span
                   className="font-bold text-xs"
-                  style={{ color: "var(--color-text-inverse)" }}
+                  style={{ color: "#ffffff" }}
                 >
                   {row.worker.name?.charAt(0).toUpperCase()}
                 </span>
               </div>
               <span
                 className="font-semibold text-sm"
-                style={{ color: "var(--color-text-main)" }}
+                style={{ color: "#111827" }} // Gray-900
               >
                 {row.worker.name}
               </span>
@@ -225,16 +225,16 @@ const Bookings = () => {
             <>
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: "var(--color-input-bg)" }}
+                style={{ background: "#f3f4f6" }} // Gray-100
               >
                 <User
                   className="w-4 h-4"
-                  style={{ color: "var(--color-text-muted)" }}
+                  style={{ color: "#9ca3af" }} // Gray-400
                 />
               </div>
               <span
                 className="italic text-sm"
-                style={{ color: "var(--color-text-muted)" }}
+                style={{ color: "#9ca3af" }} // Gray-400
               >
                 Unassigned
               </span>
@@ -262,11 +262,11 @@ const Bookings = () => {
           <div className="flex items-start gap-2 max-w-[250px]">
             <MapPin
               className="w-4 h-4 mt-0.5 flex-shrink-0"
-              style={{ color: "var(--color-danger)" }}
+              style={{ color: "#dc2626" }} // Red-600
             />
             <span
               className="text-sm leading-tight break-words whitespace-normal"
-              style={{ color: "var(--color-text-sub)" }}
+              style={{ color: "#4b5563" }} // Gray-600
             >
               {premiseName}
             </span>
@@ -284,14 +284,14 @@ const Bookings = () => {
           <div className="flex items-center gap-2">
             <Package
               className="w-3.5 h-3.5"
-              style={{ color: "var(--color-primary)" }}
+              style={{ color: "#2563eb" }} // Blue-600
             />
             <span
               className="px-2.5 py-1 rounded-full text-xs font-semibold border capitalize"
               style={{
-                background: "var(--color-primary-light)",
-                color: "var(--color-primary-text)",
-                borderColor: "var(--color-border)",
+                background: "#eff6ff", // Blue-50
+                color: "#1e40af", // Blue-800
+                borderColor: "#bfdbfe", // Blue-200
               }}
             >
               {service}
@@ -308,7 +308,7 @@ const Bookings = () => {
           return (
             <span
               className="text-xs italic"
-              style={{ color: "var(--color-text-muted)" }}
+              style={{ color: "#9ca3af" }} // Gray-400
             >
               Unknown
             </span>
@@ -329,11 +329,11 @@ const Bookings = () => {
             <div className="flex items-center gap-2">
               <Car
                 className="w-4 h-4"
-                style={{ color: "var(--color-text-muted)" }}
+                style={{ color: "#9ca3af" }} // Gray-400
               />
               <span
                 className="text-sm font-medium capitalize"
-                style={{ color: "var(--color-text-main)" }}
+                style={{ color: "#111827" }} // Gray-900
               >
                 {vType}
               </span>
@@ -342,9 +342,9 @@ const Bookings = () => {
               <span
                 className="text-xs font-mono font-bold px-2 py-0.5 rounded border"
                 style={{
-                  color: "var(--color-text-main)",
-                  background: "var(--color-input-bg)",
-                  borderColor: "var(--color-border)",
+                  color: "#111827", // Gray-900
+                  background: "#f3f4f6", // Gray-100
+                  borderColor: "#e5e7eb", // Gray-200
                 }}
               >
                 {regNo}
@@ -361,18 +361,18 @@ const Bookings = () => {
         const status = (row.status || "PENDING").toUpperCase();
 
         let badgeStyle = {
-          background: "var(--color-primary-light)",
-          color: "var(--color-primary-text)",
-          borderColor: "var(--color-primary)",
+          background: "#eff6ff", // Blue-50
+          color: "#1e40af", // Blue-800
+          borderColor: "#2563eb", // Blue-600
         };
-        let dotStyle = { background: "var(--color-primary)" };
+        let dotStyle = { background: "#2563eb" };
         if (status === "ACCEPTED" || status === "COMPLETED") {
           badgeStyle = {
-            background: "var(--color-success-bg)",
-            color: "var(--color-success)",
-            borderColor: "var(--color-success)",
+            background: "#f0fdf4", // Green-50
+            color: "#16a34a", // Green-600
+            borderColor: "#16a34a",
           };
-          dotStyle = { background: "var(--color-success)" };
+          dotStyle = { background: "#16a34a" };
         }
 
         return (
@@ -398,16 +398,16 @@ const Bookings = () => {
         <div
           className="flex items-center justify-end gap-2 pr-4"
           style={{
-            background: "var(--color-card)",
-            boxShadow: "-10px 0 10px -10px var(--shadow-color)",
+            background: "#ffffff",
+            boxShadow: "-10px 0 10px -10px rgba(0,0,0,0.1)",
           }}
         >
           <button
             onClick={() => handleOpenAssign(row)}
             className="group p-2 rounded-lg transition-all shadow-sm hover:shadow"
             style={{
-              background: "var(--color-primary-light)",
-              color: "var(--color-primary)",
+              background: "#eff6ff", // Blue-50
+              color: "#2563eb", // Blue-600
             }}
             title="Assign Worker"
           >
@@ -419,8 +419,8 @@ const Bookings = () => {
               onClick={() => handleAccept(row)}
               className="group p-2 rounded-lg transition-all shadow-sm hover:shadow"
               style={{
-                background: "var(--color-success-bg)",
-                color: "var(--color-success)",
+                background: "#f0fdf4", // Green-50
+                color: "#16a34a", // Green-600
               }}
               title="Accept"
             >
@@ -432,8 +432,8 @@ const Bookings = () => {
             onClick={() => handleDelete(row)}
             className="group p-2 rounded-lg transition-all shadow-sm hover:shadow"
             style={{
-              background: "var(--color-danger-bg)",
-              color: "var(--color-danger)",
+              background: "#fef2f2", // Red-50
+              color: "#dc2626", // Red-600
             }}
             title="Delete"
           >
