@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Download,
@@ -20,11 +20,66 @@ const WorkRecords = () => {
 
   // Default to Current Date
   const today = new Date();
+
   const [filters, setFilters] = useState({
-    serviceType: "onewash", // Default
+    serviceType: "residence", // ✅ CHANGE 1: Default to Residence
     month: today.getMonth() + 1, // Keep UI 1-12
     year: today.getFullYear(),
   });
+
+  // --- MONTH LOGIC ---
+  const availableMonths = useMemo(() => {
+    const allMonths = [
+      { value: 1, label: "January" },
+      { value: 2, label: "February" },
+      { value: 3, label: "March" },
+      { value: 4, label: "April" },
+      { value: 5, label: "May" },
+      { value: 6, label: "June" },
+      { value: 7, label: "July" },
+      { value: 8, label: "August" },
+      { value: 9, label: "September" },
+      { value: 10, label: "October" },
+      { value: 11, label: "November" },
+      { value: 12, label: "December" },
+    ];
+
+    // ✅ CHANGE 2: For OneWash, only show months that are strictly "Over" (Past)
+    if (filters.serviceType === "onewash") {
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth() + 1; // 1-12
+      const selectedYear = Number(filters.year);
+
+      return allMonths.filter((m) => {
+        // If selected year is in the past (e.g., 2025), all months are valid
+        if (selectedYear < currentYear) return true;
+
+        // If selected year is future, no months are valid
+        if (selectedYear > currentYear) return false;
+
+        // If selected year is current year (2026), only show past months
+        // e.g. If current is Jan (1), m.value < 1 is false for all. Correct.
+        return m.value < currentMonth;
+      });
+    }
+
+    // For Residence, show all months
+    return allMonths;
+  }, [filters.serviceType, filters.year]);
+
+  // Safety Effect: If current selected month becomes invalid (hidden), reset it
+  useEffect(() => {
+    const isCurrentMonthValid = availableMonths.some(
+      (m) => m.value === Number(filters.month)
+    );
+    if (!isCurrentMonthValid && availableMonths.length > 0) {
+      // Auto-select the last available month (e.g. December of previous year)
+      setFilters((prev) => ({
+        ...prev,
+        month: availableMonths[availableMonths.length - 1].value,
+      }));
+    }
+  }, [availableMonths, filters.month]);
 
   const handleFilterChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
@@ -46,7 +101,7 @@ const WorkRecords = () => {
       ).unwrap();
       const blob = result.blob;
 
-      // 2. Check if file is valid (sometimes empty blobs return on error)
+      // 2. Check if file is valid
       if (blob.size < 100) {
         console.warn("File size is very small, might be empty.");
       }
@@ -72,22 +127,6 @@ const WorkRecords = () => {
       });
     }
   };
-
-  // --- STATIC OPTIONS ---
-  const months = [
-    { value: 1, label: "January" },
-    { value: 2, label: "February" },
-    { value: 3, label: "March" },
-    { value: 4, label: "April" },
-    { value: 5, label: "May" },
-    { value: 6, label: "June" },
-    { value: 7, label: "July" },
-    { value: 8, label: "August" },
-    { value: 9, label: "September" },
-    { value: 10, label: "October" },
-    { value: 11, label: "November" },
-    { value: 12, label: "December" },
-  ];
 
   const years = [2024, 2025, 2026, 2027];
 
@@ -133,33 +172,10 @@ const WorkRecords = () => {
                   onChange={handleFilterChange}
                   className="w-full h-12 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium rounded-xl pl-11 pr-8 appearance-none outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all cursor-pointer shadow-sm"
                 >
-                  <option value="onewash">Onewash</option>
                   <option value="residence">Residence</option>
+                  <option value="onewash">Onewash</option>
                 </select>
                 <Layers className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                <ChevronDown className="absolute right-3 top-4 w-4 h-4 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
-
-            {/* Month */}
-            <div className="relative group">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block ml-1">
-                Month
-              </label>
-              <div className="relative">
-                <select
-                  name="month"
-                  value={filters.month}
-                  onChange={handleFilterChange}
-                  className="w-full h-12 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium rounded-xl pl-11 pr-8 appearance-none outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all cursor-pointer shadow-sm"
-                >
-                  {months.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-                <Calendar className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
                 <ChevronDown className="absolute right-3 top-4 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
             </div>
@@ -187,11 +203,38 @@ const WorkRecords = () => {
               </div>
             </div>
 
+            {/* Month */}
+            <div className="relative group">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block ml-1">
+                Month
+              </label>
+              <div className="relative">
+                <select
+                  name="month"
+                  value={filters.month}
+                  onChange={handleFilterChange}
+                  className="w-full h-12 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium rounded-xl pl-11 pr-8 appearance-none outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all cursor-pointer shadow-sm"
+                >
+                  {availableMonths.length > 0 ? (
+                    availableMonths.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>No valid months</option>
+                  )}
+                </select>
+                <Calendar className="absolute left-3.5 top-3.5 w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                <ChevronDown className="absolute right-3 top-4 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
             {/* Download Button */}
             <div>
               <button
                 onClick={handleDownload}
-                disabled={downloading}
+                disabled={downloading || availableMonths.length === 0}
                 className="w-full h-12 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl shadow-indigo-200 hover:shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {downloading ? (

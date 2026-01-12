@@ -11,15 +11,16 @@ import {
   Car,
   User,
   Calendar,
+  Filter,
+  Search,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
 // Components
 import DataTable from "../../components/DataTable";
 import EnquiryModal from "../../components/modals/EnquiryModal";
-import EnquiryFilterBar from "../../components/filters/EnquiryFilterBar";
 import DeleteModal from "../../components/modals/DeleteModal";
-// Note: Added DeleteModal import assuming it exists based on other files
+import RichDateRangePicker from "../../components/inputs/RichDateRangePicker"; // Ensure this import exists
 
 // Redux
 import {
@@ -29,17 +30,39 @@ import {
   clearSelectedEnquiry,
   clearError,
 } from "../../redux/slices/enquirySlice";
+import { fetchWorkers } from "../../redux/slices/workerSlice"; // Added to populate worker dropdown
 
 const Enquiry = () => {
   // Redux State
   const dispatch = useDispatch();
   const { enquiries, loading, error, total, currentPage, totalPages } =
     useSelector((state) => state.enquiry);
+  const { workers } = useSelector((state) => state.worker);
+
+  // --- Dates Helper ---
+  // Default to current month range or similar if needed, here mostly empty defaults
+  const getInitialDates = () => {
+    const today = new Date();
+    // Default to Last 30 Days if you want initial data filtered, else empty
+    // const start = new Date(); start.setDate(today.getDate() - 30);
+    return {
+      startDate: "", // or start.toISOString()
+      endDate: "", // or today.toISOString()
+    };
+  };
 
   // Local UI State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clientSearchTerm, setClientSearchTerm] = useState("");
-  const [activeFilters, setActiveFilters] = useState({});
+
+  // Instant Filters State
+  const [filters, setFilters] = useState({
+    startDate: "",
+    endDate: "",
+    status: "",
+    worker: "",
+  });
+
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 50,
@@ -50,16 +73,23 @@ const Enquiry = () => {
   const [enquiryToDelete, setEnquiryToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Fetch data on mount and when pagination/filters change
+  // --- INITIAL DATA FETCH ---
+  useEffect(() => {
+    // Fetch workers for the dropdown
+    dispatch(fetchWorkers({ page: 1, limit: 1000, status: 1 }));
+  }, [dispatch]);
+
+  // --- MAIN FETCH EFFECT (Instant) ---
+  // Triggers whenever Pagination or Filters change
   useEffect(() => {
     dispatch(
       fetchEnquiries({
         page: pagination.page,
         limit: pagination.limit,
-        filters: activeFilters,
+        filters: filters, // Pass the active filters directly
       })
     );
-  }, [dispatch, pagination.page, pagination.limit, activeFilters]);
+  }, [dispatch, pagination.page, pagination.limit, filters]);
 
   // Handle errors from Redux
   useEffect(() => {
@@ -69,7 +99,7 @@ const Enquiry = () => {
     }
   }, [error, dispatch]);
 
-  // --- Client-Side Search ---
+  // --- Client-Side Search (Filters the FETCHED page) ---
   const filteredData = useMemo(() => {
     if (!clientSearchTerm) return enquiries;
     const lowerTerm = clientSearchTerm.toLowerCase();
@@ -82,12 +112,23 @@ const Enquiry = () => {
   }, [enquiries, clientSearchTerm]);
 
   // --- Handlers ---
-  const handleClientSearch = (term) => setClientSearchTerm(term);
 
-  const handleFilterApply = (newFilters) => {
-    setActiveFilters(newFilters);
-    setPagination({ ...pagination, page: 1 });
+  // Instant Filter Handlers
+  const handleDateChange = (field, value) => {
+    if (field === "clear") {
+      setFilters((prev) => ({ ...prev, startDate: "", endDate: "" }));
+    } else {
+      setFilters((prev) => ({ ...prev, [field]: value }));
+    }
+    setPagination((prev) => ({ ...prev, page: 1 })); // Reset to page 1 on filter change
   };
+
+  const handleFilterChange = (e) => {
+    setFilters((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setPagination((prev) => ({ ...prev, page: 1 })); // Reset to page 1 on filter change
+  };
+
+  const handleClientSearch = (term) => setClientSearchTerm(term);
 
   const handlePageChange = (newPage) => {
     setPagination({ ...pagination, page: newPage });
@@ -119,6 +160,15 @@ const Enquiry = () => {
       await dispatch(deleteEnquiry(enquiryToDelete._id)).unwrap();
       toast.success("Enquiry deleted successfully");
       setIsDeleteModalOpen(false);
+      // Re-fetch handled by useEffect dependency on enquiry slice update usually,
+      // or force re-fetch if needed:
+      dispatch(
+        fetchEnquiries({
+          page: pagination.page,
+          limit: pagination.limit,
+          filters,
+        })
+      );
     } catch (error) {
       toast.error(error || "Delete failed");
     } finally {
@@ -133,7 +183,7 @@ const Enquiry = () => {
       fetchEnquiries({
         page: pagination.page,
         limit: pagination.limit,
-        filters: activeFilters,
+        filters: filters,
       })
     );
   };
@@ -296,20 +346,93 @@ const Enquiry = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6 font-sans">
       {/* --- TABLE SECTION --- */}
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-        {/* Integrated Filter Bar Area */}
-        <div className="border-b border-gray-100 bg-slate-50/50 p-4">
-          <EnquiryFilterBar
-            onFilterApply={handleFilterApply}
-            loading={loading}
-          />
+        {/* --- INTEGRATED FILTER BAR --- */}
+        <div className="border-b border-gray-100 bg-slate-50/50 p-5">
+          <div className="flex flex-col lg:flex-row gap-4 items-end">
+            {/* 1. Date Range Picker */}
+            <div className="w-full lg:w-auto min-w-[280px]">
+              <label className="text-xs font-bold text-slate-500 uppercase mb-1.5 block ml-1">
+                Date Range
+              </label>
+              <RichDateRangePicker
+                startDate={filters.startDate}
+                endDate={filters.endDate}
+                onChange={handleDateChange}
+              />
+            </div>
+
+            {/* 2. Filters Wrapper */}
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+              {/* Status Filter */}
+              <div className="relative group">
+                <label className="text-xs font-bold text-slate-500 uppercase mb-1.5 block ml-1">
+                  Status
+                </label>
+                <div className="relative">
+                  <select
+                    name="status"
+                    value={filters.status}
+                    onChange={handleFilterChange}
+                    className="w-full h-11 bg-white border border-slate-200 rounded-xl px-4 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                  <Filter className="absolute right-3.5 top-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Worker Filter */}
+              <div className="relative group">
+                <label className="text-xs font-bold text-slate-500 uppercase mb-1.5 block ml-1">
+                  Assigned Worker
+                </label>
+                <div className="relative">
+                  <select
+                    name="worker"
+                    value={filters.worker}
+                    onChange={handleFilterChange}
+                    className="w-full h-11 bg-white border border-slate-200 rounded-xl px-4 text-sm font-medium text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="">All Workers</option>
+                    {workers.map((w) => (
+                      <option key={w._id} value={w._id}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+                  <User className="absolute right-3.5 top-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Search Bar */}
+            <div className="w-full lg:w-72">
+              <label className="text-xs font-bold text-slate-500 uppercase mb-1.5 block ml-1">
+                Search Table
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search mobile, vehicle..."
+                  value={clientSearchTerm}
+                  onChange={(e) => setClientSearchTerm(e.target.value)}
+                  className="w-full h-11 pl-10 pr-4 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
+        {/* --- DATATABLE --- */}
         <DataTable
           title="Enquiries"
           columns={columns}
           data={filteredData}
           loading={loading}
-          // Pagination props
           pagination={{
             page: currentPage,
             limit: pagination.limit,
@@ -318,9 +441,14 @@ const Enquiry = () => {
           }}
           onPageChange={handlePageChange}
           onLimitChange={handleLimitChange}
-          // Search & Action Button
-          onSearch={handleClientSearch}
-          searchPlaceholder="Search mobile, vehicle..."
+          // We removed the inner Search from DataTable by passing hideSearch={true} if needed,
+          // or we just use the one we built above.
+          // Since DataTable usually has its own search props, we can pass null or handle it.
+          // In your provided code, `onSearch={handleClientSearch}` was passed.
+          // Since we built a custom search bar above, we can pass hideSearch to DataTable if supported,
+          // OR just pass the handler to DataTable if you prefer the search inside the table header.
+          // Based on your UI request ("Full page code"), I put a nice search bar in the filter section above.
+          hideSearch={true}
           actionButton={
             <button
               onClick={handleCreate}
@@ -344,7 +472,6 @@ const Enquiry = () => {
         onSuccess={handleModalSuccess}
       />
 
-      {/* Added generic DeleteModal to match style consistency */}
       <DeleteModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
