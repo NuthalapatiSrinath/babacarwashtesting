@@ -4,8 +4,7 @@ import { X, ExternalLink } from "lucide-react";
 const DocumentPreviewModal = ({ isOpen, onClose, documentUrl, title }) => {
   if (!isOpen) return null;
 
-  // documentUrl is now the direct Cloudinary URL
-  const fullUrl = documentUrl;
+  console.log(`[PreviewModal] Rendering URL: ${documentUrl}`);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4">
@@ -17,7 +16,7 @@ const DocumentPreviewModal = ({ isOpen, onClose, documentUrl, title }) => {
           </div>
           <div className="flex items-center gap-2">
             <a
-              href={fullUrl}
+              href={documentUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
@@ -35,11 +34,13 @@ const DocumentPreviewModal = ({ isOpen, onClose, documentUrl, title }) => {
         </div>
 
         {/* Document Viewer */}
-        <div className="flex-1 bg-gray-100 overflow-hidden">
+        <div className="flex-1 bg-gray-100 overflow-hidden relative">
+          {/* IFrame to render PDF from secure proxy */}
           <iframe
-            src={fullUrl}
+            src={documentUrl}
             className="w-full h-full border-0"
             title={title}
+            onError={(e) => console.error("Iframe Error:", e)}
           />
         </div>
       </div>

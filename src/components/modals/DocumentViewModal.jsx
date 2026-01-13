@@ -5,7 +5,7 @@ const DocumentViewModal = ({
   isOpen,
   onClose,
   staff,
-  getDocumentUrl,
+  getDocumentUrl, // Kept primarily for prop consistency
   onViewDocument,
 }) => {
   if (!isOpen || !staff) return null;
@@ -48,9 +48,10 @@ const DocumentViewModal = ({
   };
 
   const openDocument = (docType) => {
+    console.log(`[DocumentViewModal] Request to view: ${docType}`);
     if (onViewDocument) {
       onViewDocument(staff._id, docType, staff.name);
-      onClose(); // Close the documents list modal
+      onClose();
     }
   };
 
@@ -148,7 +149,6 @@ const DocumentViewModal = ({
                             </span>
                           </div>
                         )}
-
                         {doc.expiry && (
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium text-gray-500 w-20">
@@ -159,7 +159,6 @@ const DocumentViewModal = ({
                             </span>
                           </div>
                         )}
-
                         {hasDoc && (
                           <>
                             <div className="flex items-center gap-2">

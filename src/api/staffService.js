@@ -1,163 +1,158 @@
 import api from "./axiosInstance";
 
 export const staffService = {
-  // =========================
-  // LIST STAFF
-  // =========================
   list: async (page = 1, limit = 10, search = "") => {
+    console.log(
+      `[StaffService] List Request -> Page: ${page}, Limit: ${limit}, Search: "${search}"`
+    );
     try {
       const response = await api.get("/admin/staff", {
         params: { page, limit, search },
       });
+      console.log("[StaffService] List Success ->", response.data);
       return response.data;
     } catch (error) {
-      console.error("[StaffService] List error:", error);
+      console.error("[StaffService] List Error:", error);
       throw error;
     }
   },
 
-  // =========================
-  // CREATE STAFF
-  // =========================
   create: async (data) => {
+    console.log("[StaffService] Create Request ->", data);
     try {
       const response = await api.post("/admin/staff", data);
+      console.log("[StaffService] Create Success ->", response.data);
       return response.data;
     } catch (error) {
-      console.error("[StaffService] Create error:", error);
+      console.error("[StaffService] Create Error:", error);
       throw error;
     }
   },
 
-  // =========================
-  // UPDATE STAFF
-  // =========================
   update: async (id, data) => {
+    console.log(`[StaffService] Update Request -> ID: ${id}`, data);
     try {
       const response = await api.put(`/admin/staff/${id}`, data);
+      console.log("[StaffService] Update Success ->", response.data);
       return response.data;
     } catch (error) {
-      console.error("[StaffService] Update error:", error);
+      console.error("[StaffService] Update Error:", error);
       throw error;
     }
   },
 
-  // =========================
-  // DELETE STAFF
-  // =========================
-  delete: async (id) => {
+  delete: async (id, reason = "") => {
+    console.log(
+      `[StaffService] Delete Request -> ID: ${id}, Reason: "${reason}"`
+    );
     try {
-      const response = await api.delete(`/admin/staff/${id}`);
+      const response = await api.delete(`/admin/staff/${id}`, {
+        data: { reason },
+      });
+      console.log("[StaffService] Delete Success ->", response.data);
       return response.data;
     } catch (error) {
-      console.error("[StaffService] Delete error:", error);
+      console.error(
+        "[StaffService] Delete Error:",
+        error.response?.data || error.message
+      );
       throw error;
     }
   },
 
-  // =========================
-  // UPLOAD DOCUMENT (PDF)
-  // ⚠️ DO NOT SET CONTENT-TYPE
-  // =========================
   uploadDocument: async (id, file, documentType) => {
+    console.log(
+      `[StaffService] Upload Document Request -> ID: ${id}, Type: ${documentType}, File: ${file.name}`
+    );
     try {
       const formData = new FormData();
-      formData.append("file", file); // ✅ must be "file"
+      formData.append("file", file);
       formData.append("documentType", documentType);
 
       const response = await api.post(
         `/admin/staff/${id}/upload-document`,
-        formData
-        // ❌ DO NOT add headers here
-        // Axios will automatically set multipart boundary
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
       );
 
+      console.log("[StaffService] Upload Document Success ->", response.data);
       return response.data;
     } catch (error) {
-      console.error("[StaffService] Upload Document error:", error);
+      console.error("[StaffService] Upload Document Error:", error);
       throw error;
     }
   },
 
-  // =========================
-  // DELETE DOCUMENT
-  // =========================
   deleteDocument: async (id, documentType) => {
+    console.log(
+      `[StaffService] Delete Document Request -> ID: ${id}, Type: ${documentType}`
+    );
     try {
       const response = await api.delete(`/admin/staff/${id}/document`, {
         data: { documentType },
       });
+      console.log("[StaffService] Delete Document Success ->", response.data);
       return response.data;
     } catch (error) {
-      console.error("[StaffService] Delete Document error:", error);
+      console.error("[StaffService] Delete Document Error:", error);
       throw error;
     }
   },
 
-  // =========================
-  // GET DOCUMENT URL (VIEW)
-  // =========================
+  // ✅ GET DOCUMENT URL (Clean & Fixed)
   getDocumentUrl: (id, documentType) => {
-    return `/admin/staff/${id}/document/${documentType}`;
+    const token = localStorage.getItem("token") || "";
+    let baseUrl = api.defaults.baseURL || "http://localhost:3002";
+
+    // Normalize Base URL (Remove /api and trailing slashes)
+    baseUrl = baseUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
+
+    // Construct URL always with exactly one '/api'
+    const finalUrl = `${baseUrl}/api/admin/staff/${id}/document/${documentType}?token=${token}`;
+    console.log(`[StaffService] Generated Document URL -> ${finalUrl}`);
+    return finalUrl;
   },
 
-  // =========================
-  // DOWNLOAD TEMPLATE
-  // =========================
-  downloadTemplate: async () => {
-    try {
-      const response = await api.get("/admin/staff/template", {
-        responseType: "blob",
-      });
-      return response.data;
-    } catch (error) {
-      console.error("[StaffService] Download Template error:", error);
-      throw error;
-    }
-  },
+  // NOTE: downloadTemplate removed (Moved to Frontend Staff.jsx)
 
-  // =========================
-  // EXPORT DATA (XLSX)
-  // =========================
   exportData: async () => {
+    console.log("[StaffService] Export Data Request");
     try {
       const response = await api.get("/admin/staff/export", {
         responseType: "blob",
       });
+      console.log("[StaffService] Export Data Success");
       return response.data;
     } catch (error) {
-      console.error("[StaffService] Export Data error:", error);
+      console.error("[StaffService] Export Data Error:", error);
       throw error;
     }
   },
 
-  // =========================
-  // IMPORT DATA (XLSX)
-  // ⚠️ DO NOT SET CONTENT-TYPE
-  // =========================
   importData: async (formData) => {
+    console.log("[StaffService] Import Data Request");
     try {
-      const response = await api.post(
-        "/admin/staff/import",
-        formData
-        // ❌ DO NOT add headers here
-      );
+      const response = await api.post("/admin/staff/import", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      console.log("[StaffService] Import Data Success ->", response.data);
       return response.data;
     } catch (error) {
-      console.error("[StaffService] Import Data error:", error);
+      console.error("[StaffService] Import Data Error:", error);
       throw error;
     }
   },
 
-  // =========================
-  // EXPIRING DOCUMENTS
-  // =========================
   getExpiringDocuments: async () => {
+    console.log("[StaffService] Get Expiring Request");
     try {
       const response = await api.get("/admin/staff/expiring");
+      console.log("[StaffService] Get Expiring Success ->", response.data);
       return response.data;
     } catch (error) {
-      console.error("[StaffService] Get Expiring Documents error:", error);
+      console.error("[StaffService] Get Expiring Error:", error);
       throw error;
     }
   },
