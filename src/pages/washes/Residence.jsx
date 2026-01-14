@@ -16,6 +16,7 @@ import {
   Phone,
   Building2,
   Loader2,
+  Users, // Added icon for Customer
 } from "lucide-react";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx"; // Requires: npm install xlsx
@@ -30,6 +31,7 @@ import CustomDropdown from "../../components/ui/CustomDropdown";
 import { jobService } from "../../api/jobService";
 import { workerService } from "../../api/workerService";
 import { buildingService } from "../../api/buildingService";
+import { customerService } from "../../api/customerService"; // ✅ Added Customer Service
 
 const Residence = () => {
   const [loading, setLoading] = useState(false);
@@ -37,6 +39,7 @@ const Residence = () => {
   const [data, setData] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [buildings, setBuildings] = useState([]);
+  const [customers, setCustomers] = useState([]); // ✅ Added Customers State
 
   // --- DATE HELPERS ---
   const formatDateLocal = (date) => {
@@ -61,6 +64,7 @@ const Residence = () => {
     worker: "",
     status: "",
     building: "",
+    customer: "", // ✅ Added Customer Filter
   });
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -83,6 +87,8 @@ const Residence = () => {
         setWorkers(wRes.data || []);
         const bRes = await buildingService.list(1, 1000);
         setBuildings(bRes.data || []);
+        const cRes = await customerService.list(1, 1000); // ✅ Fetch Customers
+        setCustomers(cRes.data || []);
       } catch (e) {
         console.error(e);
       }
@@ -158,6 +164,7 @@ const Residence = () => {
     const vehicleReg = row.vehicle?.registration_no?.toLowerCase() || "";
     const parkingNo = row.vehicle?.parking_no?.toString().toLowerCase() || "";
     const mobile = row.customer?.mobile?.toLowerCase() || "";
+    const customerName = row.customer?.name?.toLowerCase() || ""; // ✅ Added Customer Name search
     const buildingName = row.building?.name?.toLowerCase() || "";
     const workerName = row.worker?.name?.toLowerCase() || "";
 
@@ -165,6 +172,7 @@ const Residence = () => {
       vehicleReg.includes(lowerTerm) ||
       parkingNo.includes(lowerTerm) ||
       mobile.includes(lowerTerm) ||
+      customerName.includes(lowerTerm) ||
       buildingName.includes(lowerTerm) ||
       workerName.includes(lowerTerm)
     );
@@ -241,6 +249,7 @@ const Residence = () => {
       const detailedData = exportData.map((item) => ({
         ID: item.id,
         Date: new Date(item.assignedDate).toLocaleDateString(),
+        "Customer Name": item.customer?.name || "-", // ✅ Added to export
         Customer: item.customer?.mobile || "-",
         Building: item.building?.name || "-",
         Vehicle: item.vehicle?.registration_no || "-",
@@ -327,6 +336,15 @@ const Residence = () => {
     return options;
   }, [workers]);
 
+  // ✅ Customer Options Memo
+  const customerOptions = useMemo(() => {
+    const options = [{ value: "", label: "All Customers" }];
+    customers.forEach((c) =>
+      options.push({ value: c._id, label: c.name || c.mobile })
+    );
+    return options;
+  }, [customers]);
+
   // --- Columns ---
   const columns = [
     {
@@ -406,6 +424,21 @@ const Residence = () => {
         );
       },
     },
+    // ✅ Added Customer Name Column
+    {
+      header: "Customer",
+      accessor: "customer.name",
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-bold border border-indigo-200">
+            {row.customer?.name?.[0] || "C"}
+          </div>
+          <span className="text-sm text-slate-700 font-medium">
+            {row.customer?.name || "Unknown"}
+          </span>
+        </div>
+      ),
+    },
     {
       header: "Vehicle Details",
       accessor: "vehicle.registration_no",
@@ -427,7 +460,7 @@ const Residence = () => {
       ),
     },
     {
-      header: "Building / Customer",
+      header: "Building / Contact",
       accessor: "building.name",
       render: (row) => (
         <div className="flex flex-col">
@@ -538,7 +571,8 @@ const Residence = () => {
             />
           </div>
 
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+          {/* ✅ UPDATED GRID: Added Customer Filter */}
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 w-full">
             <div>
               <CustomDropdown
                 label="Status"
@@ -568,6 +602,18 @@ const Residence = () => {
                 options={workerOptions}
                 icon={User}
                 placeholder="All Workers"
+                searchable={true}
+              />
+            </div>
+            <div>
+              {/* ✅ Customer Filter */}
+              <CustomDropdown
+                label="Customer"
+                value={filters.customer}
+                onChange={(val) => setFilters({ ...filters, customer: val })}
+                options={customerOptions}
+                icon={Users}
+                placeholder="All Customers"
                 searchable={true}
               />
             </div>

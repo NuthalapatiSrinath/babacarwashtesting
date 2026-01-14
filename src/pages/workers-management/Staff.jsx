@@ -20,16 +20,12 @@ import {
   Eye,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx"; // ✅ Required for Frontend Template
-
-// Components
+import * as XLSX from "xlsx";
 import DataTable from "../../components/DataTable";
 import StaffModal from "../../components/modals/StaffModal";
 import DeleteModal from "../../components/modals/DeleteModal";
 import DocumentViewModal from "../../components/modals/DocumentViewModal";
 import DocumentPreviewModal from "../../components/modals/DocumentPreviewModal";
-
-// API
 import { staffService } from "../../api/staffService";
 
 const Staff = () => {
@@ -60,7 +56,7 @@ const Staff = () => {
     totalPages: 1,
   });
 
-  // --- SAFE HELPERS ---
+  // Helpers
   const safeDate = (dateVal) => {
     if (!dateVal) return "-";
     try {
@@ -84,7 +80,7 @@ const Staff = () => {
   };
   const isExpired = (dateVal) => dateVal && new Date(dateVal) < new Date();
 
-  // --- Fetch Data ---
+  // Fetch Data
   const fetchData = async (page = 1, limit = 10, search = "") => {
     setLoading(true);
     setCurrentSearch(search);
@@ -108,7 +104,7 @@ const Staff = () => {
     fetchData(pagination.page, pagination.limit);
   }, []);
 
-  // --- Handlers ---
+  // Handlers
   const handleAdd = () => {
     setSelectedStaff(null);
     setIsModalOpen(true);
@@ -153,7 +149,7 @@ const Staff = () => {
     }
   };
 
-  // ✅ FRONTEND-ONLY TEMPLATE GENERATION
+  // ✅ TEMPLATE
   const handleDownloadTemplate = () => {
     const dummyData = [
       {
@@ -175,9 +171,10 @@ const Staff = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
     XLSX.writeFile(workbook, "Staff_Import_Template.xlsx");
-    toast.success("Template Downloaded");
+    toast.success("Template Downloaded", { duration: 3000 }); // ✅ Auto-dismiss
   };
 
+  // ✅ EXPORT
   const handleExportServerSide = async () => {
     const toastId = toast.loading("Exporting...");
     try {
@@ -185,36 +182,42 @@ const Staff = () => {
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `staff_export.xlsx`);
+      link.setAttribute("download", `staff_export_${Date.now()}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
-      toast.success("Done", { id: toastId });
+      toast.success("Done", { id: toastId, duration: 4000 }); // ✅ Updates loader & dismisses
     } catch {
-      toast.error("Export Failed", { id: toastId });
+      toast.error("Export Failed", { id: toastId, duration: 4000 });
     }
   };
 
+  // ✅ IMPORT
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = null;
     setImportLoading(true);
+
     const toastId = toast.loading("Importing...");
     const formData = new FormData();
     formData.append("file", file);
+
     try {
       const res = await staffService.importData(formData);
-      toast.success(`Imported ${res.results.success} records`, { id: toastId });
+      toast.success(`Imported ${res.results.success} records`, {
+        id: toastId,
+        duration: 4000,
+      }); // ✅ Auto-dismiss
       fetchData(1, pagination.limit);
     } catch {
-      toast.error("Import Failed", { id: toastId });
+      toast.error("Import Failed", { id: toastId, duration: 4000 });
     } finally {
       setImportLoading(false);
     }
   };
 
-  // --- DOCUMENTS ---
+  // ✅ DOCUMENTS UPLOAD
   const handleDocumentUpload = (id, name, type) => {
     const input = document.createElement("input");
     input.type = "file";
@@ -222,13 +225,14 @@ const Staff = () => {
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
+
       const tId = toast.loading("Uploading...");
       try {
         await staffService.uploadDocument(id, file, type);
-        toast.success("Uploaded", { id: tId });
+        toast.success("Uploaded", { id: tId, duration: 4000 }); // ✅ Auto-dismiss
         fetchData(pagination.page, pagination.limit, currentSearch);
       } catch {
-        toast.error("Upload Failed", { id: tId });
+        toast.error("Upload Failed", { id: tId, duration: 4000 });
       }
     };
     input.click();
@@ -239,10 +243,10 @@ const Staff = () => {
     const tId = toast.loading("Deleting...");
     try {
       await staffService.deleteDocument(id, type);
-      toast.success("Deleted", { id: tId });
+      toast.success("Deleted", { id: tId, duration: 4000 }); // ✅ Auto-dismiss
       fetchData(pagination.page, pagination.limit, currentSearch);
     } catch {
-      toast.error("Delete Failed", { id: tId });
+      toast.error("Delete Failed", { id: tId, duration: 4000 });
     }
   };
 
