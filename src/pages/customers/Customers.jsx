@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-import * as XLSX from "xlsx"; // Ensure you have 'xlsx' installed
+import * as XLSX from "xlsx"; // Keep for Import/Template
 
 // Components
 import DataTable from "../../components/DataTable";
@@ -25,6 +25,7 @@ import CustomerModal from "../../components/modals/CustomerModal";
 
 // API
 import { customerService } from "../../api/customerService";
+import api from "../../api/axiosInstance"; // ✅ Import API instance directly to handle Blob
 
 const Customers = () => {
   const navigate = useNavigate();
@@ -32,8 +33,12 @@ const Customers = () => {
 
   const [loading, setLoading] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [serverData, setServerData] = useState([]);
+
+  // Filters
   const [activeTab, setActiveTab] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const [pagination, setPagination] = useState({
     page: 1,
@@ -42,7 +47,6 @@ const Customers = () => {
     totalPages: 1,
   });
 
-  const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
 
@@ -66,10 +70,15 @@ const Customers = () => {
     }
   };
 
+  // --- Unified Effect for Fetching ---
   useEffect(() => {
-    fetchData(1, pagination.limit, searchTerm, activeTab);
+    const delayDebounceFn = setTimeout(() => {
+      fetchData(1, pagination.limit, searchTerm, activeTab);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, searchTerm]);
 
   // --- Flatten Data for Table ---
   const flattenedData = useMemo(() => {
@@ -100,12 +109,6 @@ const Customers = () => {
   const handleTabChange = (status) => {
     setActiveTab(status);
     setPagination((prev) => ({ ...prev, page: 1 }));
-  };
-
-  const handleSearchEnter = (e) => {
-    if (e.key === "Enter") {
-      fetchData(1, pagination.limit, searchTerm, activeTab);
-    }
   };
 
   const handleCreate = () => {
@@ -155,79 +158,48 @@ const Customers = () => {
     }
   };
 
-  // --- EXPORT & IMPORT HANDLERS ---
-
-  // 1. Export All Data (Frontend Generate)
+  // --- EXPORT HANDLER (Direct Blob Download) ---
   const handleExport = async () => {
-    const toastId = toast.loading("Fetching all records for export...");
+    setExporting(true);
+    const toastId = toast.loading("Downloading file...");
     try {
-      // Fetch data for export from service (raw array)
-      // Pass 'limit=0' or large number to get all records if API supports it
-      // Assuming 'customerService.exportData' returns the flattened array
-      const res = await customerService.exportData(activeTab);
-      const allData = res.data || res; // Adjust based on API response structure
+      // ✅ FIX: Call API directly with responseType: 'blob'
+      // We bypass customerService.exportData because it doesn't handle blobs correctly
+      const response = await api.get("/customers/export/list", {
+        params: { status: activeTab },
+        responseType: "blob", // Critical for binary files
+      });
 
-      if (!allData || allData.length === 0) {
-        toast.error("No data found to export", { id: toastId });
-        return;
-      }
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
 
-      // Map to exact Excel columns matching Import Template
-      const excelData = allData.map((row) => ({
-        "Customer Name": `${row.firstName || ""} ${row.lastName || ""}`.trim(),
-        Mobile: row.mobile || "",
-        Email: row.email || "",
-        "Vehicle No": row.registration_no || "",
-        "Parking No": row.parking_no || "",
-        Building: row.building || "", // Service already flattens this
-        "Flat No": row.flat_no || "",
-        Amount: row.amount || 0,
-        Advance: row.advance_amount || 0,
-        "Cleaner Name": row.worker || "", // Service already flattens
-        "Schedule Type": row.schedule_type || "daily",
-        "Schedule Days": row.schedule_days || "",
-        "Start Date": row.start_date
-          ? new Date(row.start_date).toISOString().split("T")[0]
-          : "",
-      }));
-
-      // Generate Sheet
-      const worksheet = XLSX.utils.json_to_sheet(excelData);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Customers");
-
-      // Auto-width columns
-      const wscols = [
-        { wch: 20 },
-        { wch: 15 },
-        { wch: 25 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 20 },
-        { wch: 10 },
-        { wch: 10 },
-        { wch: 10 },
-        { wch: 20 },
-        { wch: 15 },
-        { wch: 25 },
-        { wch: 15 },
-      ];
-      worksheet["!cols"] = wscols;
-
+      // Set filename
+      const dateStr = new Date().toISOString().split("T")[0];
       const fileName = `Customers_Export_${
         activeTab === 1 ? "Active" : "Inactive"
-      }_${new Date().toISOString().split("T")[0]}.xlsx`;
+      }_${dateStr}.xlsx`;
+      link.setAttribute("download", fileName);
 
-      XLSX.writeFile(workbook, fileName);
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
 
-      toast.success(`Exported ${excelData.length} records!`, { id: toastId });
+      // Cleanup
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Download complete!", { id: toastId });
     } catch (e) {
-      console.error(e);
-      toast.error("Export failed", { id: toastId });
+      console.error("Export Error:", e);
+      toast.error("Export failed. Check console.", { id: toastId });
+    } finally {
+      setExporting(false);
     }
   };
 
-  // 2. Download Template (Matches Export Format)
+  // --- DOWNLOAD TEMPLATE ---
   const handleDownloadTemplate = () => {
     const templateData = [
       {
@@ -241,9 +213,9 @@ const Customers = () => {
         Amount: 350,
         Advance: 0,
         "Cleaner Name": "Ravi Kumar",
-        "Schedule Type": "daily", // or weekly
-        "Schedule Days": "Mon,Wed,Fri", // Only if weekly
-        "Start Date": "2026-01-01", // YYYY-MM-DD
+        "Schedule Type": "daily",
+        "Schedule Days": "Mon,Wed,Fri",
+        "Start Date": "2026-01-01",
       },
     ];
 
@@ -251,28 +223,11 @@ const Customers = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
 
-    // Widths
-    worksheet["!cols"] = [
-      { wch: 20 },
-      { wch: 15 },
-      { wch: 25 },
-      { wch: 15 },
-      { wch: 15 },
-      { wch: 20 },
-      { wch: 10 },
-      { wch: 10 },
-      { wch: 10 },
-      { wch: 20 },
-      { wch: 15 },
-      { wch: 25 },
-      { wch: 15 },
-    ];
-
     XLSX.writeFile(workbook, "Customer_Import_Template.xlsx");
     toast.success("Template downloaded");
   };
 
-  // 3. Import Logic
+  // --- IMPORT HANDLERS ---
   const handleImportClick = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = null; // Clear prev file
@@ -571,24 +526,16 @@ const Customers = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+              {/* Instant Search - No Button */}
               <div className="relative w-full max-w-md">
                 <input
                   type="text"
                   placeholder="Search customers..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={handleSearchEnter}
-                  className="w-full h-11 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-xl pl-11 pr-16 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all"
+                  className="w-full h-11 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-xl pl-11 pr-4 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all"
                 />
                 <Search className="absolute left-4 top-3 w-5 h-5 text-gray-400" />
-                <button
-                  onClick={() =>
-                    fetchData(1, pagination.limit, searchTerm, activeTab)
-                  }
-                  className="absolute right-2 top-2 px-3 py-1 bg-white rounded-lg text-xs font-semibold text-indigo-600 border border-indigo-100 hover:bg-indigo-50 shadow-sm transition-all"
-                >
-                  Search
-                </button>
               </div>
 
               <div className="flex p-1 bg-gray-100 rounded-xl">
@@ -629,9 +576,14 @@ const Customers = () => {
             {/* Export All Button */}
             <button
               onClick={handleExport}
-              className="h-10 px-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
+              disabled={exporting}
+              className="h-10 px-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all disabled:opacity-70"
             >
-              <Download className="w-4 h-4" />
+              {exporting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
               <span className="hidden sm:inline">Export</span>
             </button>
 
@@ -696,6 +648,7 @@ const Customers = () => {
           }
           onLimitChange={(l) => fetchData(1, l, searchTerm, activeTab)}
           renderExpandedRow={renderExpandedRow}
+          hideSearch={true} // ✅ Table search hidden
         />
       </div>
 

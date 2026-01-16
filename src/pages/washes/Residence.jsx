@@ -16,10 +16,9 @@ import {
   Phone,
   Building2,
   Loader2,
-  Users, // Added icon for Customer
 } from "lucide-react";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx"; // Requires: npm install xlsx
+import * as XLSX from "xlsx";
 
 // Components
 import DataTable from "../../components/DataTable";
@@ -31,7 +30,6 @@ import CustomDropdown from "../../components/ui/CustomDropdown";
 import { jobService } from "../../api/jobService";
 import { workerService } from "../../api/workerService";
 import { buildingService } from "../../api/buildingService";
-import { customerService } from "../../api/customerService"; // ✅ Added Customer Service
 
 const Residence = () => {
   const [loading, setLoading] = useState(false);
@@ -39,7 +37,6 @@ const Residence = () => {
   const [data, setData] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [buildings, setBuildings] = useState([]);
-  const [customers, setCustomers] = useState([]); // ✅ Added Customers State
 
   // --- DATE HELPERS ---
   const formatDateLocal = (date) => {
@@ -64,7 +61,6 @@ const Residence = () => {
     worker: "",
     status: "",
     building: "",
-    customer: "", // ✅ Added Customer Filter
   });
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -79,16 +75,16 @@ const Residence = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
 
-  // --- LOAD DATA ---
+  // --- LOAD RESOURCES ---
   useEffect(() => {
     const loadResources = async () => {
       try {
-        const wRes = await workerService.list(1, 1000);
+        const [wRes, bRes] = await Promise.all([
+          workerService.list(1, 1000),
+          buildingService.list(1, 1000),
+        ]);
         setWorkers(wRes.data || []);
-        const bRes = await buildingService.list(1, 1000);
         setBuildings(bRes.data || []);
-        const cRes = await customerService.list(1, 1000); // ✅ Fetch Customers
-        setCustomers(cRes.data || []);
       } catch (e) {
         console.error(e);
       }
@@ -111,13 +107,11 @@ const Residence = () => {
   }, [searchTerm]);
 
   const fetchData = async (page = 1, limit = 50) => {
-    // ✅ FIX: Strict validation. If dates are missing/invalid, STOP silently.
     if (!filters.startDate || !filters.endDate) return;
 
     const start = new Date(filters.startDate);
     const end = new Date(filters.endDate);
 
-    // If date format is invalid, stop.
     if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
 
     setLoading(true);
@@ -146,8 +140,6 @@ const Residence = () => {
         totalPages: Math.ceil((res.total || 0) / limit) || 1,
       });
     } catch (e) {
-      console.error(e);
-      // Only show error if it's NOT a cancellation or abort error
       if (e.code !== "ERR_CANCELED") {
         toast.error("Failed to load jobs");
       }
@@ -164,7 +156,6 @@ const Residence = () => {
     const vehicleReg = row.vehicle?.registration_no?.toLowerCase() || "";
     const parkingNo = row.vehicle?.parking_no?.toString().toLowerCase() || "";
     const mobile = row.customer?.mobile?.toLowerCase() || "";
-    const customerName = row.customer?.name?.toLowerCase() || ""; // ✅ Added Customer Name search
     const buildingName = row.building?.name?.toLowerCase() || "";
     const workerName = row.worker?.name?.toLowerCase() || "";
 
@@ -172,13 +163,12 @@ const Residence = () => {
       vehicleReg.includes(lowerTerm) ||
       parkingNo.includes(lowerTerm) ||
       mobile.includes(lowerTerm) ||
-      customerName.includes(lowerTerm) ||
       buildingName.includes(lowerTerm) ||
       workerName.includes(lowerTerm)
     );
   });
 
-  // --- MULTI-SHEET EXPORT (Summary + Detailed) ---
+  // --- EXPORT ---
   const handleExport = async () => {
     if (!filters.startDate || !filters.endDate) {
       toast.error("Please select a valid date range");
@@ -191,12 +181,6 @@ const Residence = () => {
       const start = new Date(filters.startDate);
       const end = new Date(filters.endDate);
 
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        toast.error("Invalid dates selected", { id: toastId });
-        setExporting(false);
-        return;
-      }
-
       start.setHours(0, 0, 0, 0);
       end.setHours(23, 59, 59, 999);
 
@@ -206,7 +190,6 @@ const Residence = () => {
         endDate: end.toISOString(),
       };
 
-      // 1. Fetch All Data
       const res = await jobService.list(1, 10000, searchTerm, apiFilters);
       const exportData = res.data || [];
 
@@ -216,13 +199,11 @@ const Residence = () => {
         return;
       }
 
-      // 2. Summary Sheet (Building Counts)
+      // Summary Sheet
       const buildingCounts = {};
-
       exportData.forEach((item) => {
         const dateKey = new Date(item.assignedDate).toISOString().split("T")[0];
         const bName = item.building?.name || "Unknown";
-
         const compositeKey = `${dateKey}_${bName}`;
 
         if (!buildingCounts[compositeKey]) {
@@ -245,12 +226,11 @@ const Residence = () => {
         summarySheetRows.push([item.date, item.building, item.count]);
       });
 
-      // 3. Detailed Sheet
+      // Detailed Sheet
       const detailedData = exportData.map((item) => ({
         ID: item.id,
         Date: new Date(item.assignedDate).toLocaleDateString(),
-        "Customer Name": item.customer?.name || "-", // ✅ Added to export
-        Customer: item.customer?.mobile || "-",
+        "Customer Mobile": item.customer?.mobile || "-",
         Building: item.building?.name || "-",
         Vehicle: item.vehicle?.registration_no || "-",
         Parking: item.vehicle?.parking_no || "-",
@@ -261,7 +241,6 @@ const Residence = () => {
           : "-",
       }));
 
-      // 4. Generate Workbook
       const workbook = XLSX.utils.book_new();
 
       if (summarySheetRows.length > 1) {
@@ -275,14 +254,12 @@ const Residence = () => {
       XLSX.writeFile(workbook, `Residence_Jobs_${filters.startDate}.xlsx`);
       toast.success("Download complete", { id: toastId });
     } catch (e) {
-      console.error("Export Error:", e);
       toast.error("Export failed", { id: toastId });
     } finally {
       setExporting(false);
     }
   };
 
-  // --- Handlers ---
   const handleDateChange = (field, value) => {
     if (field === "clear") {
       setFilters((prev) => ({
@@ -336,14 +313,17 @@ const Residence = () => {
     return options;
   }, [workers]);
 
-  // ✅ Customer Options Memo
-  const customerOptions = useMemo(() => {
-    const options = [{ value: "", label: "All Customers" }];
-    customers.forEach((c) =>
-      options.push({ value: c._id, label: c.name || c.mobile })
-    );
-    return options;
-  }, [customers]);
+  // ✅ HELPER: Format UTC Date (Prevents "Next Day" issue)
+  const formatUtcDate = (isoString) => {
+    if (!isoString) return "-";
+    const date = new Date(isoString);
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const month = date.toLocaleString("en-US", {
+      month: "short",
+      timeZone: "UTC",
+    });
+    return `${month} ${day}`;
+  };
 
   // --- Columns ---
   const columns = [
@@ -368,12 +348,8 @@ const Residence = () => {
             <Calendar className="w-4 h-4" />
           </div>
           <span className="text-slate-700 text-sm font-bold">
-            {row.assignedDate
-              ? new Date(row.assignedDate).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })
-              : "-"}
+            {/* ✅ UPDATED: Using UTC formatting to fix date shift */}
+            {formatUtcDate(row.assignedDate)}
           </span>
         </div>
       ),
@@ -383,12 +359,8 @@ const Residence = () => {
       accessor: "completedDate",
       render: (row) => (
         <span className="text-slate-500 text-xs font-medium bg-slate-50 px-2 py-1 rounded border border-slate-100">
-          {row.completedDate
-            ? new Date(row.completedDate).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              })
-            : "-"}
+          {/* ✅ UPDATED: Using UTC formatting here too */}
+          {formatUtcDate(row.completedDate)}
         </span>
       ),
     },
@@ -419,22 +391,21 @@ const Residence = () => {
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-wide ${config.classes}`}
           >
             <Icon className="w-3 h-3" />
-            {config.label}
+            {status}
           </div>
         );
       },
     },
-    // ✅ Added Customer Name Column
     {
       header: "Customer",
-      accessor: "customer.name",
+      accessor: "customer.mobile",
       render: (row) => (
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xs font-bold border border-indigo-200">
-            {row.customer?.name?.[0] || "C"}
+            <Phone className="w-3 h-3" />
           </div>
-          <span className="text-sm text-slate-700 font-medium">
-            {row.customer?.name || "Unknown"}
+          <span className="text-sm text-slate-700 font-mono font-bold">
+            {row.customer?.mobile || "-"}
           </span>
         </div>
       ),
@@ -460,22 +431,14 @@ const Residence = () => {
       ),
     },
     {
-      header: "Building / Contact",
+      header: "Building",
       accessor: "building.name",
       render: (row) => (
-        <div className="flex flex-col">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <Building2 className="w-3 h-3 text-indigo-500" />
-            <span className="text-xs font-bold uppercase text-slate-600 truncate max-w-[150px]">
-              {row.building?.name || "-"}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Phone className="w-3 h-3 text-slate-400" />
-            <span className="text-xs font-mono text-slate-500">
-              {row.customer?.mobile || "-"}
-            </span>
-          </div>
+        <div className="flex items-center gap-1.5">
+          <Building2 className="w-3 h-3 text-indigo-500" />
+          <span className="text-xs font-bold uppercase text-slate-600 truncate max-w-[150px]">
+            {row.building?.name || "-"}
+          </span>
         </div>
       ),
     },
@@ -571,8 +534,7 @@ const Residence = () => {
             />
           </div>
 
-          {/* ✅ UPDATED GRID: Added Customer Filter */}
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 w-full">
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
             <div>
               <CustomDropdown
                 label="Status"
@@ -605,18 +567,7 @@ const Residence = () => {
                 searchable={true}
               />
             </div>
-            <div>
-              {/* ✅ Customer Filter */}
-              <CustomDropdown
-                label="Customer"
-                value={filters.customer}
-                onChange={(val) => setFilters({ ...filters, customer: val })}
-                options={customerOptions}
-                icon={Users}
-                placeholder="All Customers"
-                searchable={true}
-              />
-            </div>
+
             <div className="relative">
               <span className="text-xs font-bold text-slate-500 uppercase mb-1.5 block ml-1">
                 Search

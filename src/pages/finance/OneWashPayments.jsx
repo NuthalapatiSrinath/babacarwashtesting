@@ -18,10 +18,10 @@ import {
   Car,
   CheckCircle2,
   Clock,
-  Briefcase, // Used for Total Jobs icon
+  Briefcase,
   Building,
   MapPin,
-  Coins, // Generic currency icon
+  Coins,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -32,7 +32,7 @@ import ViewPaymentModal from "../../components/modals/ViewPaymentModal";
 import OneWashModal from "../../components/modals/OneWashModal";
 import DeleteModal from "../../components/modals/DeleteModal";
 import RichDateRangePicker from "../../components/inputs/RichDateRangePicker";
-import CustomDropdown from "../../components/ui/CustomDropdown"; // Import CustomDropdown
+import CustomDropdown from "../../components/ui/CustomDropdown";
 
 // Redux
 import { exportPayments } from "../../redux/slices/paymentSlice";
@@ -48,45 +48,34 @@ const OneWashPayments = () => {
   );
   const { workers } = useSelector((state) => state.worker);
 
-  const [currency, setCurrency] = useState("AED"); // Default Currency
+  const [currency, setCurrency] = useState("AED");
 
   // --- DATES & TABS LOGIC ---
-
-  // Get dynamic month names (e.g., "December", "January")
   const getMonthNames = () => {
     const today = new Date();
     const thisMonth = today.toLocaleString("default", { month: "long" });
-
     const prevDate = new Date();
     prevDate.setMonth(prevDate.getMonth() - 1);
     const lastMonth = prevDate.toLocaleString("default", { month: "long" });
-
     return { thisMonth, lastMonth };
   };
 
   const { thisMonth, lastMonth } = getMonthNames();
 
-  // Helper to generate ISO strings with your backend's 18:30 offset logic if needed,
-  // or standard UTC. Keeping existing logic.
   const getRangeForTab = (tab) => {
     const today = new Date();
     let start, end;
 
     if (tab === "this_month") {
-      // Start: 1st of This Month
       start = new Date(today.getFullYear(), today.getMonth(), 1);
-      start.setDate(start.getDate() - 1); // Go back 1 day based on your specific logic
+      start.setDate(start.getDate() - 1);
       start.setUTCHours(18, 30, 0, 0);
-
-      // End: Today
       end = new Date();
       end.setUTCHours(18, 29, 59, 999);
     } else {
-      // Last Month
       start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
       start.setDate(start.getDate() - 1);
       start.setUTCHours(18, 30, 0, 0);
-
       end = new Date(today.getFullYear(), today.getMonth(), 0);
       end.setUTCHours(18, 29, 59, 999);
     }
@@ -97,11 +86,9 @@ const OneWashPayments = () => {
     };
   };
 
-  // State
   const [activeTab, setActiveTab] = useState("this_month");
   const initialDates = getRangeForTab("this_month");
 
-  // Filters
   const [filters, setFilters] = useState({
     startDate: initialDates.startDate,
     endDate: initialDates.endDate,
@@ -114,7 +101,6 @@ const OneWashPayments = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Default Limit 50
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 50,
@@ -122,7 +108,7 @@ const OneWashPayments = () => {
     totalPages: 1,
   });
 
-  // --- MODAL STATES ---
+  // Modals
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [viewPayment, setViewPayment] = useState(null);
   const [editJob, setEditJob] = useState(null);
@@ -131,17 +117,15 @@ const OneWashPayments = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Load Currency & Initial Data
   useEffect(() => {
     const savedCurrency = localStorage.getItem("app_currency");
     if (savedCurrency) setCurrency(savedCurrency);
-
     dispatch(fetchWorkers({ page: 1, limit: 1000, status: 1 }));
     fetchData(1, 50);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
 
-  // --- AUTOMATIC FETCH EFFECTS ---
+  // --- AUTOMATIC FETCH ---
   useEffect(() => {
     fetchData(1, pagination.limit);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,11 +133,27 @@ const OneWashPayments = () => {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
+      // Fetch larger set if searching to allow client-side filtering
       const limit = searchTerm ? 3000 : 50;
       fetchData(1, limit);
-    }, 500);
+    }, 500); // Instant search debounce
     return () => clearTimeout(delayDebounceFn);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm]);
+
+  // ✅ LOG SEARCH FIELDS
+  useEffect(() => {
+    if (searchTerm) {
+      console.group("🔍 Search Active");
+      console.log("Searching for:", searchTerm);
+      console.log("Fields included in search:");
+      console.log("1. Vehicle Registration");
+      console.log("2. Parking Number");
+      console.log("3. Worker Name");
+      console.log("4. Payment ID");
+      console.log("5. Amount & Status");
+      console.groupEnd();
+    }
   }, [searchTerm]);
 
   const fetchData = async (page = 1, limit = 50) => {
@@ -182,38 +182,31 @@ const OneWashPayments = () => {
     }
   };
 
-  // --- CLIENT SIDE FILTERING ---
+  // ✅ ENHANCED FILTER LOGIC
   const filteredPayments = oneWashJobs.filter((row) => {
     if (!searchTerm) return true;
     const lowerTerm = searchTerm.toLowerCase().trim();
 
+    // 1. Prepare Fields
     const id = String(row.id || row._id || "").toLowerCase();
     const vehicleReg = row.registration_no?.toLowerCase() || "";
     const parkingNo = row.parking_no?.toString().toLowerCase() || "";
     const workerName = row.worker?.name ? row.worker.name.toLowerCase() : "";
     const amount = String(row.amount || "").toLowerCase();
-    const paymentMode = row.payment_mode?.toLowerCase() || "";
     const status = row.status?.toLowerCase() || "";
-    const dateObj = new Date(row.createdAt);
-    const dateStr = dateObj.toLocaleDateString().toLowerCase();
-    const monthStr = dateObj
-      .toLocaleString("default", { month: "long" })
-      .toLowerCase();
 
-    return (
+    // 2. Check Match
+    const matches =
       id.includes(lowerTerm) ||
       vehicleReg.includes(lowerTerm) ||
       parkingNo.includes(lowerTerm) ||
       workerName.includes(lowerTerm) ||
       amount.includes(lowerTerm) ||
-      paymentMode.includes(lowerTerm) ||
-      status.includes(lowerTerm) ||
-      dateStr.includes(lowerTerm) ||
-      monthStr.includes(lowerTerm)
-    );
+      status.includes(lowerTerm);
+
+    return matches;
   });
 
-  // --- HANDLERS ---
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     const newDates = getRangeForTab(tab);
@@ -255,24 +248,18 @@ const OneWashPayments = () => {
     setSelectedReceipt(receiptData);
   };
 
-  const handleViewDetails = (row) => {
-    setViewPayment(row);
-  };
-
+  const handleViewDetails = (row) => setViewPayment(row);
   const handleEdit = (row) => {
     setEditJob(row);
     setIsEditModalOpen(true);
   };
-
   const handleAddNew = () => {
     setEditJob(null);
     setIsEditModalOpen(true);
   };
-
   const handleEditSuccess = () => {
     fetchData(pagination.page, pagination.limit);
   };
-
   const handleDelete = (row) => {
     setDeleteJob(row);
     setIsDeleteModalOpen(true);
@@ -302,32 +289,28 @@ const OneWashPayments = () => {
         search: searchTerm,
         onewash: "true",
       };
-
       const result = await dispatch(exportPayments(exportParams)).unwrap();
       const blobData = result.blob || result;
       const blob = new Blob([blobData], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
-
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const dateStr = new Date().toISOString().split("T")[0];
       link.href = url;
-      link.setAttribute("download", `onewash_payments_${dateStr}.xlsx`);
-
+      link.setAttribute(
+        "download",
+        `onewash_payments_${new Date().toISOString().split("T")[0]}.xlsx`
+      );
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
       window.URL.revokeObjectURL(url);
-
       toast.success("Download complete", { id: toastId });
     } catch (e) {
-      console.error("Export Error:", e);
       toast.error("Export failed", { id: toastId });
     }
   };
 
-  // --- Prepare Dropdown Options ---
   const statusOptions = [
     { value: "", label: "All Status" },
     { value: "completed", label: "Completed" },
@@ -338,14 +321,11 @@ const OneWashPayments = () => {
   const workerOptions = useMemo(() => {
     const options = [{ value: "", label: "All Workers" }];
     if (workers && workers.length > 0) {
-      workers.forEach((w) => {
-        options.push({ value: w._id, label: w.name });
-      });
+      workers.forEach((w) => options.push({ value: w._id, label: w.name }));
     }
     return options;
   }, [workers]);
 
-  // --- COLUMNS ---
   const columns = [
     {
       header: "Id",
@@ -452,23 +432,6 @@ const OneWashPayments = () => {
       },
     },
     {
-      header: "Settle",
-      accessor: "settled",
-      className: "text-center w-24",
-      render: (row) => {
-        const s = (row.settled || "pending").toUpperCase();
-        return (
-          <span
-            className={`text-[10px] font-bold uppercase ${
-              s === "COMPLETED" ? "text-emerald-600" : "text-amber-500"
-            }`}
-          >
-            {s}
-          </span>
-        );
-      },
-    },
-    {
       header: "Worker",
       accessor: "worker.name",
       render: (row) => {
@@ -491,7 +454,6 @@ const OneWashPayments = () => {
       render: (row) => {
         const isPaid = (row.status || "").toLowerCase() === "completed";
         if (!isPaid) return <span className="text-slate-300">-</span>;
-
         return (
           <button
             onClick={() => handleViewReceipt(row)}
@@ -511,24 +473,19 @@ const OneWashPayments = () => {
         <div className="flex items-center justify-end gap-1">
           <button
             onClick={() => handleViewDetails(row)}
-            className="p-1.5 hover:bg-blue-50 rounded text-slate-400 hover:text-blue-600 transition-all"
-            title="View Details"
+            className="p-1.5 hover:bg-blue-50 rounded text-slate-400 hover:text-blue-600"
           >
             <Eye className="w-4 h-4" />
           </button>
-
           <button
             onClick={() => handleEdit(row)}
-            className="p-1.5 hover:bg-indigo-50 rounded text-slate-400 hover:text-indigo-600 transition-all"
-            title="Edit"
+            className="p-1.5 hover:bg-indigo-50 rounded text-slate-400 hover:text-indigo-600"
           >
             <Edit2 className="w-4 h-4" />
           </button>
-
           <button
             onClick={() => handleDelete(row)}
-            className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600 transition-all"
-            title="Delete"
+            className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -539,7 +496,6 @@ const OneWashPayments = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6 font-sans">
-      {/* --- HEADER & STATS --- */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
@@ -555,9 +511,7 @@ const OneWashPayments = () => {
               </p>
             </div>
           </div>
-
           <div className="flex flex-wrap items-center gap-3">
-            {/* TAB SWITCHER */}
             <div className="bg-slate-100 p-1 rounded-xl flex">
               <button
                 onClick={() => handleTabChange("last_month")}
@@ -580,61 +534,77 @@ const OneWashPayments = () => {
                 {thisMonth}
               </button>
             </div>
-
             <button
               onClick={handleExport}
-              className="h-10 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
+              className="h-10 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md"
             >
               <Download className="w-4 h-4" /> Export
             </button>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="flex flex-wrap gap-4 mt-6">
-          <div className="px-5 py-3 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-md flex flex-col justify-center min-w-[140px]">
-            <span className="text-[10px] font-bold opacity-60 uppercase tracking-wider mb-1">
-              Total Revenue
-            </span>
-            <div className="flex items-baseline gap-1">
-              <span className="text-xl font-bold">{stats.totalAmount}</span>
-              <span className="text-xs opacity-70">{currency}</span>
+        {/* ✅ UPDATED STATS GRID: 4 Equal Cards (25% each) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+          {/* 1. Total Revenue Card */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-md flex items-center gap-4">
+            {/* Left: Icon Centered */}
+            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white shrink-0">
+              <Coins className="w-6 h-6" />
+            </div>
+            {/* Right: Label Top, Number Bottom */}
+            <div>
+              <span className="block text-xs font-bold opacity-60 uppercase tracking-wider mb-0.5">
+                Total Revenue
+              </span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-xl font-bold">{stats.totalAmount}</span>
+                <span className="text-xs opacity-70">{currency}</span>
+              </div>
             </div>
           </div>
 
-          <div className="px-4 py-2 rounded-xl bg-white border border-slate-100 shadow-sm flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
-              <Banknote className="w-5 h-5" />
+          {/* 2. Cash Card */}
+          <div className="p-4 rounded-xl bg-white border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+              <Banknote className="w-6 h-6" />
             </div>
             <div>
-              <span className="block text-xs text-slate-400 font-bold uppercase">
+              <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">
                 Cash
               </span>
-              <span className="font-bold text-slate-700">{stats.cash}</span>
+              <span className="text-xl font-bold text-slate-700">
+                {stats.cash}
+              </span>
             </div>
           </div>
 
-          <div className="px-4 py-2 rounded-xl bg-white border border-slate-100 shadow-sm flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-              <CreditCard className="w-5 h-5" />
+          {/* 3. Card Card */}
+          <div className="p-4 rounded-xl bg-white border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+              <CreditCard className="w-6 h-6" />
             </div>
             <div>
-              <span className="block text-xs text-slate-400 font-bold uppercase">
+              <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">
                 Card
               </span>
-              <span className="font-bold text-slate-700">{stats.card}</span>
+              <span className="text-xl font-bold text-slate-700">
+                {stats.card}
+              </span>
             </div>
           </div>
 
-          <div className="px-4 py-2 rounded-xl bg-white border border-slate-100 shadow-sm flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-600">
-              <Landmark className="w-5 h-5" />
+          {/* 4. Bank Card */}
+          <div className="p-4 rounded-xl bg-white border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 shrink-0">
+              <Landmark className="w-6 h-6" />
             </div>
             <div>
-              <span className="block text-xs text-slate-400 font-bold uppercase">
+              <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">
                 Bank
               </span>
-              <span className="font-bold text-slate-700">{stats.bank}</span>
+              <span className="text-xl font-bold text-slate-700">
+                {stats.bank}
+              </span>
             </div>
           </div>
         </div>
@@ -643,7 +613,6 @@ const OneWashPayments = () => {
       {/* --- FILTERS & ACTIONS --- */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
-          {/* Date Range */}
           <div className="lg:col-span-4">
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">
               Date Range
@@ -654,8 +623,6 @@ const OneWashPayments = () => {
               onChange={handleDateChange}
             />
           </div>
-
-          {/* Filters using CustomDropdown */}
           <div className="lg:col-span-2">
             <CustomDropdown
               label="Status"
@@ -666,7 +633,6 @@ const OneWashPayments = () => {
               placeholder="All Status"
             />
           </div>
-
           <div className="lg:col-span-2">
             <CustomDropdown
               label="Worker"
@@ -678,8 +644,7 @@ const OneWashPayments = () => {
               searchable={true}
             />
           </div>
-
-          {/* Search */}
+          {/* ✅ INSTANT SEARCH INPUT */}
           <div className="lg:col-span-2">
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">
               Search
@@ -687,7 +652,7 @@ const OneWashPayments = () => {
             <div className="relative">
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Worker, Vehicle..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all"
@@ -695,8 +660,6 @@ const OneWashPayments = () => {
               <Search className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" />
             </div>
           </div>
-
-          {/* Buttons */}
           <div className="lg:col-span-2 flex gap-2">
             <button
               onClick={handleAddNew}
@@ -709,7 +672,6 @@ const OneWashPayments = () => {
         </div>
       </div>
 
-      {/* --- DATA TABLE --- */}
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden flex flex-col flex-1">
         <DataTable
           columns={columns}
@@ -722,19 +684,16 @@ const OneWashPayments = () => {
         />
       </div>
 
-      {/* --- MODALS --- */}
       <ReceiptModal
         isOpen={!!selectedReceipt}
         onClose={() => setSelectedReceipt(null)}
         data={selectedReceipt}
       />
-
       <ViewPaymentModal
         isOpen={!!viewPayment}
         onClose={() => setViewPayment(null)}
         payment={viewPayment}
       />
-
       <OneWashModal
         isOpen={isEditModalOpen}
         onClose={() => {
@@ -744,7 +703,6 @@ const OneWashPayments = () => {
         job={editJob}
         onSuccess={handleEditSuccess}
       />
-
       <DeleteModal
         isOpen={isDeleteModalOpen}
         onClose={() => {
@@ -754,9 +712,9 @@ const OneWashPayments = () => {
         onConfirm={confirmDelete}
         loading={isDeleting}
         title="Delete Payment?"
-        message={`Are you sure you want to delete the payment for ${
+        message={`Delete payment for ${
           deleteJob?.registration_no || "this vehicle"
-        }? This action cannot be undone.`}
+        }?`}
       />
     </div>
   );
