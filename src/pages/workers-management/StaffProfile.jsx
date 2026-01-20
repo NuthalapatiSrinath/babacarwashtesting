@@ -10,12 +10,11 @@ import {
   MapPin,
   Phone,
   Mail,
-  Briefcase,
-  AlertCircle,
   Edit2,
   User,
   Hash,
   ShieldCheck,
+  AlertCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { staffService } from "../../api/staffService";
@@ -117,24 +116,25 @@ const StaffProfile = () => {
   if (!staff) return null;
 
   return (
-    // ✅ FULL SCREEN CONTAINER
-    <div className="h-screen w-full bg-[#f1f5f9] p-4 flex items-center justify-center font-sans">
+    // ✅ RESPONSIVE CONTAINER
+    <div className="min-h-screen lg:h-screen w-full bg-[#f1f5f9] p-4 lg:p-6 flex items-center justify-center font-sans">
       {/* ✅ MAIN CARD */}
-      <div className="w-full h-full max-h-[900px] bg-white rounded-[32px] shadow-2xl flex flex-col lg:flex-row overflow-hidden relative">
+      <div className="w-full h-auto lg:h-full max-h-none lg:max-h-[900px] bg-white rounded-[32px] shadow-2xl flex flex-col lg:flex-row overflow-hidden relative">
         {/* Back Button */}
         <button
           onClick={() => navigate(-1)}
-          className="absolute top-6 left-6 z-50 p-2.5 bg-white shadow-sm rounded-full hover:bg-slate-50 transition-all text-slate-600"
+          className="absolute top-4 left-4 lg:top-6 lg:left-6 z-50 p-2.5 bg-white shadow-sm rounded-full hover:bg-slate-50 transition-all text-slate-600"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
 
         {/* ================= LEFT COLUMN (Profile & Unified Info) ================= */}
-        <div className="w-full lg:w-[35%] h-full bg-slate-50 border-r border-slate-200/60 relative overflow-y-auto custom-scrollbar">
-          <div className="p-3 flex flex-col items-center min-h-full">
+        {/* ✅ FIX: Changed lg:overflow-y-auto to lg:overflow-hidden and added justify-center */}
+        <div className="w-full lg:w-[35%] bg-slate-50 border-r border-slate-200/60 relative lg:overflow-hidden flex flex-col justify-center">
+          <div className="p-6 lg:p-8 flex flex-col items-center w-full">
             {/* 1. Profile Photo */}
-            <div className="relative mb-4 mt-2">
-              <div className="w-40 h-40 rounded-full border-[6px] border-white shadow-xl overflow-hidden flex items-center justify-center relative bg-slate-200 group">
+            <div className="relative mb-4 mt-8 lg:mt-0">
+              <div className="w-32 h-32 lg:w-40 lg:h-40 rounded-full border-[6px] border-white shadow-xl overflow-hidden flex items-center justify-center relative bg-slate-200 group">
                 {staff.profileImage?.url ? (
                   <img
                     src={staff.profileImage.url}
@@ -142,7 +142,7 @@ const StaffProfile = () => {
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
                 ) : (
-                  <User className="w-20 h-20 text-slate-400" />
+                  <User className="w-16 h-16 lg:w-20 lg:h-20 text-slate-400" />
                 )}
 
                 <div
@@ -168,17 +168,17 @@ const StaffProfile = () => {
             </div>
 
             {/* 2. Name & Role */}
-            <div className="text-center mb-4">
-              <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight leading-tight mb-1">
+            <div className="text-center mb-6 lg:mb-8">
+              <h1 className="text-xl lg:text-2xl font-black text-slate-800 uppercase tracking-tight leading-tight mb-1">
                 {staff.name}
               </h1>
-              <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">
+              <span className="text-xs lg:text-sm font-bold text-slate-500 uppercase tracking-widest">
                 {staff.companyName || "STAFF MEMBER"}
               </span>
             </div>
 
             {/* 3. ✅ UNIFIED INFO CARD (Dark Theme, Contact First) */}
-            <div className="w-full bg-[#1e293b] rounded-2xl p-6 text-white shadow-xl relative overflow-hidden group">
+            <div className="w-full bg-[#1e293b] rounded-2xl p-5 lg:p-6 text-white shadow-xl relative overflow-hidden group">
               {/* Decorative Gradient Blob */}
               <div className="absolute top-[-50%] right-[-50%] w-full h-full bg-indigo-500/20 blur-[60px] rounded-full pointer-events-none"></div>
 
@@ -199,21 +199,21 @@ const StaffProfile = () => {
                   </h3>
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
                         <Phone className="w-4 h-4" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <span className="block text-[10px] text-slate-400 uppercase font-bold">
                           Mobile
                         </span>
-                        <span className="text-sm font-medium text-white">
+                        <span className="text-sm font-medium text-white truncate block">
                           {staff.mobile || "Not Provided"}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400">
+                      <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400 flex-shrink-0">
                         <Mail className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
@@ -239,7 +239,7 @@ const StaffProfile = () => {
                   </h3>
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 flex-shrink-0">
                         <Hash className="w-4 h-4" />
                       </div>
                       <div>
@@ -253,21 +253,21 @@ const StaffProfile = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
                         <MapPin className="w-4 h-4" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <span className="block text-[10px] text-slate-400 uppercase font-bold">
                           Location
                         </span>
-                        <span className="text-sm font-medium text-white">
+                        <span className="text-sm font-medium text-white truncate block">
                           {staff.site?.name || staff.site || "Unassigned"}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400">
+                      <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 flex-shrink-0">
                         <Calendar className="w-4 h-4" />
                       </div>
                       <div>
@@ -286,20 +286,21 @@ const StaffProfile = () => {
           </div>
         </div>
 
-        {/* ================= RIGHT COLUMN (Official Documents - Blue Gradient Cards) ================= */}
-        <div className="w-full lg:w-[65%] h-full bg-white overflow-y-auto">
-          <div className="p-2 lg:p-12 flex flex-col justify-center min-h-full max-w-4xl mx-auto">
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                <ShieldCheck className="w-6 h-6 text-blue-600" />
+        {/* ================= RIGHT COLUMN (Official Documents) ================= */}
+        {/* On Mobile: Stacked below. On Desktop: Right side, scrollable if needed */}
+        <div className="w-full lg:w-[65%] h-full bg-white lg:overflow-y-auto">
+          <div className="p-6 lg:p-12 flex flex-col justify-center min-h-full max-w-4xl mx-auto">
+            <div className="mb-6 lg:mb-8">
+              <h2 className="text-xl lg:text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 lg:w-6 lg:h-6 text-blue-600" />
                 Official Documents
               </h2>
-              <p className="text-slate-500 text-sm mt-1">
+              <p className="text-slate-500 text-xs lg:text-sm mt-1">
                 Manage compliance and identification records.
               </p>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-4 lg:space-y-6">
               {/* 01: PASSPORT (Blue Gradient) */}
               <SkillBox
                 number="01"
@@ -313,7 +314,7 @@ const StaffProfile = () => {
                     <span className="block text-blue-200 text-[10px] font-bold uppercase mb-1">
                       Passport No.
                     </span>
-                    <span className="font-bold text-white text-lg">
+                    <span className="font-bold text-white text-base lg:text-lg truncate block">
                       {staff.passportNumber || "N/A"}
                     </span>
                   </div>
@@ -321,7 +322,7 @@ const StaffProfile = () => {
                     <span className="block text-blue-200 text-[10px] font-bold uppercase mb-1">
                       Expiry
                     </span>
-                    <span className="font-bold text-white text-lg flex items-center gap-2">
+                    <span className="font-bold text-white text-base lg:text-lg flex items-center gap-2">
                       {formatDate(staff.passportExpiry)}
                       {isExpired(staff.passportExpiry) && (
                         <AlertCircle className="w-4 h-4 text-red-300 animate-pulse" />
@@ -344,7 +345,7 @@ const StaffProfile = () => {
                     <span className="block text-blue-200 text-[10px] font-bold uppercase mb-1">
                       Visa No.
                     </span>
-                    <span className="font-bold text-white text-lg">
+                    <span className="font-bold text-white text-base lg:text-lg truncate block">
                       {staff.visaNumber || "N/A"}
                     </span>
                   </div>
@@ -352,7 +353,7 @@ const StaffProfile = () => {
                     <span className="block text-blue-200 text-[10px] font-bold uppercase mb-1">
                       Expiry
                     </span>
-                    <span className="font-bold text-white text-lg">
+                    <span className="font-bold text-white text-base lg:text-lg">
                       {formatDate(staff.visaExpiry)}
                     </span>
                   </div>
@@ -372,7 +373,7 @@ const StaffProfile = () => {
                     <span className="block text-blue-200 text-[10px] font-bold uppercase mb-1">
                       EID Number
                     </span>
-                    <span className="font-bold text-white text-lg">
+                    <span className="font-bold text-white text-base lg:text-lg truncate block">
                       {staff.emiratesId || "N/A"}
                     </span>
                   </div>
@@ -380,7 +381,7 @@ const StaffProfile = () => {
                     <span className="block text-blue-200 text-[10px] font-bold uppercase mb-1">
                       Expiry
                     </span>
-                    <span className="font-bold text-white text-lg">
+                    <span className="font-bold text-white text-base lg:text-lg">
                       {formatDate(staff.emiratesIdExpiry)}
                     </span>
                   </div>
@@ -408,8 +409,8 @@ const StaffProfile = () => {
 const SkillBox = ({ number, title, children, hasDoc, docUrl, onUpload }) => {
   const fileRef = useRef(null);
   return (
-    <div className="relative pl-16 group">
-      <div className="absolute left-0 top-3 text-5xl font-black text-slate-800/20 select-none">
+    <div className="relative pl-12 lg:pl-16 group">
+      <div className="absolute left-0 top-3 text-4xl lg:text-5xl font-black text-slate-800/20 select-none">
         {number}
       </div>
       <div className="relative z-10 ml-2">
@@ -420,7 +421,7 @@ const SkillBox = ({ number, title, children, hasDoc, docUrl, onUpload }) => {
         </div>
 
         {/* ✅ THE BLUE GRADIENT YOU WANTED */}
-        <div className="relative bg-gradient-to-r from-[#1e4b85] to-[#3a7bd5] rounded-r-2xl rounded-bl-2xl shadow-lg p-5 pt-8 text-white transition-transform transform group-hover:scale-[1.01]">
+        <div className="relative bg-gradient-to-r from-[#1e4b85] to-[#3a7bd5] rounded-r-2xl rounded-bl-2xl shadow-lg p-5 pt-8 text-white transition-transform transform hover:scale-[1.01]">
           <div className="absolute top-0 right-0 w-24 h-full bg-white/5 skew-x-12 rounded-r-2xl pointer-events-none"></div>
           <div className="relative z-10">{children}</div>
 
