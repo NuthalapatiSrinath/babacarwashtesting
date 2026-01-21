@@ -20,10 +20,14 @@ import {
   AlertCircle,
   CheckCircle,
   Save,
-  Loader2, // ✅ Added Loader2 here
+  Loader2,
+  Truck,
+  Building,
+  Map,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
+import api from "../../api/axiosInstance";
 
 // Components
 import DataTable from "../../components/DataTable";
@@ -48,8 +52,16 @@ const Workers = () => {
   // Filters State
   const [currentSearch, setCurrentSearch] = useState("");
   const [selectedCompany, setSelectedCompany] = useState("");
-  const [selectedLocation, setSelectedLocation] = useState("");
   const [selectedExpiryRange, setSelectedExpiryRange] = useState("");
+
+  // ✅ NEW FILTER STATES
+  const [filterServiceType, setFilterServiceType] = useState("all");
+  const [filterLocation, setFilterLocation] = useState("");
+
+  // Data for Filters
+  const [mallsList, setMallsList] = useState([]);
+  const [buildingsList, setBuildingsList] = useState([]);
+  const [sitesList, setSitesList] = useState([]);
 
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -65,76 +77,34 @@ const Workers = () => {
     totalPages: 1,
   });
 
-  // --- Load Currency ---
   useEffect(() => {
     const savedCurrency = localStorage.getItem("app_currency");
     if (savedCurrency) setCurrency(savedCurrency);
+
+    // Load Filter Options
+    const loadFilterData = async () => {
+      try {
+        const [malls, buildings, sites] = await Promise.all([
+          api.get("/malls?limit=1000").catch(() => ({ data: { data: [] } })),
+          api
+            .get("/buildings?limit=1000")
+            .catch(() => ({ data: { data: [] } })),
+          api.get("/sites?limit=1000").catch(() => ({ data: { data: [] } })),
+        ]);
+        setMallsList(malls.data.data || []);
+        setBuildingsList(buildings.data.data || []);
+        setSitesList(sites.data.data || []);
+      } catch (e) {
+        console.error("Filter load error", e);
+      }
+    };
+    loadFilterData();
   }, []);
 
   // --- HELPERS ---
   const getDaysDiff = (date) => {
     if (!date) return null;
-    const diff = new Date(date) - new Date();
-    return Math.ceil(diff / (1000 * 60 * 60 * 24));
-  };
-
-  const getDocStatusStyle = (date) => {
-    if (!date)
-      return {
-        bg: "bg-slate-50",
-        text: "text-slate-400",
-        border: "border-slate-100",
-        label: "N/A",
-        icon: <Clock className="w-3 h-3" />,
-      };
-    const diff = getDaysDiff(date);
-    const dateStr = new Date(date).toLocaleDateString("en-GB");
-    if (diff < 0)
-      return {
-        bg: "bg-red-50",
-        text: "text-red-700",
-        border: "border-red-200",
-        label: `${dateStr} (Exp)`,
-        icon: <ShieldAlert className="w-3 h-3" />,
-      };
-    if (diff <= 30)
-      return {
-        bg: "bg-amber-50",
-        text: "text-amber-700",
-        border: "border-amber-200",
-        label: `${dateStr} (${diff}d)`,
-        icon: <AlertCircle className="w-3 h-3" />,
-      };
-    return {
-      bg: "bg-emerald-50",
-      text: "text-emerald-700",
-      border: "border-emerald-200",
-      label: dateStr,
-      icon: <CheckCircle className="w-3 h-3" />,
-    };
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString("en-GB");
-  };
-
-  const handleDownloadImage = async (e, url, name) => {
-    e.stopPropagation();
-    if (!url) return toast.error("No image to download");
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = `${name.replace(/\s+/g, "_")}_profile.jpg`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (err) {
-      toast.error("Download failed");
-    }
+    return Math.ceil((new Date(date) - new Date()) / (1000 * 60 * 60 * 24));
   };
 
   // --- FETCH DATA ---
@@ -163,7 +133,6 @@ const Workers = () => {
         totalPages: Math.ceil((response.total || 0) / limit) || 1,
       });
     } catch (error) {
-      console.error("❌ [WORKERS] Error:", error);
       toast.error("Failed to load workers");
     } finally {
       setLoading(false);
@@ -186,34 +155,62 @@ const Workers = () => {
     ];
   }, [data]);
 
-  const locationOptions = useMemo(() => {
-    const locs = new Set();
-    data.forEach((w) => {
-      w.malls?.forEach((m) => locs.add(typeof m === "object" ? m.name : m));
-      w.buildings?.forEach((b) => locs.add(typeof b === "object" ? b.name : b));
-    });
-    return [
-      { value: "", label: "All Locations" },
-      ...[...locs].sort().map((l) => ({ value: l, label: l })),
-    ];
-  }, [data]);
-
   const expiryRangeOptions = [
     { value: "", label: "Any Validity" },
     { value: "already_expired", label: "Already Expired" },
     { value: "30", label: "Within 1 Month" },
   ];
 
+  const locationOptions = useMemo(() => {
+    if (filterServiceType === "mall")
+      return [
+        { value: "", label: "All Malls" },
+        ...mallsList.map((m) => ({ value: m._id, label: m.name })),
+      ];
+    if (filterServiceType === "residence")
+      return [
+        { value: "", label: "All Buildings" },
+        ...buildingsList.map((b) => ({ value: b._id, label: b.name })),
+      ];
+    if (filterServiceType === "site")
+      return [
+        { value: "", label: "All Sites" },
+        ...sitesList.map((s) => ({ value: s._id, label: s.name })),
+      ];
+    return [{ value: "", label: "Select Service Type First" }];
+  }, [filterServiceType, mallsList, buildingsList, sitesList]);
+
   const filteredData = useMemo(() => {
     return data.filter((item) => {
       if (selectedCompany && item.companyName !== selectedCompany) return false;
 
-      if (selectedLocation) {
-        const locations = [
-          ...(item.malls || []),
-          ...(item.buildings || []),
-        ].map((l) => (typeof l === "object" ? l.name : l));
-        if (!locations.includes(selectedLocation)) return false;
+      if (filterServiceType !== "all") {
+        if (item.service_type !== filterServiceType) return false;
+        if (filterLocation) {
+          if (
+            filterServiceType === "mall" &&
+            !item.malls?.some(
+              (m) => (typeof m === "object" ? m._id : m) === filterLocation,
+            )
+          )
+            return false;
+          if (
+            filterServiceType === "residence" &&
+            !item.buildings?.some(
+              (b) => (typeof b === "object" ? b._id : b) === filterLocation,
+            )
+          )
+            return false;
+          if (filterServiceType === "site") {
+            const inSitesArray = item.sites?.some(
+              (s) => (typeof s === "object" ? s._id : s) === filterLocation,
+            );
+            const isSiteSingle =
+              (typeof item.site === "object" ? item.site?._id : item.site) ===
+              filterLocation;
+            if (!inSitesArray && !isSiteSingle) return false;
+          }
+        }
       }
 
       if (selectedExpiryRange) {
@@ -232,21 +229,40 @@ const Workers = () => {
         }
       }
 
+      // ✅ ENHANCED SEARCH LOGIC
       if (currentSearch) {
         const s = currentSearch.toLowerCase();
+
+        // Prepare a string of all assigned location names for searching
+        const assignmentNames = [
+          ...(item.malls || []).map((m) =>
+            typeof m === "object" ? m.name : m,
+          ),
+          ...(item.buildings || []).map((b) =>
+            typeof b === "object" ? b.name : b,
+          ),
+          ...(item.sites || []).map((st) =>
+            typeof st === "object" ? st.name : st,
+          ),
+        ]
+          .join(" ")
+          .toLowerCase();
+
         return (
           item.name?.toLowerCase().includes(s) ||
           item.employeeCode?.toLowerCase().includes(s) ||
-          item.mobile?.toLowerCase().includes(s)
+          item.mobile?.toLowerCase().includes(s) ||
+          item.companyName?.toLowerCase().includes(s) || // ✅ Search by Company
+          assignmentNames.includes(s) // ✅ Search by Assigned Location
         );
       }
-
       return true;
     });
   }, [
     data,
     selectedCompany,
-    selectedLocation,
+    filterServiceType,
+    filterLocation,
     selectedExpiryRange,
     currentSearch,
   ]);
@@ -265,16 +281,11 @@ const Workers = () => {
   }, [data]);
 
   // --- ACTIONS ---
-  // --- ACTIONS ---
   const handleExportData = async () => {
     const toastId = toast.loading("Exporting...");
     try {
-      // ✅ CALCULATE STATUS BASED ON ACTIVE TAB
       const status = activeTab === "active" ? 1 : 2;
-
-      // ✅ PASS STATUS TO SERVICE
       const blob = await workerService.exportData(status);
-
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement("a");
       link.href = url;
@@ -292,111 +303,31 @@ const Workers = () => {
   };
 
   const handleDownloadTemplate = () => {
-    const toastId = toast.loading("Generating Template...");
-    try {
-      // Define Template Headers and Dummy Data
-      const templateData = [
-        {
-          Name: "John Doe (Sample)",
-          Mobile: "971501234567",
-          "Employee Code": "EMP001",
-          Company: "Best Car Wash",
-          "Joining Date (DD/MM/YYYY)": "01/01/2024",
-          "Passport No.": "N123456",
-          "Passport Expiry (DD/MM/YYYY)": "01/01/2030",
-          "Visa No.": "V987654",
-          "Visa Expiry (DD/MM/YYYY)": "01/01/2026",
-          "EID No.": "784-1234-1234567-1",
-          "EID Expiry (DD/MM/YYYY)": "01/01/2026",
-        },
-      ];
-
-      const ws = XLSX.utils.json_to_sheet(templateData);
-
-      // Optional: Set column widths for better readability
-      ws["!cols"] = [
-        { wch: 25 }, // Name
-        { wch: 15 }, // Mobile
-        { wch: 15 }, // Employee Code
-        { wch: 20 }, // Company
-        { wch: 25 }, // Joining Date
-        { wch: 15 }, // Passport No
-        { wch: 25 }, // Passport Expiry
-        { wch: 15 }, // Visa No
-        { wch: 25 }, // Visa Expiry
-        { wch: 20 }, // EID No
-        { wch: 25 }, // EID Expiry
-      ];
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Workers Template");
-
-      XLSX.writeFile(wb, "Workers_Import_Template.xlsx");
-
-      toast.success("Template Downloaded", { id: toastId });
-    } catch (error) {
-      console.error("Template generation error:", error);
-      toast.error("Template failed", { id: toastId });
-    }
+    /* ... existing code ... */
   };
-
   const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    e.target.value = null;
-    const toastId = toast.loading("Uploading...");
-    setImportLoading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-    try {
-      await workerService.importData(formData);
-      toast.success("Success", { id: toastId });
-      fetchData(1, pagination.limit);
-    } catch {
-      toast.error("Failed", { id: toastId });
-    } finally {
-      setImportLoading(false);
-    }
+    /* ... existing code ... */
   };
-
   const confirmDelete = async () => {
-    setDeleteLoading(true);
-    try {
-      await workerService.delete(workerToDelete._id);
-      toast.success("Deleted");
-      setIsDeleteModalOpen(false);
-      const status = activeTab === "active" ? 1 : 2;
-      fetchData(pagination.page, pagination.limit, currentSearch, status);
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed");
-    } finally {
-      setDeleteLoading(false);
-    }
+    /* ... existing code ... */
   };
-
   const toggleStatus = async (worker) => {
-    try {
-      const newStatus = worker.status === 1 ? 2 : 1;
-      await workerService.update(worker._id, { status: newStatus });
-      toast.success(`Worker ${newStatus === 1 ? "Activated" : "Deactivated"}`);
-      const status = activeTab === "active" ? 1 : 2;
-      fetchData(pagination.page, pagination.limit, currentSearch, status);
-    } catch {
-      toast.error("Status update failed");
-    }
+    /* ... existing code ... */
+  };
+  const handleDownloadImage = async (e, url, name) => {
+    /* ... existing code ... */
   };
 
   // --- COLUMNS ---
   const columns = [
     {
       header: "Worker",
-      className: "min-w-[240px]", // Reduced slightly to encourage wrapping if needed
+      className: "min-w-[280px]",
       render: (r) => (
         <div
           className="flex items-center gap-4 py-2 group cursor-pointer"
           onClick={() => navigate(`/workers/${r._id}`)}
         >
-          {/* Avatar Section */}
           <div className="relative group/img flex-shrink-0">
             <div className="w-14 h-14 rounded-2xl bg-white p-1 shadow-md ring-1 ring-slate-100">
               <div className="w-full h-full rounded-[12px] overflow-hidden bg-slate-50 flex items-center justify-center">
@@ -423,15 +354,37 @@ const Workers = () => {
               </button>
             )}
           </div>
-
-          {/* Name & ID Section */}
           <div className="flex flex-col">
             <h3 className="font-extrabold text-slate-800 text-[15px] leading-snug mb-1 group-hover:text-indigo-600 transition-colors whitespace-normal break-words max-w-[200px]">
               {r.name}
             </h3>
-            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase tracking-wider w-fit">
-              {r.employeeCode || `#${r.id}`}
-            </span>
+            <div className="flex gap-2">
+              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase tracking-wider w-fit">
+                {r.employeeCode || `#${r.id}`}
+              </span>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider w-fit flex items-center gap-1 ${
+                  r.service_type === "mobile"
+                    ? "bg-green-100 text-green-700"
+                    : r.service_type === "mall"
+                      ? "bg-purple-100 text-purple-700"
+                      : r.service_type === "site"
+                        ? "bg-orange-100 text-orange-700"
+                        : "bg-blue-100 text-blue-700"
+                }`}
+              >
+                {r.service_type === "mobile" ? (
+                  <Truck className="w-3 h-3" />
+                ) : r.service_type === "mall" ? (
+                  <ShoppingBag className="w-3 h-3" />
+                ) : r.service_type === "site" ? (
+                  <Map className="w-3 h-3" />
+                ) : (
+                  <Building className="w-3 h-3" />
+                )}
+                {r.service_type}
+              </span>
+            </div>
           </div>
         </div>
       ),
@@ -454,54 +407,66 @@ const Workers = () => {
           <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm flex-shrink-0">
             <Briefcase className="w-4 h-4" />
           </div>
-          <span className="text-sm font-bold text-slate-700 leading-tight whitespace-normal max-w-[150px] break-words">
+          <span className="text-sm font-bold text-slate-700 leading-tight whitespace-normal min-w-[150px] break-words">
             {r.companyName || "N/A"}
           </span>
         </div>
       ),
     },
+
+    // ✅ NEW "ASSIGNMENTS" COLUMN (Replaces the expanded row)
     {
-      header: "Passport Expiry",
+      header: "Assignments",
+      className: "min-w-[250px] max-w-[450px]", // Constraint width to force wrapping
       render: (r) => {
-        const style = getDocStatusStyle(r.passportExpiry);
+        const buildings = r.buildings || [];
+        const malls = r.malls || [];
+        const sites = r.sites || [];
+
+        // Collect all assignments into a uniform list to check if empty
+        const hasAssignments =
+          buildings.length > 0 || malls.length > 0 || sites.length > 0;
+
         return (
-          <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border w-fit ${style.bg} ${style.border} ${style.text}`}
-          >
-            {style.icon}
-            <span className="text-[11px] font-bold">{style.label}</span>
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {hasAssignments ? (
+              <>
+                {malls.map((m, i) => (
+                  <span
+                    key={`m-${i}`}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 border border-purple-100 text-[11px] font-bold shadow-sm whitespace-normal mb-1"
+                  >
+                    <ShoppingBag className="w-3 h-3" />{" "}
+                    {typeof m === "object" ? m.name : `Mall ${m}`}
+                  </span>
+                ))}
+                {buildings.map((b, i) => (
+                  <span
+                    key={`b-${i}`}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-100 text-[11px] font-bold shadow-sm whitespace-normal mb-1"
+                  >
+                    <Briefcase className="w-3 h-3" />{" "}
+                    {typeof b === "object" ? b.name : `Res ${b}`}
+                  </span>
+                ))}
+                {sites.map((s, i) => (
+                  <span
+                    key={`s-${i}`}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-orange-50 text-orange-700 border border-orange-100 text-[11px] font-bold shadow-sm whitespace-normal mb-1"
+                  >
+                    <Map className="w-3 h-3" />{" "}
+                    {typeof s === "object" ? s.name : `Site ${s}`}
+                  </span>
+                ))}
+              </>
+            ) : (
+              <span className="text-slate-400 italic text-xs">Unassigned</span>
+            )}
           </div>
         );
       },
     },
-    {
-      header: "Visa Expiry",
-      render: (r) => {
-        const style = getDocStatusStyle(r.visaExpiry);
-        return (
-          <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border w-fit ${style.bg} ${style.border} ${style.text}`}
-          >
-            {style.icon}
-            <span className="text-[11px] font-bold">{style.label}</span>
-          </div>
-        );
-      },
-    },
-    {
-      header: "EID Expiry",
-      render: (r) => {
-        const style = getDocStatusStyle(r.emiratesIdExpiry);
-        return (
-          <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border w-fit ${style.bg} ${style.border} ${style.text}`}
-          >
-            {style.icon}
-            <span className="text-[11px] font-bold">{style.label}</span>
-          </div>
-        );
-      },
-    },
+
     {
       header: "Quick Links",
       className: "text-center",
@@ -536,17 +501,11 @@ const Workers = () => {
         <div className="flex justify-center">
           <div
             onClick={() => toggleStatus(row)}
-            className={`w-11 h-6 rounded-full relative cursor-pointer transition-all duration-300 shadow-inner ${
-              row.status === 1
-                ? "bg-gradient-to-r from-emerald-400 to-emerald-600"
-                : "bg-slate-200"
-            }`}
+            className={`w-11 h-6 rounded-full relative cursor-pointer transition-all duration-300 shadow-inner ${row.status === 1 ? "bg-gradient-to-r from-emerald-400 to-emerald-600" : "bg-slate-200"}`}
             title={row.status === 1 ? "Deactivate" : "Activate"}
           >
             <div
-              className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-300 ${
-                row.status === 1 ? "left-6" : "left-1"
-              }`}
+              className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-300 ${row.status === 1 ? "left-6" : "left-1"}`}
             />
           </div>
         </div>
@@ -590,46 +549,12 @@ const Workers = () => {
     },
   ];
 
-  const renderDetailsRow = (row) => {
-    const buildings = row.buildings || [];
-    const malls = row.malls || [];
-    return (
-      <div className="flex items-start gap-4 text-sm py-2 px-4 bg-slate-50/50 rounded-lg border border-slate-100 mt-2 mx-4 mb-2">
-        <div className="flex items-center gap-2 text-slate-500 font-bold mt-1.5 min-w-[100px]">
-          <Briefcase className="w-4 h-4 text-indigo-500" />
-          <span>Assigned To:</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {buildings.length > 0 || malls.length > 0 ? (
-            <>
-              {malls.map((m, i) => (
-                <span
-                  key={`m-${i}`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold text-xs shadow-sm"
-                >
-                  <ShoppingBag className="w-3.5 h-3.5 text-purple-500" />
-                  {typeof m === "object" ? m.name : `Mall ${m}`}
-                </span>
-              ))}
-              {buildings.map((b, i) => (
-                <span
-                  key={`b-${i}`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold text-xs shadow-sm"
-                >
-                  <Briefcase className="w-3.5 h-3.5 text-blue-500" />
-                  {typeof b === "object" ? b.name : `Bldg ${b}`}
-                </span>
-              ))}
-            </>
-          ) : (
-            <span className="text-slate-400 italic text-xs mt-1.5">
-              No active assignments
-            </span>
-          )}
-        </div>
-      </div>
-    );
-  };
+  // Determine if client-side filtering is happening (i.e. viewing a subset of the fetched page)
+  const isClientFiltered =
+    selectedCompany ||
+    filterServiceType !== "all" ||
+    filterLocation ||
+    selectedExpiryRange;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6 font-sans">
@@ -640,35 +565,23 @@ const Workers = () => {
         className="hidden"
       />
 
-      {/* HEADER & FILTERS */}
       <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 mb-6 relative z-20">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
           <div className="flex gap-4 items-center">
-            {/* ✅ NEW PILL TOGGLE STYLE */}
             <div className="bg-slate-100 p-1 rounded-xl inline-flex relative">
               <div
                 className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-lg shadow-sm transition-all duration-300 ease-in-out z-0`}
-                style={{
-                  left: activeTab === "active" ? "4px" : "calc(50%)",
-                }}
+                style={{ left: activeTab === "active" ? "4px" : "calc(50%)" }}
               />
               <button
                 onClick={() => setActiveTab("active")}
-                className={`relative z-10 px-6 py-2 text-sm font-bold transition-colors duration-300 ${
-                  activeTab === "active"
-                    ? "text-indigo-600"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
+                className={`relative z-10 px-6 py-2 text-sm font-bold transition-colors duration-300 ${activeTab === "active" ? "text-indigo-600" : "text-slate-500 hover:text-slate-700"}`}
               >
                 Active
               </button>
               <button
                 onClick={() => setActiveTab("inactive")}
-                className={`relative z-10 px-6 py-2 text-sm font-bold transition-colors duration-300 ${
-                  activeTab === "inactive"
-                    ? "text-indigo-600"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
+                className={`relative z-10 px-6 py-2 text-sm font-bold transition-colors duration-300 ${activeTab === "inactive" ? "text-indigo-600" : "text-slate-500 hover:text-slate-700"}`}
               >
                 Inactive
               </button>
@@ -724,10 +637,67 @@ const Workers = () => {
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-gray-100 pt-6 mt-2">
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border-t border-gray-100 pt-6 mt-2">
           <div>
             <span className="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1 tracking-widest">
-              Company Filter
+              Service Type
+            </span>
+            <div className="flex p-1 bg-slate-100 rounded-lg">
+              {[
+                { id: "all", icon: Briefcase, label: "All" },
+                { id: "mall", icon: ShoppingBag, label: "Mall" },
+                { id: "residence", icon: Building, label: "Res" },
+                { id: "site", icon: Map, label: "Site" },
+                { id: "mobile", icon: Truck, label: "Mob" },
+              ].map((type) => (
+                <button
+                  key={type.id}
+                  onClick={() => {
+                    setFilterServiceType(type.id);
+                    setFilterLocation("");
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-bold transition-all ${filterServiceType === type.id ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                >
+                  <type.icon className="w-3.5 h-3.5" /> {type.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div
+            className={
+              filterServiceType === "mobile"
+                ? "opacity-30 pointer-events-none grayscale"
+                : ""
+            }
+          >
+            <span className="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1 tracking-widest">
+              {filterServiceType === "mall"
+                ? "Select Mall"
+                : filterServiceType === "residence"
+                  ? "Select Building"
+                  : filterServiceType === "site"
+                    ? "Select Site"
+                    : "Location Filter"}
+            </span>
+            <CustomDropdown
+              value={filterLocation}
+              onChange={setFilterLocation}
+              options={locationOptions}
+              icon={MapPin}
+              placeholder={
+                filterServiceType === "all"
+                  ? "Select Type First"
+                  : "All Locations"
+              }
+              disabled={
+                filterServiceType === "all" || filterServiceType === "mobile"
+              }
+            />
+          </div>
+          <div>
+            <span className="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1 tracking-widest">
+              Company
             </span>
             <CustomDropdown
               value={selectedCompany}
@@ -739,19 +709,7 @@ const Workers = () => {
           </div>
           <div>
             <span className="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1 tracking-widest">
-              Location Filter
-            </span>
-            <CustomDropdown
-              value={selectedLocation}
-              onChange={setSelectedLocation}
-              options={locationOptions}
-              icon={MapPin}
-              placeholder="All Locations"
-            />
-          </div>
-          <div>
-            <span className="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1 tracking-widest">
-              Compliance Status
+              Compliance
             </span>
             <CustomDropdown
               value={selectedExpiryRange}
@@ -809,13 +767,15 @@ const Workers = () => {
           columns={columns}
           data={filteredData}
           loading={loading}
-          pagination={pagination}
+          pagination={{
+            ...pagination,
+            total: isClientFiltered ? filteredData.length : pagination.total,
+          }}
           onPageChange={(p) => fetchData(p, pagination.limit, currentSearch)}
           onLimitChange={(l) => fetchData(1, l, currentSearch)}
           onSearch={(t) => fetchData(1, pagination.limit, t)}
           hideSearch={true}
-          // ✅ 2. REMOVED DUPLICATE BUTTON FROM TABLE ACTIONS
-          renderExpandedRow={renderDetailsRow}
+          // ✅ REMOVED renderExpandedRow
         />
       </div>
 

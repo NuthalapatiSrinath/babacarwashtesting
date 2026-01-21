@@ -14,6 +14,8 @@ import {
   CreditCard,
   Upload,
   Calendar,
+  Truck,
+  Map, // ✅ Added Map
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
@@ -23,15 +25,16 @@ import { fetchMalls } from "../../redux/slices/mallSlice";
 import ModalManager from "./ModalManager";
 import CustomDropdown from "../ui/CustomDropdown";
 import { workerService } from "../../api/workerService";
+import api from "../../api/axiosInstance";
 
 const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
-  const [fetchingData, setFetchingData] = useState(false);
 
   // Data Options
   const [allBuildings, setAllBuildings] = useState([]);
   const [allMalls, setAllMalls] = useState([]);
+  const [allSites, setAllSites] = useState([]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -62,8 +65,9 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
   });
   const [selectedBuildings, setSelectedBuildings] = useState([]);
   const [selectedMalls, setSelectedMalls] = useState([]);
+  const [selectedSites, setSelectedSites] = useState([]);
 
-  // UI States for Dropdowns
+  // UI States
   const [buildingSearch, setBuildingSearch] = useState("");
   const [isBuildingDropdownOpen, setIsBuildingDropdownOpen] = useState(false);
   const buildingDropdownRef = useRef(null);
@@ -72,36 +76,44 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
   const [isMallDropdownOpen, setIsMallDropdownOpen] = useState(false);
   const mallDropdownRef = useRef(null);
 
+  const [siteSearch, setSiteSearch] = useState("");
+  const [isSiteDropdownOpen, setIsSiteDropdownOpen] = useState(false);
+  const siteDropdownRef = useRef(null);
+
   const serviceTypeOptions = [
     { value: "residence", label: "Residence", icon: Building },
     { value: "mall", label: "Mall", icon: ShoppingBag },
+    { value: "site", label: "Site", icon: Map },
+    { value: "mobile", label: "Mobile", icon: Truck },
   ];
 
   // --- 1. Load Data ---
   useEffect(() => {
     if (isOpen) {
       const loadOptions = async () => {
-        setFetchingData(true);
         try {
-          const [bRes, mRes] = await Promise.all([
+          const [bRes, mRes, sRes] = await Promise.all([
             dispatch(
               fetchBuildings({ page: 1, limit: 1000, search: "" }),
             ).unwrap(),
             dispatch(fetchMalls({ page: 1, limit: 1000, search: "" })).unwrap(),
+            api.get("/sites?limit=1000").catch(() => ({ data: { data: [] } })),
           ]);
           setAllBuildings(bRes.data || []);
           setAllMalls(mRes.data || []);
+          setAllSites(sRes.data.data || []);
         } catch (error) {
           toast.error("Failed to load options");
-        } finally {
-          setFetchingData(false);
         }
       };
       loadOptions();
 
       if (editData) {
-        const sType =
-          editData.malls && editData.malls.length > 0 ? "mall" : "residence";
+        let sType = "residence";
+        if (editData.service_type) sType = editData.service_type;
+        else if (editData.malls?.length > 0) sType = "mall";
+        else if (editData.sites?.length > 0) sType = "site";
+
         const existingBuildings = Array.isArray(editData.buildings)
           ? editData.buildings.map((b) =>
               typeof b === "object" ? b : { _id: b, name: "Loading..." },
@@ -112,10 +124,16 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
               typeof m === "object" ? m : { _id: m, name: "Loading..." },
             )
           : [];
+        const existingSites = Array.isArray(editData.sites)
+          ? editData.sites.map((s) =>
+              typeof s === "object" ? s : { _id: s, name: "Loading..." },
+            )
+          : [];
 
         setFormData({
           name: editData.name || "",
           mobile: editData.mobile || "",
+          // ✅ Show existing password
           password: editData.password || "",
           confirmPassword: editData.password || "",
           serviceType: sType,
@@ -143,6 +161,7 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
         });
         setSelectedBuildings(existingBuildings);
         setSelectedMalls(existingMalls);
+        setSelectedSites(existingSites);
       } else {
         setFormData({
           name: "",
@@ -166,18 +185,18 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
         });
         setSelectedBuildings([]);
         setSelectedMalls([]);
+        setSelectedSites([]);
       }
     }
   }, [isOpen, editData, dispatch]);
 
-  // --- 2. Multi-Select Logic ---
+  // --- Multi-Select Logic ---
   const toggleSelection = (item, list, setList, searchSetter) => {
     const exists = list.find((i) => i._id === item._id);
     if (exists) setList(list.filter((i) => i._id !== item._id));
     else setList([...list, item]);
     searchSetter("");
   };
-
   const removeSelection = (id, list, setList) => {
     setList(list.filter((i) => i._id !== id));
   };
@@ -194,6 +213,11 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
         !mallDropdownRef.current.contains(event.target)
       )
         setIsMallDropdownOpen(false);
+      if (
+        siteDropdownRef.current &&
+        !siteDropdownRef.current.contains(event.target)
+      )
+        setIsSiteDropdownOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -205,22 +229,18 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
   const filteredMalls = allMalls.filter((m) =>
     m.name.toLowerCase().includes(mallSearch.toLowerCase()),
   );
+  const filteredSites = allSites.filter((s) =>
+    s.name.toLowerCase().includes(siteSearch.toLowerCase()),
+  );
 
-  // --- 3. Document Upload ---
   const handleDocumentUpload = async (docType) => {
-    if (!editData?._id) {
-      toast.error("Please save details first before uploading docs.");
-      return;
-    }
+    if (!editData?._id) return toast.error("Please save details first.");
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".pdf";
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      if (!file.name.toLowerCase().endsWith(".pdf"))
-        return toast.error("Only PDF allowed");
-
       const docKey =
         docType === "Passport"
           ? "passport"
@@ -229,7 +249,6 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
             : "emiratesId";
       setUploadingDoc((prev) => ({ ...prev, [docKey]: true }));
       const toastId = toast.loading(`Uploading ${docType}...`);
-
       try {
         const response = await workerService.uploadDocument(
           editData._id,
@@ -256,13 +275,16 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
     input.click();
   };
 
-  // --- 4. Submit ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.mobile)
       return toast.error("Name & Mobile required");
-    if (!formData.password) return toast.error("Password required");
-    if (formData.password !== formData.confirmPassword) return;
+
+    // Password required only for create
+    if (!editData && !formData.password)
+      return toast.error("Password required");
+    if (formData.password !== formData.confirmPassword)
+      return toast.error("Passwords do not match");
 
     setLoading(true);
     try {
@@ -280,6 +302,8 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
         visaExpiry: formData.visaExpiry,
         emiratesId: formData.emiratesId,
         emiratesIdExpiry: formData.emiratesIdExpiry,
+        // ✅ FIXED: Send 'service_type' (snake_case) to match DB Schema
+        service_type: formData.serviceType,
       };
 
       if (formData.serviceType === "mall") {
@@ -287,11 +311,24 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
           throw new Error("Select at least one Mall");
         payload.malls = selectedMalls.map((m) => m._id);
         payload.buildings = [];
-      } else {
+        payload.sites = [];
+      } else if (formData.serviceType === "residence") {
         if (selectedBuildings.length === 0)
           throw new Error("Select at least one Building");
         payload.buildings = selectedBuildings.map((b) => b._id);
         payload.malls = [];
+        payload.sites = [];
+      } else if (formData.serviceType === "site") {
+        if (selectedSites.length === 0)
+          throw new Error("Select at least one Site");
+        payload.sites = selectedSites.map((s) => s._id);
+        payload.malls = [];
+        payload.buildings = [];
+      } else {
+        // Mobile
+        payload.malls = [];
+        payload.buildings = [];
+        payload.sites = [];
       }
 
       if (editData)
@@ -325,7 +362,6 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
       modalType={editData ? "EDIT" : "CREATE"}
       size="lg"
     >
-      {/* ✅ SCROLLABLE CONTAINER WITH MAX HEIGHT & PADDING */}
       <div className="overflow-y-auto max-h-[70vh] p-6 space-y-8 custom-scrollbar">
         <form id="workerForm" onSubmit={handleSubmit} className="space-y-8">
           {/* --- SECTION 1: ACCOUNT INFO --- */}
@@ -333,7 +369,7 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
             <h4 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
               <div className="p-1.5 bg-blue-50 rounded-lg text-blue-600">
                 <User className="w-4 h-4" />
-              </div>
+              </div>{" "}
               Account Information
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -349,7 +385,7 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
                     onChange={(e) =>
                       setFormData({ ...formData, mobile: e.target.value })
                     }
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
                     placeholder="9876543210"
                   />
                 </div>
@@ -366,14 +402,15 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
                     }
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
                     placeholder="Full Name"
                   />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Password <span className="text-red-500">*</span>
+                  Password{" "}
+                  {!editData && <span className="text-red-500">*</span>}
                 </label>
                 <div className="relative group">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
@@ -383,14 +420,18 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
                     onChange={(e) =>
                       setFormData({ ...formData, password: e.target.value })
                     }
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    placeholder="Enter Password"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder={
+                      editData
+                        ? "Leave blank to keep current"
+                        : "Enter Password"
+                    }
                   />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Confirm <span className="text-red-500">*</span>
+                  Confirm {!editData && <span className="text-red-500">*</span>}
                 </label>
                 <div className="relative group">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
@@ -403,15 +444,10 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
                         confirmPassword: e.target.value,
                       })
                     }
-                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm font-medium focus:bg-white focus:ring-2 outline-none transition-all ${isPasswordMismatch ? "border-red-300 focus:ring-red-200" : "border-slate-200 focus:ring-blue-500"}`}
+                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm font-medium outline-none ${isPasswordMismatch ? "border-red-300 focus:ring-red-200" : "border-slate-200 focus:ring-blue-500"}`}
                     placeholder="Confirm"
                   />
                 </div>
-                {isPasswordMismatch && (
-                  <p className="text-[10px] text-red-500 font-bold ml-1">
-                    Passwords do not match
-                  </p>
-                )}
               </div>
             </div>
           </div>
@@ -421,7 +457,7 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
             <h4 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
               <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-600">
                 <Briefcase className="w-4 h-4" />
-              </div>
+              </div>{" "}
               Employment Details
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -435,7 +471,7 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
                   onChange={(e) =>
                     setFormData({ ...formData, companyName: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                   placeholder="Company Name"
                 />
               </div>
@@ -449,7 +485,7 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
                   onChange={(e) =>
                     setFormData({ ...formData, employeeCode: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                   placeholder="EMP-001"
                 />
               </div>
@@ -463,7 +499,7 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                   placeholder="john@example.com"
                 />
               </div>
@@ -479,7 +515,7 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
                     onChange={(e) =>
                       setFormData({ ...formData, joiningDate: e.target.value })
                     }
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all cursor-pointer rich-date-input"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600 focus:ring-2 focus:ring-emerald-500 outline-none rich-date-input"
                   />
                 </div>
               </div>
@@ -491,10 +527,10 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
             <h4 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
               <div className="p-1.5 bg-purple-50 rounded-lg text-purple-600">
                 <Building className="w-4 h-4" />
-              </div>
+              </div>{" "}
               Assignment Logic
             </h4>
-            <div className="space-y-4">
+            <div className="space-y-2">
               <CustomDropdown
                 label="Service Type"
                 value={formData.serviceType}
@@ -505,157 +541,246 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
                 icon={Briefcase}
                 placeholder="Select Service Type"
               />
-
-              {formData.serviceType === "mall" && (
-                <div ref={mallDropdownRef} className="space-y-2 relative">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Assign Malls <span className="text-red-500">*</span>
-                  </label>
-                  <div
-                    onClick={() => setIsMallDropdownOpen(true)}
-                    className="w-full min-h-[48px] px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus-within:bg-white focus-within:ring-2 focus-within:ring-purple-500 flex flex-wrap gap-2 items-center cursor-text transition-all"
-                  >
-                    {selectedMalls.map((m) => (
-                      <span
-                        key={m._id}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-purple-700 border border-purple-100 shadow-sm"
-                      >
-                        {m.name}{" "}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeSelection(
-                              m._id,
-                              selectedMalls,
-                              setSelectedMalls,
-                            );
-                          }}
-                          className="hover:bg-purple-100 rounded-full p-0.5"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      type="text"
-                      className="flex-1 min-w-[120px] outline-none text-sm bg-transparent h-full placeholder:text-slate-400"
-                      placeholder={
-                        selectedMalls.length === 0 ? "Search Malls..." : ""
-                      }
-                      value={mallSearch}
-                      onChange={(e) => {
-                        setMallSearch(e.target.value);
-                        setIsMallDropdownOpen(true);
-                      }}
-                      onFocus={() => setIsMallDropdownOpen(true)}
-                    />
-                  </div>
-                  {isMallDropdownOpen && (
-                    <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-100 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 custom-scrollbar">
-                      {filteredMalls.map((m) => (
-                        <div
-                          key={m._id}
-                          onClick={() =>
-                            toggleSelection(
-                              m,
-                              selectedMalls,
-                              setSelectedMalls,
-                              setMallSearch,
-                            )
-                          }
-                          className={`px-4 py-3 text-sm cursor-pointer flex justify-between items-center ${selectedMalls.find((sm) => sm._id === m._id) ? "bg-purple-50 text-purple-700 font-medium" : "text-slate-600 hover:bg-slate-50"}`}
-                        >
-                          <span className="flex items-center gap-3">
-                            <ShoppingBag className="w-4 h-4 text-slate-400" />{" "}
-                            {m.name}
-                          </span>
-                          {selectedMalls.find((sm) => sm._id === m._id) && (
-                            <Check className="w-4 h-4 text-purple-600" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {formData.serviceType === "residence" && (
-                <div ref={buildingDropdownRef} className="space-y-2 relative">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    Assign Buildings <span className="text-red-500">*</span>
-                  </label>
-                  <div
-                    onClick={() => setIsBuildingDropdownOpen(true)}
-                    className="w-full min-h-[48px] px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500 flex flex-wrap gap-2 items-center cursor-text transition-all"
-                  >
-                    {selectedBuildings.map((b) => (
-                      <span
-                        key={b._id}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-blue-700 border border-blue-100 shadow-sm"
-                      >
-                        {b.name}{" "}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeSelection(
-                              b._id,
-                              selectedBuildings,
-                              setSelectedBuildings,
-                            );
-                          }}
-                          className="hover:bg-blue-100 rounded-full p-0.5"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      type="text"
-                      className="flex-1 min-w-[120px] outline-none text-sm bg-transparent h-full placeholder:text-slate-400"
-                      placeholder={
-                        selectedBuildings.length === 0
-                          ? "Search Buildings..."
-                          : ""
-                      }
-                      value={buildingSearch}
-                      onChange={(e) => {
-                        setBuildingSearch(e.target.value);
-                        setIsBuildingDropdownOpen(true);
-                      }}
-                      onFocus={() => setIsBuildingDropdownOpen(true)}
-                    />
-                  </div>
-                  {isBuildingDropdownOpen && (
-                    <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-100 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 custom-scrollbar">
-                      {filteredBuildings.map((b) => (
-                        <div
-                          key={b._id}
-                          onClick={() =>
-                            toggleSelection(
-                              b,
-                              selectedBuildings,
-                              setSelectedBuildings,
-                              setBuildingSearch,
-                            )
-                          }
-                          className={`px-4 py-3 text-sm cursor-pointer flex justify-between items-center ${selectedBuildings.find((sb) => sb._id === b._id) ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-600 hover:bg-slate-50"}`}
-                        >
-                          <span className="flex items-center gap-3">
-                            <Building className="w-4 h-4 text-slate-400" />{" "}
-                            {b.name}
-                          </span>
-                          {selectedBuildings.find((sb) => sb._id === b._id) && (
-                            <Check className="w-4 h-4 text-blue-600" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
+
+            {formData.serviceType === "mall" && (
+              <div
+                ref={mallDropdownRef}
+                className="space-y-2 relative animate-in fade-in zoom-in-95"
+              >
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Assign Malls <span className="text-red-500">*</span>
+                </label>
+                <div
+                  onClick={() => setIsMallDropdownOpen(true)}
+                  className="w-full min-h-[48px] px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus-within:bg-white focus-within:ring-2 focus-within:ring-purple-500 flex flex-wrap gap-2 items-center cursor-text"
+                >
+                  {selectedMalls.map((m) => (
+                    <span
+                      key={m._id}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-purple-700 border border-purple-100 shadow-sm"
+                    >
+                      {m.name}{" "}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeSelection(
+                            m._id,
+                            selectedMalls,
+                            setSelectedMalls,
+                          );
+                        }}
+                        className="hover:bg-purple-100 rounded-full p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="text"
+                    className="flex-1 min-w-[120px] outline-none text-sm bg-transparent h-full placeholder:text-slate-400"
+                    placeholder={
+                      selectedMalls.length === 0 ? "Search Malls..." : ""
+                    }
+                    value={mallSearch}
+                    onChange={(e) => {
+                      setMallSearch(e.target.value);
+                      setIsMallDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsMallDropdownOpen(true)}
+                  />
+                </div>
+                {isMallDropdownOpen && (
+                  <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-100 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 custom-scrollbar">
+                    {filteredMalls.map((m) => (
+                      <div
+                        key={m._id}
+                        onClick={() =>
+                          toggleSelection(
+                            m,
+                            selectedMalls,
+                            setSelectedMalls,
+                            setMallSearch,
+                          )
+                        }
+                        className={`px-4 py-3 text-sm cursor-pointer flex justify-between items-center ${selectedMalls.find((sm) => sm._id === m._id) ? "bg-purple-50 text-purple-700 font-medium" : "text-slate-600 hover:bg-slate-50"}`}
+                      >
+                        <span className="flex items-center gap-3">
+                          <ShoppingBag className="w-4 h-4 text-slate-400" />{" "}
+                          {m.name}
+                        </span>
+                        {selectedMalls.find((sm) => sm._id === m._id) && (
+                          <Check className="w-4 h-4 text-purple-600" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {formData.serviceType === "residence" && (
+              <div
+                ref={buildingDropdownRef}
+                className="space-y-2 relative animate-in fade-in zoom-in-95"
+              >
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Assign Buildings <span className="text-red-500">*</span>
+                </label>
+                <div
+                  onClick={() => setIsBuildingDropdownOpen(true)}
+                  className="w-full min-h-[48px] px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500 flex flex-wrap gap-2 items-center cursor-text"
+                >
+                  {selectedBuildings.map((b) => (
+                    <span
+                      key={b._id}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-blue-700 border border-blue-100 shadow-sm"
+                    >
+                      {b.name}{" "}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeSelection(
+                            b._id,
+                            selectedBuildings,
+                            setSelectedBuildings,
+                          );
+                        }}
+                        className="hover:bg-blue-100 rounded-full p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="text"
+                    className="flex-1 min-w-[120px] outline-none text-sm bg-transparent h-full placeholder:text-slate-400"
+                    placeholder={
+                      selectedBuildings.length === 0
+                        ? "Search Buildings..."
+                        : ""
+                    }
+                    value={buildingSearch}
+                    onChange={(e) => {
+                      setBuildingSearch(e.target.value);
+                      setIsBuildingDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsBuildingDropdownOpen(true)}
+                  />
+                </div>
+                {isBuildingDropdownOpen && (
+                  <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-100 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 custom-scrollbar">
+                    {filteredBuildings.map((b) => (
+                      <div
+                        key={b._id}
+                        onClick={() =>
+                          toggleSelection(
+                            b,
+                            selectedBuildings,
+                            setSelectedBuildings,
+                            setBuildingSearch,
+                          )
+                        }
+                        className={`px-4 py-3 text-sm cursor-pointer flex justify-between items-center ${selectedBuildings.find((sb) => sb._id === b._id) ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-600 hover:bg-slate-50"}`}
+                      >
+                        <span className="flex items-center gap-3">
+                          <Building className="w-4 h-4 text-slate-400" />{" "}
+                          {b.name}
+                        </span>
+                        {selectedBuildings.find((sb) => sb._id === b._id) && (
+                          <Check className="w-4 h-4 text-blue-600" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {formData.serviceType === "site" && (
+              <div
+                ref={siteDropdownRef}
+                className="space-y-2 relative animate-in fade-in zoom-in-95"
+              >
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Assign Sites <span className="text-red-500">*</span>
+                </label>
+                <div
+                  onClick={() => setIsSiteDropdownOpen(true)}
+                  className="w-full min-h-[48px] px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus-within:bg-white focus-within:ring-2 focus-within:ring-orange-500 flex flex-wrap gap-2 items-center cursor-text"
+                >
+                  {selectedSites.map((s) => (
+                    <span
+                      key={s._id}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-orange-700 border border-orange-100 shadow-sm"
+                    >
+                      {s.name}{" "}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeSelection(
+                            s._id,
+                            selectedSites,
+                            setSelectedSites,
+                          );
+                        }}
+                        className="hover:bg-orange-100 rounded-full p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="text"
+                    className="flex-1 min-w-[120px] outline-none text-sm bg-transparent h-full placeholder:text-slate-400"
+                    placeholder={
+                      selectedSites.length === 0 ? "Search Sites..." : ""
+                    }
+                    value={siteSearch}
+                    onChange={(e) => {
+                      setSiteSearch(e.target.value);
+                      setIsSiteDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsSiteDropdownOpen(true)}
+                  />
+                </div>
+                {isSiteDropdownOpen && (
+                  <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-100 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50 custom-scrollbar">
+                    {filteredSites.map((s) => (
+                      <div
+                        key={s._id}
+                        onClick={() =>
+                          toggleSelection(
+                            s,
+                            selectedSites,
+                            setSelectedSites,
+                            setSiteSearch,
+                          )
+                        }
+                        className={`px-4 py-3 text-sm cursor-pointer flex justify-between items-center ${selectedSites.find((ss) => ss._id === s._id) ? "bg-orange-50 text-orange-700 font-medium" : "text-slate-600 hover:bg-slate-50"}`}
+                      >
+                        <span className="flex items-center gap-3">
+                          <Map className="w-4 h-4 text-slate-400" /> {s.name}
+                        </span>
+                        {selectedSites.find((ss) => ss._id === s._id) && (
+                          <Check className="w-4 h-4 text-orange-600" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {formData.serviceType === "mobile" && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3 text-green-700 text-sm animate-in fade-in">
+                <Truck className="w-5 h-5" />
+                <span>Mobile workers are not bound to specific locations.</span>
+              </div>
+            )}
           </div>
 
           {/* --- SECTION 4: DOCUMENTS --- */}
@@ -663,7 +788,7 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
             <h4 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
               <div className="p-1.5 bg-indigo-50 rounded-lg text-indigo-600">
                 <FileText className="w-4 h-4" />
-              </div>
+              </div>{" "}
               Official Documents
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -677,7 +802,7 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
                   onChange={(e) =>
                     setFormData({ ...formData, passportNumber: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none"
                   placeholder="Passport No."
                 />
                 <input
@@ -699,7 +824,7 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
                   onChange={(e) =>
                     setFormData({ ...formData, visaNumber: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none"
                   placeholder="Visa No."
                 />
                 <input
@@ -722,7 +847,7 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
                     onChange={(e) =>
                       setFormData({ ...formData, emiratesId: e.target.value })
                     }
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none"
                     placeholder="ID Number"
                   />
                   <input
@@ -741,7 +866,7 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
             </div>
           </div>
 
-          {/* --- SECTION 5: UPLOADS (Edit Mode) --- */}
+          {/* --- SECTION 5: UPLOADS --- */}
           {editData && (
             <div className="pt-4 border-t border-dashed border-slate-200">
               <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
@@ -785,8 +910,6 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
           )}
         </form>
       </div>
-
-      {/* --- FIXED FOOTER --- */}
       <div className="flex justify-end p-6 border-t border-slate-100 bg-white rounded-b-xl gap-3">
         <button
           type="button"
@@ -798,25 +921,14 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
         <button
           type="submit"
           form="workerForm"
-          disabled={loading || isPasswordMismatch}
+          disabled={loading || (isPasswordMismatch && !editData)}
           className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-indigo-200 disabled:opacity-70 disabled:shadow-none transition-all"
         >
           {loading && <Loader2 className="w-4 h-4 animate-spin" />}{" "}
           {editData ? "Save Changes" : "Create Worker"}
         </button>
       </div>
-
-      {/* --- CUSTOM CSS FOR SCROLLBAR & DATE INPUTS --- */}
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        /* Rich Date Input Styling */
-        .rich-date-input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.5; transition: 0.2s; }
-        .rich-date-input::-webkit-calendar-picker-indicator:hover { opacity: 1; transform: scale(1.1); }
-      `}</style>
+      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; } .rich-date-input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.5; transition: 0.2s; }`}</style>
     </ModalManager>
   );
 };

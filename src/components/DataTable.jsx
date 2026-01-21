@@ -43,8 +43,8 @@ const DataTable = ({
     if (!isServer && localSearch) {
       return data.filter((row) =>
         Object.values(row).some((v) =>
-          String(v).toLowerCase().includes(localSearch.toLowerCase())
-        )
+          String(v).toLowerCase().includes(localSearch.toLowerCase()),
+        ),
       );
     }
     return data;
@@ -85,14 +85,13 @@ const DataTable = ({
         totalPages - 3,
         totalPages - 2,
         totalPages - 1,
-        totalPages
+        totalPages,
       );
     else list.push(1, "...", page - 1, page, page + 1, "...", totalPages);
     return list;
   })();
 
   return (
-    // FIX: Removed 'min-w-full'. Added 'w-full' and 'overflow-hidden' to contain children.
     <div className="flex flex-col w-full h-full bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden relative">
       {/* HEADER */}
       <div className="p-5 border-b flex flex-col sm:flex-row justify-between gap-4 flex-shrink-0 bg-white z-20">
@@ -150,7 +149,8 @@ const DataTable = ({
                   {columns.map((c, i) => (
                     <th
                       key={i}
-                      className={`px-6 py-4 md:px-4 md:py-3 text-base md:text-xs font-bold uppercase text-slate-600 tracking-wider bg-slate-50 ${
+                      // ✅ REDUCED GAP: Changed px-6 py-4 to px-3 py-3
+                      className={`px-3 py-3 text-xs font-bold uppercase text-slate-600 tracking-wider bg-slate-50 ${
                         c.className || ""
                       }`}
                     >
@@ -158,7 +158,7 @@ const DataTable = ({
                     </th>
                   ))}
                   {renderExpandedRow && (
-                    <th className="w-14 px-6 md:px-4 bg-slate-50" />
+                    <th className="w-10 px-3 bg-slate-50" /> // ✅ REDUCED: width and padding
                   )}
                 </tr>
               </thead>
@@ -192,7 +192,8 @@ const DataTable = ({
                         {columns.map((c, j) => (
                           <td
                             key={j}
-                            className={`px-6 py-5 md:px-4 md:py-3 text-lg md:text-sm font-medium text-slate-700 border-b border-transparent ${
+                            // ✅ REDUCED GAP: Changed px-6 py-5 to px-3 py-3
+                            className={`px-3 py-3 text-sm font-medium text-slate-700 border-b border-transparent ${
                               c.className || ""
                             }`}
                           >
@@ -201,21 +202,23 @@ const DataTable = ({
                         ))}
 
                         {renderExpandedRow && (
-                          <td className="px-6 py-5 md:px-4 md:py-3 text-right">
+                          <td className="px-3 py-3 text-right">
+                            {" "}
+                            {/* ✅ REDUCED PADDING */}
                             <button
                               onClick={() =>
                                 setExpandedRows(
                                   expanded
                                     ? expandedRows.filter((x) => x !== id)
-                                    : [...expandedRows, id]
+                                    : [...expandedRows, id],
                                 )
                               }
-                              className="p-3 md:p-1.5 rounded-md hover:bg-white hover:shadow-sm text-slate-400 hover:text-indigo-600 transition-all"
+                              className="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-slate-400 hover:text-indigo-600 transition-all"
                             >
                               {expanded ? (
-                                <ChevronUp className="w-7 h-7 md:w-4 md:h-4" />
+                                <ChevronUp className="w-4 h-4" />
                               ) : (
-                                <ChevronDown className="w-7 h-7 md:w-4 md:h-4" />
+                                <ChevronDown className="w-4 h-4" />
                               )}
                             </button>
                           </td>
@@ -234,7 +237,7 @@ const DataTable = ({
                               exit={{ height: 0, opacity: 0 }}
                               className="overflow-hidden bg-slate-50/50"
                             >
-                              <div className="p-8 md:p-4 border-t border-b border-slate-100">
+                              <div className="p-4 border-t border-b border-slate-100">
                                 {renderExpandedRow(row)}
                               </div>
                             </motion.div>
@@ -251,13 +254,13 @@ const DataTable = ({
       </div>
 
       {/* FOOTER */}
-      <div className="px-6 py-5 md:px-4 md:py-3 border-t bg-white z-20 flex flex-col sm:flex-row gap-5 items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-3 text-base md:text-sm text-slate-500 font-medium">
+      <div className="px-6 py-4 border-t bg-white z-20 flex flex-col sm:flex-row gap-5 items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-3 text-sm text-slate-500 font-medium">
           <span>Show</span>
           <select
             value={limit}
             onChange={(e) => changeLimit(Number(e.target.value))}
-            className="bg-slate-50 border border-slate-200 rounded px-3 py-1.5 md:py-1 outline-none focus:border-indigo-500 cursor-pointer text-base md:text-sm"
+            className="bg-slate-50 border border-slate-200 rounded px-3 py-1 outline-none focus:border-indigo-500 cursor-pointer text-sm"
           >
             {[5, 10, 20, 50, 100].map((n) => (
               <option key={n} value={n}>
@@ -272,9 +275,9 @@ const DataTable = ({
           <button
             disabled={page === 1 || loading}
             onClick={() => changePage(page - 1)}
-            className="w-12 h-12 md:w-8 md:h-8 flex items-center justify-center border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-slate-500"
+            className="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-slate-500"
           >
-            <ChevronLeft className="w-6 h-6 md:w-4 md:h-4" />
+            <ChevronLeft className="w-4 h-4" />
           </button>
 
           <div className="hidden sm:flex gap-1">
@@ -283,7 +286,7 @@ const DataTable = ({
                 key={i}
                 disabled={p === "..." || loading}
                 onClick={() => typeof p === "number" && changePage(p)}
-                className={`w-12 h-12 md:w-8 md:h-8 flex items-center justify-center rounded-lg text-lg md:text-xs font-bold transition-all ${
+                className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all ${
                   p === page
                     ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
                     : "border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
@@ -305,9 +308,9 @@ const DataTable = ({
           <button
             disabled={page === totalPages || loading}
             onClick={() => changePage(page + 1)}
-            className="w-12 h-12 md:w-8 md:h-8 flex items-center justify-center border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-slate-500"
+            className="w-8 h-8 flex items-center justify-center border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-slate-500"
           >
-            <ChevronRight className="w-6 h-6 md:w-4 md:h-4" />
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
