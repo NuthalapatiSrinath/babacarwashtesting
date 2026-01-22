@@ -13,10 +13,11 @@ import {
   Calendar as CalendarIcon,
   ShoppingBag,
   Building,
+  FileText,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable"; // ✅ FIXED IMPORT
+import autoTable from "jspdf-autotable";
 import { workerService } from "../../api/workerService";
 import CustomDropdown from "../../components/ui/CustomDropdown";
 
@@ -141,21 +142,36 @@ const MonthlyRecords = () => {
     }
   };
 
+  // Navigate to Slip in New Tab
+  const handleViewSlip = () => {
+    if (!selectedWorkerId) return toast.error("Select a worker first");
+    const url = `/salary/slip/${selectedWorkerId}/${selectedYear}/${selectedMonth}`;
+    window.open(url, "_blank");
+  };
+
   const handleExportPDF = () => {
     if (!record) return toast.error("No data to export");
 
     const doc = new jsPDF("l", "mm", "a4");
 
-    // Header
-    doc.setFontSize(16);
-    doc.text(`Monthly Work Record: ${workerInfo.name}`, 14, 15);
+    // Company Name Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("BABA CAR WASHING AND CLEANING LLC", 148.5, 15, {
+      align: "center",
+    });
+
+    // Sub-header details
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Monthly Work Record: ${workerInfo.name}`, 14, 25);
     doc.setFontSize(10);
     doc.text(
       `Type: ${workerInfo.service_type?.toUpperCase() || "N/A"}`,
       14,
-      22,
+      32,
     );
-    doc.text(`Period: ${months[selectedMonth]} ${selectedYear}`, 14, 27);
+    doc.text(`Period: ${months[selectedMonth]} ${selectedYear}`, 14, 37);
 
     const daysInMonth = meta?.daysInMonth || 31;
 
@@ -177,9 +193,9 @@ const MonthlyRecords = () => {
     // Add Summary Row
     tableBody.push(["", "TOTAL JOBS", record.total]);
 
-    // ✅ FIXED: Use autoTable(doc, options)
+    // Use autoTable(doc, options)
     autoTable(doc, {
-      startY: 35,
+      startY: 45, // Adjusted startY to fit new header
       head: tableHead,
       body: tableBody,
       theme: "grid",
@@ -358,6 +374,14 @@ const MonthlyRecords = () => {
             </select>
           </div>
 
+          {/* Salary Slip Button */}
+          <button
+            onClick={handleViewSlip}
+            className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-200 transition-all active:scale-95"
+          >
+            <FileText className="w-4 h-4" /> View Salary Slip
+          </button>
+
           <button
             onClick={handleExportPDF}
             className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95"
@@ -392,9 +416,7 @@ const MonthlyRecords = () => {
               <h2 className="text-xl font-black text-slate-800 text-center leading-tight">
                 {workerInfo.name || "Select Worker"}
               </h2>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
-                {workerInfo.code || "NO ID"}
-              </span>
+              {/* ✅ "NO ID" Row Removed Here */}
 
               {/* DETAILS */}
               <div className="w-full mt-6 space-y-3">
@@ -437,7 +459,6 @@ const MonthlyRecords = () => {
               <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
                 Switch Worker
               </span>
-              {/* ✅ BADGE Showing what dropdown contains */}
               <span
                 className={`px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 ${badge.color}`}
               >

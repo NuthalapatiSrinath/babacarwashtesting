@@ -52,6 +52,7 @@ import StaffProfile from "./pages/workers-management/StaffProfile";
 import WorkerProfile from "./pages/workers-management/WorkerProfile";
 import MonthlyRecords from "./pages/workers-management/MonthlyRecords";
 import YearlyRecords from "./pages/workers-management/YearlyRecords";
+import SalarySlip from "./pages/salary/SalarySlip";
 
 export const routes = [
   // --- OVERVIEW ---
@@ -98,6 +99,11 @@ export const routes = [
     title: "Yearly Records",
     component: <YearlyRecords />,
     icon: BarChart2, // Make sure to import this
+  },
+  {
+    path: "/salary/slip/:workerId/:year/:month", // New Route
+    title: "Generate Slip",
+    component: <SalarySlip />,
   },
   {
     path: "/workers/:id",
