@@ -3,17 +3,16 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   FileText,
   Filter,
-  Layers,
   Building,
   User,
   Loader2,
   Calendar,
-  Clock,
-  Search, // Ensure Search icon is imported
+  FileSpreadsheet,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import ExcelJS from "exceljs";
 
 // Redux & API
 import { fetchBuildings } from "../../redux/slices/buildingSlice";
@@ -35,6 +34,7 @@ const PendingPayments = () => {
   // State
   const [loading, setLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [excelLoading, setExcelLoading] = useState(false);
   const [data, setData] = useState([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
@@ -46,46 +46,34 @@ const PendingPayments = () => {
     totalPages: 1,
   });
 
-  // --- FILTER MODES ---
-  const [filterMode, setFilterMode] = useState("month"); // 'date_range' | 'month'
-
+  const [filterMode, setFilterMode] = useState("month");
   const today = new Date();
+
   const [filters, setFilters] = useState({
     serviceType: "residence",
     building: "all",
     worker: "all",
-    status: "pending", // Force Pending Status
-
-    // Date Range Defaults
+    status: "pending",
     startDate: new Date(today.getFullYear(), today.getMonth(), 1).toISOString(),
     endDate: new Date(
       today.getFullYear(),
       today.getMonth() + 1,
       0,
     ).toISOString(),
-
-    // Month Mode Defaults
     month: today.getMonth() + 1,
     year: today.getFullYear(),
   });
 
-  // Load Dropdowns
   useEffect(() => {
     dispatch(fetchBuildings({ page: 1, limit: 1000 }));
     dispatch(fetchWorkers({ page: 1, limit: 1000, status: 1 }));
   }, [dispatch]);
 
-  // Fetch Data on Filter Change
   useEffect(() => {
     fetchData(1, pagination.limit);
     // eslint-disable-next-line
   }, [filters, filterMode]);
 
-  // Search Debounce is already here, but let's make it actually filter
-  // Since we want client-side instant search on the fetched data (if dataset is small enough per page)
-  // OR server side. You likely want server side if pagination is server side.
-  // BUT, previously we discussed fetching ALL for instant search.
-  // Let's stick to the existing pattern: fetchData calls API with searchTerm.
   useEffect(() => {
     const delay = setTimeout(() => {
       fetchData(1, pagination.limit);
@@ -94,15 +82,12 @@ const PendingPayments = () => {
     // eslint-disable-next-line
   }, [searchTerm]);
 
-  // Helper to calculate start/end date based on mode
   const getDateRangeParams = () => {
     let start, end;
-
     if (filterMode === "date_range") {
       start = filters.startDate;
       end = filters.endDate;
     } else {
-      // Month Mode
       start = new Date(filters.year, filters.month - 1, 1).toISOString();
       const lastDay = new Date(filters.year, filters.month, 0);
       lastDay.setHours(23, 59, 59, 999);
@@ -115,12 +100,10 @@ const PendingPayments = () => {
     setLoading(true);
     try {
       const { startDate, endDate } = getDateRangeParams();
-
       const query = {
         ...filters,
         startDate,
         endDate,
-        // Pass search term to backend
         search: searchTerm,
         onewash: filters.serviceType === "onewash",
         worker: filters.worker === "all" ? "" : filters.worker,
@@ -131,13 +114,10 @@ const PendingPayments = () => {
       const response = await paymentService.list(
         page,
         limit,
-        searchTerm, // Ensure searchTerm is passed here as well if service expects it
+        searchTerm,
         query,
       );
 
-      // Flatten data for display if needed, but DataTable handles accessors usually.
-      // If we need custom search fields on frontend we can map them here.
-      // For now, raw data is fine as columns access nested props.
       setData(response.data || []);
       setTotalRecords(response.total || 0);
       setPagination({
@@ -155,14 +135,17 @@ const PendingPayments = () => {
   };
 
   const handleFilterChange = (field, value) => {
-    setFilters((prev) => ({ ...prev, [field]: value }));
+    if (field === "building") {
+      setFilters((prev) => ({ ...prev, building: value, worker: "all" }));
+    } else {
+      setFilters((prev) => ({ ...prev, [field]: value }));
+    }
   };
 
   const handleDateRangeChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
 
-  // --- IMAGE LOADER FOR PDF ---
   const loadImage = (url) => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -172,134 +155,263 @@ const PendingPayments = () => {
     });
   };
 
-  // --- RICH PDF GENERATION ---
+  // --- CRITICAL FIX: FETCH EXACT SAME DATA AS TABLE ---
+  const fetchAndGroupExportData = async () => {
+    const { startDate, endDate } = getDateRangeParams();
+
+    // 1. Use the EXACT same query as the table
+    const query = {
+      ...filters,
+      startDate,
+      endDate,
+      search: searchTerm,
+      onewash: filters.serviceType === "onewash",
+      worker: filters.worker === "all" ? "" : filters.worker,
+      building: filters.building === "all" ? "" : filters.building,
+      status: "pending",
+    };
+
+    // 2. Fetch using 'list' endpoint with a high limit to get ALL records
+    const response = await paymentService.list(1, 10000, searchTerm, query);
+
+    if (!response || !response.data || response.data.length === 0) return [];
+
+    // 3. Filter for Pending Only (Client-side safety check)
+    // Using total_amount and amount_paid from the list API response
+    const pendingItems = response.data.filter(
+      (item) => Number(item.total_amount) - Number(item.amount_paid) > 0,
+    );
+
+    // 4. Manual Grouping: Building -> Worker -> Payments
+    const groupedData = [];
+
+    pendingItems.forEach((item) => {
+      const bName =
+        item.building?.name ||
+        item.customer?.building?.name ||
+        "Unknown Building";
+      const wName = item.worker?.name || "Unassigned";
+
+      // Find or Create Building Group
+      let bGroup = groupedData.find((g) => g.buildingName === bName);
+      if (!bGroup) {
+        bGroup = { buildingName: bName, workers: [] };
+        groupedData.push(bGroup);
+      }
+
+      // Find or Create Worker Group
+      let wGroup = bGroup.workers.find((w) => w.workerName === wName);
+      if (!wGroup) {
+        wGroup = { workerName: wName, payments: [] };
+        bGroup.workers.push(wGroup);
+      }
+
+      // Add Payment
+      wGroup.payments.push({
+        parkingNo: item.vehicle?.parking_no || "-",
+        regNo: item.vehicle?.registration_no || "-",
+        totalDue: item.total_amount || 0,
+        paid: item.amount_paid || 0,
+        dueDate: new Date(item.createdAt).toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        }),
+        customerMobile: item.customer?.mobile || "-",
+      });
+    });
+
+    return groupedData;
+  };
+
+  // --- EXCEL DOWNLOAD (.xlsx) ---
+  const handleDownloadExcel = async () => {
+    setExcelLoading(true);
+    const toastId = toast.loading("Generating Excel File...");
+
+    try {
+      const groupedData = await fetchAndGroupExportData();
+
+      if (groupedData.length === 0) {
+        toast.error("No pending payments found", { id: toastId });
+        setExcelLoading(false);
+        return;
+      }
+
+      // Create Workbook
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("Pending Payments");
+
+      // Define Columns
+      sheet.columns = [
+        { header: "Sl No", key: "slNo", width: 8 },
+        { header: "Building", key: "building", width: 25 },
+        { header: "Worker", key: "worker", width: 20 },
+        { header: "Parking No", key: "parking", width: 15 },
+        { header: "Reg No", key: "regNo", width: 15 },
+        { header: "Amount Pending", key: "amount", width: 18 },
+        { header: "Due Date", key: "date", width: 15 },
+        { header: "Customer Mobile", key: "mobile", width: 18 },
+      ];
+
+      // Style Header
+      const headerRow = sheet.getRow(1);
+      headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      headerRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF1F4E78" },
+      };
+      headerRow.alignment = { vertical: "middle", horizontal: "center" };
+
+      // Flatten and Add Data
+      let globalIndex = 1;
+      groupedData.forEach((bg) => {
+        bg.workers.forEach((wg) => {
+          wg.payments.forEach((p) => {
+            const amountPending = Number(p.totalDue) - Number(p.paid);
+            const row = sheet.addRow({
+              slNo: globalIndex++,
+              building: bg.buildingName,
+              worker: wg.workerName,
+              parking: p.parkingNo,
+              regNo: p.regNo,
+              amount: amountPending,
+              date: p.dueDate,
+              mobile: p.customerMobile,
+            });
+
+            row.getCell("amount").numFmt = "#,##0.00";
+            row.alignment = { vertical: "middle", horizontal: "center" };
+            row.getCell("building").alignment = { horizontal: "left" };
+            row.getCell("worker").alignment = { horizontal: "left" };
+          });
+        });
+      });
+
+      // Write & Save
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Pending_Payments_${filters.year}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success("Excel File Downloaded!", { id: toastId });
+    } catch (error) {
+      console.error(error);
+      toast.error("Excel generation failed", { id: toastId });
+    } finally {
+      setExcelLoading(false);
+    }
+  };
+
+  // --- PDF DOWNLOAD (A5) ---
   const handleDownloadPDF = async () => {
     setPdfLoading(true);
     const toastId = toast.loading("Generating PDF Report...");
 
     try {
-      const { startDate, endDate } = getDateRangeParams();
+      const groupedData = await fetchAndGroupExportData();
 
-      // Get grouped collection data
-      const reportData = await paymentService.getCollectionData({
-        ...filters,
-        startDate,
-        endDate,
-        worker: filters.worker === "all" ? "" : filters.worker,
-        building: filters.building === "all" ? "" : filters.building,
-        status: "pending",
-      });
-
-      if (!reportData || !Array.isArray(reportData)) {
-        toast.error("Invalid data format", { id: toastId });
-        setPdfLoading(false);
-        return;
-      }
-
-      // Filter: Keep only items with Total Due > Paid (Pending)
-      const pendingReportData = reportData
-        .map((bg) => ({
-          ...bg,
-          workers: bg.workers
-            .map((wg) => ({
-              ...wg,
-              payments: wg.payments.filter(
-                (p) => Number(p.totalDue) - Number(p.paid) > 0,
-              ),
-            }))
-            .filter((wg) => wg.payments.length > 0),
-        }))
-        .filter((bg) => bg.workers.length > 0);
-
-      if (pendingReportData.length === 0) {
+      if (groupedData.length === 0) {
         toast.error("No pending payments found", { id: toastId });
         setPdfLoading(false);
         return;
       }
 
-      const doc = new jsPDF();
+      // Initialize A5 PDF
+      const doc = new jsPDF("p", "mm", "a5");
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const centerX = pageWidth / 2;
+      const margin = 10;
 
-      // Add Logo
       try {
         const logoImg = await loadImage("/carwash.jpeg");
-        doc.addImage(logoImg, "JPEG", 92.5, 10, 25, 25); // Centered Logo (A4 width 210)
+        const logoSize = 18;
+        doc.addImage(
+          logoImg,
+          "JPEG",
+          centerX - logoSize / 2,
+          6,
+          logoSize,
+          logoSize,
+        );
       } catch (e) {
         console.warn("Logo failed", e);
       }
 
-      // Title Section
-      doc.setFontSize(16);
+      doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("BABA CAR WASHING AND CLEANING LLC", 105, 40, {
+      doc.text("BABA CAR WASHING AND CLEANING LLC", centerX, 30, {
         align: "center",
       });
 
-      doc.setFontSize(12);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(220, 38, 38); // Red
-      doc.text("PENDING PAYMENTS / DUE LIST", 105, 48, { align: "center" });
-      doc.setTextColor(0); // Reset
+      doc.setTextColor(220, 38, 38);
+      doc.text("PENDING PAYMENTS / DUE LIST", centerX, 35, { align: "center" });
+      doc.setTextColor(0);
 
-      let dateText = "";
-      if (filterMode === "month") {
-        const mName = new Date(filters.year, filters.month - 1).toLocaleString(
-          "default",
-          { month: "long" },
-        );
-        dateText = `Period: ${mName} ${filters.year}`;
-      } else {
-        dateText = `${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`;
-      }
-      doc.setFontSize(10);
-      doc.text(dateText, 105, 54, { align: "center" });
+      // Show Filter Info in Header
+      let subTitle =
+        filters.building !== "all"
+          ? `Building: ${buildings.find((b) => b._id === filters.building)?.name || "Selected"}`
+          : "All Buildings";
 
-      let currentY = 60;
+      doc.setFontSize(7);
+      doc.text(subTitle, centerX, 39, { align: "center" });
 
-      // Render Tables by Building -> Worker
-      pendingReportData.forEach((buildingGroup, bIndex) => {
-        // Page break logic
-        if (bIndex > 0 || currentY > 250) {
+      let dateText =
+        filterMode === "month"
+          ? `Period: ${new Date(filters.year, filters.month - 1).toLocaleString("default", { month: "long" })} ${filters.year}`
+          : `${new Date(getDateRangeParams().startDate).toLocaleDateString()} - ${new Date(getDateRangeParams().endDate).toLocaleDateString()}`;
+
+      doc.text(dateText, centerX, 43, { align: "center" });
+
+      let currentY = 48;
+
+      groupedData.forEach((buildingGroup, bIndex) => {
+        if (bIndex > 0 || currentY > 185) {
           doc.addPage();
-          currentY = 20;
+          currentY = 15;
         }
 
         buildingGroup.workers.forEach((workerGroup) => {
-          if (currentY > 240) {
+          if (currentY > 175) {
             doc.addPage();
-            currentY = 20;
+            currentY = 15;
           }
 
-          // Group Header
-          doc.setFontSize(10);
+          doc.setFontSize(8);
           doc.setFont("helvetica", "bold");
-          doc.setFillColor(245, 245, 245);
-          doc.rect(14, currentY - 5, 182, 7, "F");
+          doc.setFillColor(240, 240, 240);
+          doc.rect(margin, currentY - 4, pageWidth - margin * 2, 6, "F");
           doc.text(
             `${workerGroup.workerName}  |  ${buildingGroup.buildingName}`,
-            16,
+            margin + 2,
             currentY,
           );
 
-          currentY += 4;
+          currentY += 3;
 
           const tableHead = [
-            ["Sl No", "Parking", "Reg No", "Building", "Amount", "Due Date"],
+            ["Sl", "Parking", "Reg No", "Building", "Amount", "Due Date"],
           ];
-
           const tableBody = workerGroup.payments.map((p, i) => {
-            // Calculate Amount Pending
             const amount = (Number(p.totalDue) - Number(p.paid)).toFixed(2);
-
-            // Format Date
-            let dateStr = p.dueDate || "-";
-
             return [
               i + 1,
               p.parkingNo,
               p.regNo,
               buildingGroup.buildingName,
               amount,
-              dateStr,
+              p.dueDate,
             ];
           });
 
@@ -310,27 +422,34 @@ const PendingPayments = () => {
             theme: "grid",
             headStyles: {
               fillColor: [50, 50, 50],
-              fontSize: 9,
+              textColor: 255,
+              fontSize: 7,
               halign: "center",
+              cellPadding: 1.5,
             },
-            bodyStyles: { fontSize: 9, cellPadding: 2, halign: "center" },
+            bodyStyles: {
+              fontSize: 7,
+              cellPadding: 1.5,
+              halign: "center",
+              textColor: 0,
+            },
             columnStyles: {
-              0: { cellWidth: 15 },
-              1: { cellWidth: 25 },
-              2: { cellWidth: 35 },
-              3: { cellWidth: "auto" }, // Building auto
-              4: { cellWidth: 25, fontStyle: "bold", halign: "right" },
-              5: { cellWidth: 30 },
+              0: { cellWidth: 8 },
+              1: { cellWidth: 22 },
+              2: { cellWidth: 25 },
+              3: { cellWidth: "auto" },
+              4: { cellWidth: 20, fontStyle: "bold", halign: "right" },
+              5: { cellWidth: 20 },
             },
-            margin: { left: 14, right: 14 },
+            margin: { left: margin, right: margin },
           });
 
-          currentY = doc.lastAutoTable.finalY + 10;
+          currentY = doc.lastAutoTable.finalY + 8;
         });
       });
 
-      doc.save(`Pending_List_${filterMode}_${filters.year}.pdf`);
-      toast.success("PDF Downloaded", { id: toastId, duration: 4000 });
+      doc.save(`Pending_List_A5_${filters.year}.pdf`);
+      toast.success("A5 PDF Downloaded", { id: toastId, duration: 3000 });
     } catch (error) {
       console.error(error);
       toast.error("PDF generation failed", { id: toastId });
@@ -339,7 +458,6 @@ const PendingPayments = () => {
     }
   };
 
-  // --- OPTIONS ---
   const monthOptions = [
     { value: 1, label: "January" },
     { value: 2, label: "February" },
@@ -369,12 +487,28 @@ const PendingPayments = () => {
 
   const workerOptions = useMemo(() => {
     const opts = [{ value: "all", label: "All Workers" }];
-    if (workers)
-      workers.forEach((w) => opts.push({ value: w._id, label: w.name }));
-    return opts;
-  }, [workers]);
+    if (!workers) return opts;
 
-  // --- TABLE COLUMNS (Matches Requested Image) ---
+    let filteredList = workers;
+
+    if (filters.building && filters.building !== "all") {
+      filteredList = workers.filter((w) => {
+        if (Array.isArray(w.buildings)) {
+          return (
+            w.buildings.includes(filters.building) ||
+            w.buildings.some(
+              (b) => b._id === filters.building || b === filters.building,
+            )
+          );
+        }
+        return false;
+      });
+    }
+
+    filteredList.forEach((w) => opts.push({ value: w._id, label: w.name }));
+    return opts;
+  }, [workers, filters.building]);
+
   const columns = [
     {
       header: "SL NO",
@@ -412,7 +546,6 @@ const PendingPayments = () => {
       className: "text-right text-xs text-slate-500",
       render: (r) => {
         const d = new Date(r.createdAt);
-        // Example: Due Date is end of next month
         const dueDate = new Date(d.getFullYear(), d.getMonth() + 1, 0);
         return dueDate.toLocaleDateString("en-GB", {
           day: "numeric",
@@ -425,41 +558,28 @@ const PendingPayments = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 font-sans">
-      {/* --- FILTER PANEL --- */}
       <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-6">
-        {/* Row 1: Title & Mode Toggle */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-4">
           <div className="flex items-center gap-2 text-slate-500 font-bold uppercase text-xs tracking-wider">
             <Filter className="w-4 h-4" /> Filter Pending Payments
           </div>
-
           <div className="flex bg-slate-100 p-1 rounded-lg">
             <button
               onClick={() => setFilterMode("date_range")}
-              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${
-                filterMode === "date_range"
-                  ? "bg-white text-indigo-600 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
+              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${filterMode === "date_range" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
             >
               Date Range Wise
             </button>
             <button
               onClick={() => setFilterMode("month")}
-              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${
-                filterMode === "month"
-                  ? "bg-white text-indigo-600 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
+              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${filterMode === "month" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
             >
               Month Wise
             </button>
           </div>
         </div>
 
-        {/* Row 2: Inputs & Buttons */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 items-end">
-          {/* Dynamic Filter Input */}
           <div className="lg:col-span-2">
             {filterMode === "date_range" ? (
               <div className="w-full">
@@ -496,7 +616,6 @@ const PendingPayments = () => {
             )}
           </div>
 
-          {/* Common Dropdowns */}
           <div className="xl:col-span-1">
             <CustomDropdown
               label="Building"
@@ -518,8 +637,19 @@ const PendingPayments = () => {
             />
           </div>
 
-          {/* Action Buttons */}
           <div className="xl:col-span-2 flex gap-2">
+            <button
+              onClick={handleDownloadExcel}
+              disabled={excelLoading}
+              className="flex-1 h-[42px] bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold rounded-xl shadow-lg hover:shadow-green-200 transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-xs"
+            >
+              {excelLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="w-4 h-4" />
+              )}{" "}
+              Excel
+            </button>
             <button
               onClick={handleDownloadPDF}
               disabled={pdfLoading}
@@ -529,14 +659,13 @@ const PendingPayments = () => {
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <FileText className="w-4 h-4" />
-              )}
-              Export PDF
+              )}{" "}
+              PDF
             </button>
           </div>
         </div>
       </div>
 
-      {/* --- TABLE (Cleaned Up) --- */}
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden flex flex-col">
         <DataTable
           columns={columns}
@@ -545,7 +674,6 @@ const PendingPayments = () => {
           pagination={pagination}
           onPageChange={(p) => fetchData(p, pagination.limit)}
           onLimitChange={(l) => fetchData(1, l)}
-          // ✅ Hooking up the DataTable internal search
           onSearch={(term) => setSearchTerm(term)}
         />
       </div>

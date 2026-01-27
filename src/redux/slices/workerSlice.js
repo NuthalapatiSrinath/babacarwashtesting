@@ -172,6 +172,7 @@ const workerSlice = createSlice({
       })
       .addCase(fetchWorkers.fulfilled, (state, action) => {
         state.loading = false;
+        // Backend returns { statusCode, message, total, data }
         state.workers = action.payload.data || [];
       })
       .addCase(fetchWorkers.rejected, (state, action) => {

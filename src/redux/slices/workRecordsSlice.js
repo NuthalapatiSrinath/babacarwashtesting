@@ -4,14 +4,33 @@ import { workRecordsService } from "../../api/workRecordsService";
 // Async thunk for downloading work records statement
 export const downloadWorkRecordsStatement = createAsyncThunk(
   "workRecords/downloadStatement",
-  async ({ serviceType, month, year }, { rejectWithValue }) => {
+  async ({ serviceType, month, year, workerId = "" }, { rejectWithValue }) => {
     try {
       const blob = await workRecordsService.downloadStatement(
         serviceType,
         month,
-        year
+        year,
+        workerId
       );
-      return { blob, serviceType, month, year };
+      return { blob, serviceType, month, year, workerId };
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+// Async thunk for fetching work records data (for preview/PDF)
+export const fetchWorkRecordsData = createAsyncThunk(
+  "workRecords/fetchData",
+  async ({ serviceType, month, year, workerId = "" }, { rejectWithValue }) => {
+    try {
+      const data = await workRecordsService.getStatementData(
+        year,
+        month,
+        serviceType,
+        workerId
+      );
+      return { data, serviceType, month, year, workerId };
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
@@ -22,6 +41,7 @@ const workRecordsSlice = createSlice({
   name: "workRecords",
   initialState: {
     workRecords: [],
+    viewData: null,
     downloading: false,
     loading: false,
     error: null,
@@ -30,6 +50,9 @@ const workRecordsSlice = createSlice({
   reducers: {
     clearError: (state) => {
       state.error = null;
+    },
+    clearViewData: (state) => {
+      state.viewData = null;
     },
   },
   extraReducers: (builder) => {
@@ -46,9 +69,21 @@ const workRecordsSlice = createSlice({
         state.downloading = false;
         state.error =
           action.payload || "Failed to download work records statement";
+      })
+      .addCase(fetchWorkRecordsData.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchWorkRecordsData.fulfilled, (state, action) => {
+        state.loading = false;
+        state.viewData = action.payload.data;
+      })
+      .addCase(fetchWorkRecordsData.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || "Failed to fetch work records data";
       });
   },
 });
 
-export const { clearError } = workRecordsSlice.actions;
+export const { clearError, clearViewData } = workRecordsSlice.actions;
 export default workRecordsSlice.reducer;
