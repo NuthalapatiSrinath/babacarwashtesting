@@ -5,7 +5,7 @@ export const fetchWorkers = createAsyncThunk(
   "worker/fetchWorkers",
   async (
     { page = 1, limit = 50, search = "", status = 1 },
-    { rejectWithValue }
+    { rejectWithValue },
   ) => {
     console.log("👷 [WORKER SLICE] Fetch Workers API Call:", {
       page,
@@ -21,7 +21,7 @@ export const fetchWorkers = createAsyncThunk(
       console.error("❌ [WORKER SLICE] Fetch Workers Error:", error);
       return rejectWithValue(error);
     }
-  }
+  },
 );
 
 export const createWorker = createAsyncThunk(
@@ -36,7 +36,7 @@ export const createWorker = createAsyncThunk(
       console.error("❌ [WORKER SLICE] Create Worker Error:", error);
       return rejectWithValue(error);
     }
-  }
+  },
 );
 
 export const updateWorker = createAsyncThunk(
@@ -51,7 +51,7 @@ export const updateWorker = createAsyncThunk(
       console.error("❌ [WORKER SLICE] Update Worker Error:", error);
       return rejectWithValue(error);
     }
-  }
+  },
 );
 
 export const deleteWorker = createAsyncThunk(
@@ -66,7 +66,7 @@ export const deleteWorker = createAsyncThunk(
       console.error("❌ [WORKER SLICE] Delete Worker Error:", error);
       return rejectWithValue(error);
     }
-  }
+  },
 );
 
 export const undoDeleteWorker = createAsyncThunk(
@@ -81,7 +81,7 @@ export const undoDeleteWorker = createAsyncThunk(
       console.error("❌ [WORKER SLICE] Undo Delete Worker Error:", error);
       return rejectWithValue(error);
     }
-  }
+  },
 );
 
 export const deactivateWorker = createAsyncThunk(
@@ -99,7 +99,7 @@ export const deactivateWorker = createAsyncThunk(
       console.error("❌ [WORKER SLICE] Deactivate Worker Error:", error);
       return rejectWithValue(error);
     }
-  }
+  },
 );
 
 export const fetchWorkerInfo = createAsyncThunk(
@@ -114,7 +114,7 @@ export const fetchWorkerInfo = createAsyncThunk(
       console.error("❌ [WORKER SLICE] Fetch Worker Info Error:", error);
       return rejectWithValue(error);
     }
-  }
+  },
 );
 
 export const fetchWorkerCustomers = createAsyncThunk(
@@ -125,14 +125,14 @@ export const fetchWorkerCustomers = createAsyncThunk(
       const response = await workerService.customers(id);
       console.log(
         "✅ [WORKER SLICE] Fetch Worker Customers Success:",
-        response
+        response,
       );
       return response;
     } catch (error) {
       console.error("❌ [WORKER SLICE] Fetch Worker Customers Error:", error);
       return rejectWithValue(error);
     }
-  }
+  },
 );
 
 export const fetchWorkerPayments = createAsyncThunk(
@@ -150,7 +150,7 @@ export const fetchWorkerPayments = createAsyncThunk(
       console.error("❌ [WORKER SLICE] Fetch Worker Payments Error:", error);
       return rejectWithValue(error);
     }
-  }
+  },
 );
 
 const workerSlice = createSlice({

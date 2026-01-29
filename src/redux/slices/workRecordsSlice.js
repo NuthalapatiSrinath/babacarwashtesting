@@ -10,13 +10,13 @@ export const downloadWorkRecordsStatement = createAsyncThunk(
         serviceType,
         month,
         year,
-        workerId
+        workerId,
       );
       return { blob, serviceType, month, year, workerId };
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 // Async thunk for fetching work records data (for preview/PDF)
@@ -28,13 +28,13 @@ export const fetchWorkRecordsData = createAsyncThunk(
         year,
         month,
         serviceType,
-        workerId
+        workerId,
       );
       return { data, serviceType, month, year, workerId };
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 const workRecordsSlice = createSlice({

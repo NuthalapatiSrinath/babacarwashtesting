@@ -12,7 +12,7 @@ export const workRecordsService = {
       year: year,
       month: adjustedMonth,
     };
-    
+
     if (workerId) {
       params.workerId = workerId;
     }
@@ -36,7 +36,7 @@ export const workRecordsService = {
       service_type: serviceType,
       format: "json", // \u2705 Triggers JSON response from backend
     };
-    
+
     if (workerId) {
       params.workerId = workerId;
     }

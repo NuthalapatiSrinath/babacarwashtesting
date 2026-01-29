@@ -32,6 +32,7 @@ import CustomDropdown from "../ui/CustomDropdown";
 const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [currency, setCurrency] = useState("AED"); // Default Currency
+  const [isMobileGenerated, setIsMobileGenerated] = useState(false); // Track if mobile is auto-generated
 
   // Data States
   const [locations, setLocations] = useState([]);
@@ -53,6 +54,7 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
     start_date: new Date().toISOString().split("T")[0],
     onboard_date: new Date().toISOString().split("T")[0],
     advance_amount: "",
+    status: 1, // 1 = Active, 2 = Inactive (per vehicle)
   };
 
   // Form State
@@ -75,6 +77,42 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
   // UI State for Open Day Dropdowns (Tracked by vehicle index)
   const [openDayDropdowns, setOpenDayDropdowns] = useState({});
 
+  // --- Auto-Generate Mobile Number ---
+  const generateMobileNumber = async () => {
+    try {
+      // Get the total count of customers to generate serial-based number
+      const res = await customerService.list(1, 1, "", 1);
+      const serialNumber = (res.total || 0) + 1;
+      // Generate 10-digit code: 2000000000 + serial (e.g., 2000000001, 2000000002)
+      const generatedMobile = String(2000000000 + serialNumber);
+      setIsMobileGenerated(true);
+      return generatedMobile;
+    } catch (error) {
+      console.error("Failed to generate mobile number", error);
+      // Fallback to timestamp-based generation
+      const timestamp = Date.now().toString().slice(-9);
+      const generatedMobile = "2" + timestamp;
+      setIsMobileGenerated(true);
+      return generatedMobile;
+    }
+  };
+
+  // --- Helper: Convert schedule_days to string (handles all formats) ---
+  const getScheduleDaysString = (scheduleDays) => {
+    if (!scheduleDays) return "";
+    if (typeof scheduleDays === "string") return scheduleDays;
+    if (Array.isArray(scheduleDays)) {
+      return scheduleDays
+        .map((d) => (typeof d === "object" ? d.day : d))
+        .filter(Boolean)
+        .join(",");
+    }
+    if (typeof scheduleDays === "object" && scheduleDays.day) {
+      return scheduleDays.day;
+    }
+    return "";
+  };
+
   // --- Load Currency ---
   useEffect(() => {
     const savedCurrency = localStorage.getItem("app_currency");
@@ -95,7 +133,7 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
           setLocations(locRes.data || []);
           setAllBuildings(buildRes.data || []);
           const validWorkers = (workRes.data || []).filter(
-            (w) => !w.role || w.role === "worker" || w.role === "supervisor"
+            (w) => !w.role || w.role === "worker" || w.role === "supervisor",
           );
           setAllWorkers(validWorkers);
         } catch (error) {
@@ -147,29 +185,36 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
 
       const vehicles =
         customer.vehicles && customer.vehicles.length > 0
-          ? customer.vehicles.map((v) => ({
-              _id: v._id,
-              registration_no: v.registration_no || "",
-              parking_no: v.parking_no || "",
-              vehicle_type: v.vehicle_type || "sedan",
-              amount: v.amount || "",
-              worker: v.worker?._id || v.worker || "",
-              schedule_type: v.schedule_type || "daily",
-              schedule_days: v.schedule_days || "",
-              start_date: v.start_date
-                ? new Date(v.start_date).toISOString().split("T")[0]
-                : "",
-              onboard_date: v.onboard_date
-                ? new Date(v.onboard_date).toISOString().split("T")[0]
-                : "",
-              advance_amount: v.advance_amount || "",
-            }))
+          ? customer.vehicles.map((v) => {
+              return {
+                _id: v._id,
+                registration_no: v.registration_no || "",
+                parking_no: v.parking_no || "",
+                vehicle_type: v.vehicle_type || "sedan",
+                amount: v.amount || "",
+                worker: v.worker?._id || v.worker || "",
+                schedule_type: v.schedule_type || "daily",
+                schedule_days: getScheduleDaysString(v.schedule_days),
+                start_date: v.start_date
+                  ? new Date(v.start_date).toISOString().split("T")[0]
+                  : "",
+                onboard_date: v.onboard_date
+                  ? new Date(v.onboard_date).toISOString().split("T")[0]
+                  : "",
+                advance_amount: v.advance_amount || "",
+                status: v.status || 1, // Preserve vehicle status
+              };
+            })
           : [vehicleTemplate];
+
+      // Check if mobile is auto-generated (starts with 2000000)
+      const mobile = customer.mobile || "";
+      setIsMobileGenerated(mobile.startsWith("2000000"));
 
       setFormData({
         firstName: customer.firstName || "",
         lastName: customer.lastName || "",
-        mobile: customer.mobile || "",
+        mobile: mobile,
         email: customer.email || "",
         location: locId,
         building: buildId,
@@ -177,16 +222,21 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
         vehicles: vehicles,
       });
     } else {
-      setFormData({
-        firstName: "",
-        lastName: "",
-        mobile: "",
-        email: "",
-        location: "",
-        building: "",
-        flat_no: "",
-        vehicles: [vehicleTemplate],
-      });
+      // New customer - auto-generate mobile if not provided
+      const initializeNewCustomer = async () => {
+        const generatedMobile = await generateMobileNumber();
+        setFormData({
+          firstName: "",
+          lastName: "",
+          mobile: generatedMobile,
+          email: "",
+          location: "",
+          building: "",
+          flat_no: "",
+          vehicles: [vehicleTemplate],
+        });
+      };
+      initializeNewCustomer();
     }
   };
 
@@ -210,8 +260,9 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
 
   const toggleDaySelection = (index, day) => {
     const vehicle = formData.vehicles[index];
-    let currentDays = vehicle.schedule_days
-      ? vehicle.schedule_days.split(",").filter((d) => d)
+    const scheduleDaysStr = getScheduleDaysString(vehicle.schedule_days);
+    let currentDays = scheduleDaysStr
+      ? scheduleDaysStr.split(",").filter((d) => d)
       : [];
 
     if (currentDays.includes(day)) {
@@ -277,17 +328,17 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
   // --- Prepare Dropdown Options ---
   const locationOptions = useMemo(
     () => locations.map((l) => ({ value: l._id, label: l.name || l.address })),
-    [locations]
+    [locations],
   );
 
   const buildingOptions = useMemo(
     () => filteredBuildings.map((b) => ({ value: b._id, label: b.name })),
-    [filteredBuildings]
+    [filteredBuildings],
   );
 
   const workerOptions = useMemo(
     () => filteredWorkers.map((w) => ({ value: w._id, label: w.name })),
-    [filteredWorkers]
+    [filteredWorkers],
   );
 
   const vehicleTypeOptions = [
@@ -389,20 +440,49 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
                     </div>
                   </div>
                   <div>
-                    <label className={labelClass}>Mobile</label>
-                    <div className={wrapperClass}>
-                      <Phone className="w-4 h-4 text-slate-400 mr-2" />
+                    <label className={labelClass}>
+                      Mobile
+                      {isMobileGenerated && (
+                        <span className="ml-2 text-[9px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">
+                          AUTO-GENERATED
+                        </span>
+                      )}
+                    </label>
+                    <div
+                      className={`${wrapperClass} ${isMobileGenerated ? "border-amber-300 bg-amber-50/30" : ""}`}
+                    >
+                      <Phone
+                        className={`w-4 h-4 mr-2 ${isMobileGenerated ? "text-amber-500" : "text-slate-400"}`}
+                      />
                       <input
                         name="mobile"
                         value={formData.mobile}
-                        onChange={(e) =>
-                          handleBasicChange("mobile", e.target.value)
-                        }
+                        onChange={(e) => {
+                          handleBasicChange("mobile", e.target.value);
+                          // If user modifies the generated number, mark it as not generated
+                          if (
+                            isMobileGenerated &&
+                            e.target.value !== formData.mobile
+                          ) {
+                            setIsMobileGenerated(false);
+                          }
+                        }}
                         className={inputClass}
                         placeholder="971500000000"
                         required
                       />
+                      {isMobileGenerated && (
+                        <span className="text-[9px] text-amber-600 ml-2 whitespace-nowrap">
+                          (Editable)
+                        </span>
+                      )}
                     </div>
+                    {isMobileGenerated && (
+                      <p className="mt-1 text-[10px] text-amber-600">
+                        This is a temporary number. Update it when the customer
+                        provides their mobile.
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className={labelClass}>Email</label>
@@ -483,16 +563,84 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
                     <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                       <Car className="w-4 h-4 text-indigo-600" /> Vehicle{" "}
                       {index + 1}
+                      {vehicle.status === 2 && (
+                        <span className="ml-2 text-[9px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">
+                          INACTIVE
+                        </span>
+                      )}
+                      {vehicle.status === 1 && vehicle._id && (
+                        <span className="ml-2 text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">
+                          ACTIVE
+                        </span>
+                      )}
                     </h4>
-                    {index > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveVehicle(index)}
-                        className="text-red-500 hover:text-red-700 text-xs font-bold flex items-center gap-1 bg-red-50 px-2 py-1 rounded-md"
-                      >
-                        <Trash2 className="w-3 h-3" /> Remove
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {/* Vehicle Status Toggle */}
+                      {vehicle._id && (
+                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                          <span className="text-[10px] font-bold text-slate-600">
+                            STATUS:
+                          </span>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const newStatus = vehicle.status === 1 ? 2 : 1;
+                              const action =
+                                newStatus === 1 ? "Activate" : "Deactivate";
+                              if (!window.confirm(`${action} this vehicle?`))
+                                return;
+                              try {
+                                await customerService.toggleVehicle(
+                                  vehicle._id,
+                                  vehicle.status,
+                                );
+                                toast.success(
+                                  `Vehicle ${action}d successfully`,
+                                );
+                                // Update local state
+                                const updatedVehicles = [...formData.vehicles];
+                                updatedVehicles[index] = {
+                                  ...vehicle,
+                                  status: newStatus,
+                                };
+                                setFormData({
+                                  ...formData,
+                                  vehicles: updatedVehicles,
+                                });
+                              } catch (error) {
+                                toast.error("Failed to update vehicle status");
+                              }
+                            }}
+                            className={`w-11 h-6 rounded-full p-0.5 flex items-center transition-all duration-300 shadow-sm ${
+                              vehicle.status === 1
+                                ? "bg-gradient-to-r from-emerald-400 to-emerald-600 justify-end"
+                                : "bg-slate-300 justify-start"
+                            }`}
+                            title={`${vehicle.status === 1 ? "Deactivate" : "Activate"} Vehicle`}
+                          >
+                            <div className="w-5 h-5 bg-white rounded-full shadow-md" />
+                          </button>
+                          <span
+                            className={`text-[9px] font-bold ${
+                              vehicle.status === 1
+                                ? "text-emerald-600"
+                                : "text-slate-500"
+                            }`}
+                          >
+                            {vehicle.status === 1 ? "ACTIVE" : "INACTIVE"}
+                          </span>
+                        </div>
+                      )}
+                      {index > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveVehicle(index)}
+                          className="text-red-500 hover:text-red-700 text-xs font-bold flex items-center gap-1 bg-red-50 px-2 py-1 rounded-md"
+                        >
+                          <Trash2 className="w-3 h-3" /> Remove
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
@@ -507,7 +655,7 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
                             handleVehicleChange(
                               index,
                               "registration_no",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                           className={`${inputClass} uppercase`}
@@ -526,7 +674,7 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
                             handleVehicleChange(
                               index,
                               "parking_no",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                           className={inputClass}
@@ -584,7 +732,7 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
                             handleVehicleChange(
                               index,
                               "advance_amount",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                           className={inputClass}
@@ -624,7 +772,7 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
                             handleVehicleChange(
                               index,
                               "start_date",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                           className={`${inputClass} cursor-pointer`}
@@ -642,7 +790,7 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
                             handleVehicleChange(
                               index,
                               "onboard_date",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                           className={`${inputClass} cursor-pointer`}
@@ -690,7 +838,8 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
                                   : "text-slate-400"
                               }`}
                             >
-                              {vehicle.schedule_days || "Select Days..."}
+                              {getScheduleDaysString(vehicle.schedule_days) ||
+                                "Select Days..."}
                             </span>
                           </div>
 
@@ -698,7 +847,10 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
                           {openDayDropdowns[index] && (
                             <div className="absolute top-full left-0 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                               {weekDays.map((day) => {
-                                const isSelected = vehicle.schedule_days
+                                const scheduleDaysStr = getScheduleDaysString(
+                                  vehicle.schedule_days,
+                                );
+                                const isSelected = scheduleDaysStr
                                   .split(",")
                                   .includes(day);
                                 return (

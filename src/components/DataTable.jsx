@@ -53,6 +53,7 @@ const DataTable = ({
   const limit = isServer ? pagination.limit : localLimit;
   const page = isServer ? pagination.page : localPage;
   const total = isServer ? pagination.total : processed.length;
+  const displayTotal = isServer && pagination.displayTotal !== undefined ? pagination.displayTotal : total;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   const rows = isServer
@@ -100,7 +101,7 @@ const DataTable = ({
             {title}
           </h2>
           <p className="text-base md:text-sm text-slate-500 mt-1">
-            Found {total} records
+            Found {displayTotal} records
           </p>
         </div>
 

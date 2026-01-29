@@ -38,7 +38,8 @@ const Customers = () => {
   const [serverData, setServerData] = useState([]);
 
   // Filters
-  const [activeTab, setActiveTab] = useState(1);
+  const [activeTab, setActiveTab] = useState(1); // Customer status filter
+  const [vehicleStatusFilter, setVehicleStatusFilter] = useState("all"); // all, active, inactive
   const [searchTerm, setSearchTerm] = useState("");
 
   const [pagination, setPagination] = useState({
@@ -95,6 +96,7 @@ const Customers = () => {
         customer.vehicles.forEach((vehicle) => {
           rows.push({
             ...vehicle,
+            status: vehicle.status || 1, // Ensure vehicle has its own status, default to active
             customer: customer,
             uniqueId: vehicle._id,
           });
@@ -104,13 +106,21 @@ const Customers = () => {
           customer: customer,
           uniqueId: customer._id,
           registration_no: "NO VEHICLE",
-          status: customer.status,
+          status: 1, // No vehicle means N/A, set to 1 for display purposes
         });
       }
     });
 
-    // 2. Client-Side Search Backup (For immediate feedback on visible data)
-    if (!searchTerm) return rows;
+    // 2. Apply Vehicle Status Filter
+    let filteredRows = rows;
+    if (vehicleStatusFilter === "active") {
+      filteredRows = rows.filter((row) => row.status === 1);
+    } else if (vehicleStatusFilter === "inactive") {
+      filteredRows = rows.filter((row) => row.status === 2);
+    }
+
+    // 3. Client-Side Search Backup (For immediate feedback on visible data)
+    if (!searchTerm) return filteredRows;
 
     const lowerSearch = searchTerm.toLowerCase().trim();
 
@@ -140,7 +150,7 @@ const Customers = () => {
         building.includes(lowerSearch)
       );
     });
-  }, [serverData, searchTerm]);
+  }, [serverData, searchTerm, vehicleStatusFilter]);
 
   // --- Handlers ---
   const handleTabChange = (status) => {
@@ -182,13 +192,39 @@ const Customers = () => {
     }
   };
 
-  const handleToggleStatus = async (row) => {
+  const handleToggleCustomerStatus = async (customer) => {
+    const newStatus = customer.status === 1 ? 2 : 1;
+    const action = newStatus === 1 ? "Activate" : "Deactivate";
+    const customerName =
+      `${customer.firstName || ""} ${customer.lastName || ""}`.trim() ||
+      "Customer";
+
+    const confirmMessage = `${action} customer ${customerName}?\n\nThis will ${action.toLowerCase()} the entire customer account and all their vehicles.`;
+
+    if (!window.confirm(confirmMessage)) return;
+    try {
+      await customerService.update(customer._id, { status: newStatus });
+      toast.success(`Customer ${customerName} ${action}d successfully`);
+      fetchData(pagination.page, pagination.limit, searchTerm, activeTab);
+    } catch (e) {
+      toast.error("Status update failed");
+    }
+  };
+
+  const handleToggleVehicleStatus = async (row) => {
     const newStatus = row.status === 1 ? 2 : 1;
     const action = newStatus === 1 ? "Activate" : "Deactivate";
-    if (!window.confirm(`${action} this vehicle?`)) return;
+    const customerName =
+      `${row.customer?.firstName || ""} ${row.customer?.lastName || ""}`.trim() ||
+      "Customer";
+    const vehicleInfo = row.registration_no || "Vehicle";
+
+    const confirmMessage = `${action} vehicle ${vehicleInfo} for ${customerName}?\n\nNote: Only this vehicle will be affected. Other vehicles under this customer will remain active.`;
+
+    if (!window.confirm(confirmMessage)) return;
     try {
       await customerService.toggleVehicle(row._id, row.status);
-      toast.success(`Vehicle ${action}d`);
+      toast.success(`Vehicle ${vehicleInfo} ${action}d successfully`);
       fetchData(pagination.page, pagination.limit, searchTerm, activeTab);
     } catch (e) {
       toast.error("Status update failed");
@@ -420,21 +456,29 @@ const Customers = () => {
       header: "Customer",
       accessor: "customer.mobile",
       className: "min-w-[200px]",
-      render: (row) => (
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-md text-white font-bold text-xs">
-            {row.customer.firstName?.[0] || "C"}
+      render: (row) => {
+        const vehicleCount = row.customer.vehicles?.length || 0;
+        return (
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-md text-white font-bold text-xs">
+              {row.customer.firstName?.[0] || "C"}
+            </div>
+            <div className="flex flex-col">
+              <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                {row.customer.firstName} {row.customer.lastName}
+                {vehicleCount > 0 && (
+                  <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-semibold">
+                    {vehicleCount} {vehicleCount === 1 ? 'vehicle' : 'vehicles'}
+                  </span>
+                )}
+              </span>
+              <span className="text-xs text-slate-500 font-mono flex items-center gap-1">
+                <Phone className="w-3 h-3" /> {row.customer.mobile}
+              </span>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <span className="font-bold text-slate-800 text-sm">
-              {row.customer.firstName} {row.customer.lastName}
-            </span>
-            <span className="text-xs text-slate-500 font-mono flex items-center gap-1">
-              <Phone className="w-3 h-3" /> {row.customer.mobile}
-            </span>
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       header: "Vehicle Info",
@@ -486,6 +530,63 @@ const Customers = () => {
       ),
     },
     {
+      header: "Customer",
+      accessor: "customer.status",
+      className: "min-w-[120px] text-center",
+      render: (row) => (
+        <div className="flex flex-col items-center gap-1">
+          <button
+            onClick={() => handleToggleCustomerStatus(row.customer)}
+            className={`w-12 h-6 rounded-full p-0.5 flex items-center transition-all duration-300 shadow-sm ${
+              row.customer.status === 1
+                ? "bg-gradient-to-r from-blue-400 to-blue-600 justify-end"
+                : "bg-slate-300 justify-start"
+            }`}
+            title={`${row.customer.status === 1 ? "Deactivate" : "Activate"} Customer`}
+          >
+            <div className="w-5 h-5 bg-white rounded-full shadow-md" />
+          </button>
+          <span
+            className={`text-[10px] font-bold ${
+              row.customer.status === 1 ? "text-blue-600" : "text-slate-500"
+            }`}
+          >
+            {row.customer.status === 1 ? "ACTIVE" : "INACTIVE"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      header: "Vehicle",
+      accessor: "status",
+      className: "min-w-[120px] text-center",
+      render: (row) =>
+        row.registration_no !== "NO VEHICLE" ? (
+          <div className="flex flex-col items-center gap-1">
+            <button
+              onClick={() => handleToggleVehicleStatus(row)}
+              className={`w-12 h-6 rounded-full p-0.5 flex items-center transition-all duration-300 shadow-sm ${
+                row.status === 1
+                  ? "bg-gradient-to-r from-emerald-400 to-emerald-600 justify-end"
+                  : "bg-slate-300 justify-start"
+              }`}
+              title={`${row.status === 1 ? "Deactivate" : "Activate"} Vehicle`}
+            >
+              <div className="w-5 h-5 bg-white rounded-full shadow-md" />
+            </button>
+            <span
+              className={`text-[10px] font-bold ${
+                row.status === 1 ? "text-emerald-600" : "text-slate-500"
+              }`}
+            >
+              {row.status === 1 ? "ACTIVE" : "INACTIVE"}
+            </span>
+          </div>
+        ) : (
+          <span className="text-xs text-slate-400 italic">No Vehicle</span>
+        ),
+    },
+    {
       header: "Actions",
       className:
         "text-right sticky right-0 bg-white shadow-[-10px_0_10px_-10px_rgba(0,0,0,0.1)] min-w-[140px]",
@@ -511,18 +612,6 @@ const Customers = () => {
             title="Delete"
           >
             <Trash2 className="w-3.5 h-3.5" />
-          </button>
-          <div className="w-px h-6 bg-slate-200 mx-1"></div>
-          <button
-            onClick={() => handleToggleStatus(row)}
-            className={`w-10 h-6 rounded-full p-1 flex items-center transition-all duration-300 shadow-inner ${
-              row.status === 1
-                ? "bg-gradient-to-r from-emerald-400 to-emerald-600 justify-end"
-                : "bg-slate-200 justify-start"
-            }`}
-            title={row.status === 1 ? "Deactivate" : "Activate"}
-          >
-            <div className="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform" />
           </button>
         </div>
       ),
@@ -569,27 +658,74 @@ const Customers = () => {
                 <Search className="absolute left-4 top-3 w-5 h-5 text-gray-400" />
               </div>
 
-              <div className="flex p-1 bg-gray-100 rounded-xl">
-                <button
-                  onClick={() => handleTabChange(1)}
-                  className={`px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
-                    activeTab === 1
-                      ? "bg-white text-indigo-600 shadow"
-                      : "bg-transparent text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  Active
-                </button>
-                <button
-                  onClick={() => handleTabChange(2)}
-                  className={`px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
-                    activeTab === 2
-                      ? "bg-white text-red-600 shadow"
-                      : "bg-transparent text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  Inactive
-                </button>
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                {/* Customer Status Filter */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide px-1">
+                    Customer Status
+                  </span>
+                  <div className="flex p-1 bg-gray-100 rounded-xl">
+                    <button
+                      onClick={() => handleTabChange(1)}
+                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
+                        activeTab === 1
+                          ? "bg-white text-blue-600 shadow"
+                          : "bg-transparent text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      Active
+                    </button>
+                    <button
+                      onClick={() => handleTabChange(2)}
+                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
+                        activeTab === 2
+                          ? "bg-white text-red-600 shadow"
+                          : "bg-transparent text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      Inactive
+                    </button>
+                  </div>
+                </div>
+
+                {/* Vehicle Status Filter */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide px-1">
+                    Vehicle Status
+                  </span>
+                  <div className="flex p-1 bg-gray-100 rounded-xl">
+                    <button
+                      onClick={() => setVehicleStatusFilter("all")}
+                      className={`px-3 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
+                        vehicleStatusFilter === "all"
+                          ? "bg-white text-indigo-600 shadow"
+                          : "bg-transparent text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setVehicleStatusFilter("active")}
+                      className={`px-3 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
+                        vehicleStatusFilter === "active"
+                          ? "bg-white text-emerald-600 shadow"
+                          : "bg-transparent text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      Active
+                    </button>
+                    <button
+                      onClick={() => setVehicleStatusFilter("inactive")}
+                      className={`px-3 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
+                        vehicleStatusFilter === "inactive"
+                          ? "bg-white text-red-600 shadow"
+                          : "bg-transparent text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      Inactive
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -668,8 +804,11 @@ const Customers = () => {
           key={activeTab}
           columns={columns}
           data={flattenedData}
-          loading={loading} // ✅ Animation active
-          pagination={pagination}
+          loading={loading}
+          pagination={{
+            ...pagination,
+            displayTotal: flattenedData.length, // Custom prop for display count
+          }}
           onPageChange={(p) =>
             fetchData(p, pagination.limit, searchTerm, activeTab)
           }
