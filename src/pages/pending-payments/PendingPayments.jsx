@@ -185,12 +185,39 @@ const PendingPayments = () => {
     // 4. Manual Grouping: Building -> Worker -> Payments
     const groupedData = [];
 
-    pendingItems.forEach((item) => {
+    console.log("🔍 [Export Debug] Total pending items:", pendingItems.length);
+    console.log(
+      "🔍 [Export Debug] Sample payment item (full object):",
+      JSON.stringify(pendingItems[0], null, 2),
+    );
+    console.log(
+      "🔍 [Export Debug] Sample building field:",
+      pendingItems[0]?.building,
+    );
+    console.log(
+      "🔍 [Export Debug] Sample customer.building field:",
+      pendingItems[0]?.customer?.building,
+    );
+
+    pendingItems.forEach((item, index) => {
+      // Try multiple ways to get building name
       const bName =
         item.building?.name ||
         item.customer?.building?.name ||
         "Unknown Building";
       const wName = item.worker?.name || "Unassigned";
+
+      // Log first 3 items to check data structure
+      if (index < 3) {
+        console.log(`🏢 Item ${index + 1}:`, {
+          buildingDirect: item.building,
+          buildingNested: item.customer?.building,
+          workerObj: item.worker,
+          finalBuildingName: bName,
+          finalWorkerName: wName,
+          parking: item.vehicle?.parking_no,
+        });
+      }
 
       // Find or Create Building Group
       let bGroup = groupedData.find((g) => g.buildingName === bName);
@@ -240,39 +267,45 @@ const PendingPayments = () => {
 
       // Create Workbook
       const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet("Pending Payments");
 
-      // Define Columns
-      sheet.columns = [
-        { header: "Sl No", key: "slNo", width: 8 },
-        { header: "Building", key: "building", width: 25 },
-        { header: "Worker", key: "worker", width: 20 },
-        { header: "Parking No", key: "parking", width: 15 },
-        { header: "Reg No", key: "regNo", width: 15 },
-        { header: "Amount Pending", key: "amount", width: 18 },
-        { header: "Due Date", key: "date", width: 15 },
-        { header: "Customer Mobile", key: "mobile", width: 18 },
-      ];
+      // Create a separate sheet for EACH building
+      groupedData.forEach((buildingGroup) => {
+        const buildingName = buildingGroup.buildingName || "Unknown";
+        // Sanitize sheet name (max 31 chars, no special chars)
+        const sheetName = buildingName
+          .substring(0, 31)
+          .replace(/[:\\\/?*\[\]]/g, "_");
 
-      // Style Header
-      const headerRow = sheet.getRow(1);
-      headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
-      headerRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FF1F4E78" },
-      };
-      headerRow.alignment = { vertical: "middle", horizontal: "center" };
+        const sheet = workbook.addWorksheet(sheetName);
 
-      // Flatten and Add Data
-      let globalIndex = 1;
-      groupedData.forEach((bg) => {
-        bg.workers.forEach((wg) => {
+        // Define Columns
+        sheet.columns = [
+          { header: "Sl No", key: "slNo", width: 8 },
+          { header: "Worker", key: "worker", width: 20 },
+          { header: "Parking No", key: "parking", width: 15 },
+          { header: "Reg No", key: "regNo", width: 15 },
+          { header: "Amount Pending", key: "amount", width: 18 },
+          { header: "Due Date", key: "date", width: 15 },
+          { header: "Customer Mobile", key: "mobile", width: 18 },
+        ];
+
+        // Style Header
+        const headerRow = sheet.getRow(1);
+        headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+        headerRow.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FF1F4E78" },
+        };
+        headerRow.alignment = { vertical: "middle", horizontal: "center" };
+
+        // Add Data for this building
+        let buildingIndex = 1;
+        buildingGroup.workers.forEach((wg) => {
           wg.payments.forEach((p) => {
             const amountPending = Number(p.totalDue) - Number(p.paid);
             const row = sheet.addRow({
-              slNo: globalIndex++,
-              building: bg.buildingName,
+              slNo: buildingIndex++,
               worker: wg.workerName,
               parking: p.parkingNo,
               regNo: p.regNo,
@@ -283,7 +316,6 @@ const PendingPayments = () => {
 
             row.getCell("amount").numFmt = "#,##0.00";
             row.alignment = { vertical: "middle", horizontal: "center" };
-            row.getCell("building").alignment = { horizontal: "left" };
             row.getCell("worker").alignment = { horizontal: "left" };
           });
         });
@@ -297,12 +329,15 @@ const PendingPayments = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `Pending_Payments_${filters.year}.xlsx`;
+      link.download = `Pending_Payments_${filters.year}_${filters.month + 1}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
-      toast.success("Excel File Downloaded!", { id: toastId });
+      toast.success(
+        `Excel File Downloaded! (${groupedData.length} building(s))`,
+        { id: toastId },
+      );
     } catch (error) {
       console.error(error);
       toast.error("Excel generation failed", { id: toastId });

@@ -40,7 +40,7 @@ export const customerService = {
       };
       const response = await api.put(
         `/customers/vehicle/${vehicleId}/deactivate`,
-        payload
+        payload,
       );
       return response.data;
     } else {
@@ -49,10 +49,27 @@ export const customerService = {
       };
       const response = await api.put(
         `/customers/vehicle/${vehicleId}/activate`,
-        payload
+        payload,
       );
       return response.data;
     }
+  },
+
+  // Deactivate Vehicle with dates and reason
+  deactivateVehicle: async (vehicleId, deactivationData) => {
+    const response = await api.put(
+      `/customers/vehicle/${vehicleId}/deactivate`,
+      deactivationData,
+    );
+    return response.data;
+  },
+
+  // Check vehicle pending dues
+  checkVehiclePendingDues: async (vehicleId) => {
+    const response = await api.get(
+      `/customers/vehicle/${vehicleId}/pending-dues`,
+    );
+    return response.data;
   },
 
   // Archive Customer
@@ -66,7 +83,7 @@ export const customerService = {
     page = 1,
     limit = 10,
     startDate = "",
-    endDate = ""
+    endDate = "",
   ) => {
     const params = {
       pageNo: page - 1,
@@ -94,6 +111,14 @@ export const customerService = {
       params: { status },
     });
     return response.data; // Returns { data: [...] }
+  },
+
+  // Download Import Template
+  downloadTemplate: async () => {
+    const response = await api.get("/customers/import/template", {
+      responseType: "blob",
+    });
+    return response.data;
   },
 
   // Import Data

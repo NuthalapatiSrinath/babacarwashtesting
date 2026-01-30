@@ -300,7 +300,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
             <NavItem
               to="/pending-payments"
               icon={Clock}
-              label="Pending Payments"
+              label="Due Lists"
               onClick={handleLinkClick}
               isMobile={isMobile}
             />

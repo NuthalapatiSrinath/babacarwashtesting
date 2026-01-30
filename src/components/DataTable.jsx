@@ -28,7 +28,7 @@ const DataTable = ({
   const [localPage, setLocalPage] = useState(1);
   const [localLimit, setLocalLimit] = useState(50);
   const [localSearch, setLocalSearch] = useState("");
-  const [expandedRows, setExpandedRows] = useState([]);
+  const [expandedRow, setExpandedRow] = useState(null); // Changed from array to single value
 
   const handleSearch = (e) => {
     const value = e.target.value;
@@ -53,7 +53,10 @@ const DataTable = ({
   const limit = isServer ? pagination.limit : localLimit;
   const page = isServer ? pagination.page : localPage;
   const total = isServer ? pagination.total : processed.length;
-  const displayTotal = isServer && pagination.displayTotal !== undefined ? pagination.displayTotal : total;
+  const displayTotal =
+    isServer && pagination.displayTotal !== undefined
+      ? pagination.displayTotal
+      : total;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   const rows = isServer
@@ -181,7 +184,7 @@ const DataTable = ({
 
                 {rows.map((row, i) => {
                   const id = row._id || row.id || i;
-                  const expanded = expandedRows.includes(id);
+                  const expanded = expandedRow === id; // Compare with single value
 
                   return (
                     <React.Fragment key={id}>
@@ -207,12 +210,8 @@ const DataTable = ({
                             {" "}
                             {/* ✅ REDUCED PADDING */}
                             <button
-                              onClick={() =>
-                                setExpandedRows(
-                                  expanded
-                                    ? expandedRows.filter((x) => x !== id)
-                                    : [...expandedRows, id],
-                                )
+                              onClick={
+                                () => setExpandedRow(expanded ? null : id) // Toggle single value: null or id
                               }
                               className="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-slate-400 hover:text-indigo-600 transition-all"
                             >

@@ -36,6 +36,7 @@ const WorkRecords = () => {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [viewData, setViewData] = useState(null);
   const [loadingView, setLoadingView] = useState(false);
+  const [availableWorkers, setAvailableWorkers] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(50);
@@ -113,10 +114,50 @@ const WorkRecords = () => {
     }
   }, [dispatch, filters.serviceType]);
 
+  // Fetch workers with data for selected month/year
+  useEffect(() => {
+    const fetchAvailableWorkers = async () => {
+      if (filters.serviceType !== "residence" || availableMonths.length === 0) {
+        setAvailableWorkers([]);
+        return;
+      }
+
+      try {
+        // Fetch data without worker filter to see all workers with data
+        const data = await workRecordsService.getStatementData(
+          filters.year,
+          filters.month,
+          filters.serviceType,
+          "", // Empty to get all workers
+        );
+
+        if (data && data.length > 0) {
+          // Extract unique worker IDs and names from the data
+          const workersWithData = data.map((item) => ({
+            value: item.workerId || item._id,
+            label: item.workerName || item.name,
+          }));
+          setAvailableWorkers(workersWithData);
+        } else {
+          setAvailableWorkers([]);
+        }
+      } catch (error) {
+        console.error("Error fetching available workers:", error);
+        setAvailableWorkers([]);
+      }
+    };
+
+    fetchAvailableWorkers();
+  }, [filters.serviceType, filters.year, filters.month, availableMonths]);
+
   const workersOptions = useMemo(() => {
+    // Use availableWorkers (workers with data) if available, otherwise fallback to all workers
+    if (availableWorkers && availableWorkers.length > 0) {
+      return availableWorkers;
+    }
     if (!workersList || workersList.length === 0) return [];
     return workersList.map((w) => ({ value: w._id, label: w.name }));
-  }, [workersList]);
+  }, [workersList, availableWorkers]);
 
   const pageSizeOptions = [
     { value: "a4-landscape", label: "A4 Landscape" },
@@ -142,10 +183,43 @@ const WorkRecords = () => {
           filters.serviceType === "residence" ? filters.workerId : "",
         );
 
+        console.log("📊 Raw API Response:", data);
+
         if (!data || data.length === 0) {
           setViewData(null);
           setShowPreview(false);
         } else {
+          // Log first item to check schedule data
+          if (data[0]) {
+            console.log("🔍 First car data:", {
+              scheduleType: data[0].scheduleType,
+              scheduleDays: data[0].scheduleDays,
+              cleaning: data[0].cleaning,
+              startDate: data[0].startDate,
+              endDate: data[0].endDate,
+            });
+
+            // Test schedule matching for December 2025
+            const testDate = new Date(2025, 11, 2); // Dec 2, 2025 (Monday)
+            const dayNames = [
+              "sunday",
+              "monday",
+              "tuesday",
+              "wednesday",
+              "thursday",
+              "friday",
+              "saturday",
+            ];
+            const testDayName = dayNames[testDate.getDay()];
+            const isMatched = data[0].scheduleDays?.some(
+              (d) => String(d).toLowerCase() === testDayName,
+            );
+            console.log(
+              `🧪 Test: Dec 2, 2025 is ${testDayName}, matched: ${isMatched}, scheduleDays:`,
+              data[0].scheduleDays,
+            );
+          }
+
           // Normalize data
           const normalizedData = data.map((item, index) => {
             if (item.daily && !item.dailyCounts) {
@@ -153,12 +227,13 @@ const WorkRecords = () => {
                 slNo: index + 1,
                 name: item.name,
                 dailyCounts: item.daily,
-                tips: item.tips || 0, // Ensure tips are captured
+                tips: item.amount || 0, // Backend returns tips in 'amount' field
               };
             }
             return item;
           });
 
+          console.log("✅ Normalized Data with Tips:", normalizedData);
           setViewData(normalizedData);
           setShowPreview(true);
           setCurrentPage(1);
@@ -643,55 +718,213 @@ const WorkRecords = () => {
               </thead>
               <tbody>
                 {isCarFormat ? (
-                  currentItems.map((car, index) => {
-                    const globalIndex = indexOfFirstItem + index;
-                    const total = (car.dailyMarks || []).reduce(
-                      (sum, m) => sum + m,
-                      0,
-                    );
-                    return (
-                      <tr key={globalIndex} className="hover:bg-slate-50">
-                        <td className="border border-slate-300 p-1 text-center font-semibold sticky left-0 bg-white">
-                          {globalIndex + 1}
-                        </td>
-                        <td className="border border-slate-300 p-1 text-center">
-                          {car.parkingNo || "-"}
-                        </td>
-                        <td className="border border-slate-300 p-1 text-center">
-                          {car.carNumber || "-"}
-                        </td>
-                        <td className="border border-slate-300 p-1 text-center">
-                          {car.dateOfStart || "-"}
-                        </td>
-                        <td className="border border-slate-300 p-1 text-center">
-                          {car.cleaning || "W3"}
-                        </td>
-                        {Array.from({ length: daysInMonth }, (_, dayIndex) => {
-                          const date = new Date(
-                            filters.year,
-                            filters.month - 1,
-                            dayIndex + 1,
-                          );
-                          const mark =
-                            (car.dailyMarks && car.dailyMarks[dayIndex]) || 0;
-                          return (
+                  <>
+                    {currentItems.map((car, index) => {
+                      const globalIndex = indexOfFirstItem + index;
+
+                      // Calculate total SCHEDULED days for this car
+                      let totalScheduledDays = 0;
+                      for (
+                        let dayIndex = 0;
+                        dayIndex < daysInMonth;
+                        dayIndex++
+                      ) {
+                        const date = new Date(
+                          filters.year,
+                          filters.month - 1,
+                          dayIndex + 1,
+                        );
+
+                        // Check if date is within the assignment period
+                        const currentDate = new Date(date);
+                        const startDate = car.startDate
+                          ? new Date(car.startDate)
+                          : null;
+                        const endDate = car.endDate
+                          ? new Date(car.endDate)
+                          : null;
+
+                        let isInDateRange = true;
+                        if (startDate && currentDate < startDate) {
+                          isInDateRange = false;
+                        }
+                        if (endDate && currentDate > endDate) {
+                          isInDateRange = false;
+                        }
+
+                        let isScheduled = false;
+                        if (isInDateRange) {
+                          if (car.scheduleType === "daily") {
+                            isScheduled = true;
+                          } else if (
+                            car.scheduleType === "weekly" &&
+                            car.scheduleDays &&
+                            car.scheduleDays.length > 0
+                          ) {
+                            const dayNames = [
+                              "sunday",
+                              "monday",
+                              "tuesday",
+                              "wednesday",
+                              "thursday",
+                              "friday",
+                              "saturday",
+                            ];
+                            const currentDayName = dayNames[date.getDay()];
+                            isScheduled = car.scheduleDays.some(
+                              (d) =>
+                                d && String(d).toLowerCase() === currentDayName,
+                            );
+                          }
+                        }
+
+                        if (isScheduled) {
+                          totalScheduledDays++;
+                        }
+                      }
+
+                      // Check if vehicle is deactivated (ended before this month)
+                      const monthStart = new Date(
+                        filters.year,
+                        filters.month - 1,
+                        1,
+                      );
+                      const isDeactivated =
+                        car.endDate && new Date(car.endDate) < monthStart;
+
+                      return (
+                        <tr
+                          key={globalIndex}
+                          className={`hover:bg-slate-50 ${isDeactivated ? "opacity-60" : ""}`}
+                        >
+                          <td
+                            className={`border border-slate-300 p-1 text-center font-semibold sticky left-0 bg-white ${isDeactivated ? "line-through" : ""}`}
+                          >
+                            {globalIndex + 1}
+                          </td>
+                          <td
+                            className={`border border-slate-300 p-1 text-center ${isDeactivated ? "line-through" : ""}`}
+                          >
+                            {car.parkingNo || "-"}
+                            {car.customerName &&
+                              car.customerName !== "Unknown" && (
+                                <span className="text-xs text-gray-500 ml-1">
+                                  ({car.customerName})
+                                </span>
+                              )}
+                          </td>
+                          <td
+                            className={`border border-slate-300 p-1 text-center ${isDeactivated ? "line-through" : ""}`}
+                          >
+                            {car.carNumber || "-"}
+                          </td>
+                          <td
+                            className={`border border-slate-300 p-1 text-center ${isDeactivated ? "line-through" : ""}`}
+                          >
+                            {car.dateOfStart || "-"}
+                          </td>
+                          <td
+                            className={`border border-slate-300 p-1 text-center ${isDeactivated ? "line-through" : ""}`}
+                          >
+                            {car.cleaning || "W3"}
+                          </td>
+                          {isDeactivated ? (
                             <td
-                              key={dayIndex}
-                              className={`border border-slate-300 p-1 text-center ${date.getDay() === 0 ? "bg-yellow-100" : ""} ${mark > 0 ? "font-bold text-green-600" : ""}`}
+                              colSpan={daysInMonth}
+                              className="border border-slate-300 p-2 text-center text-red-600 font-semibold italic"
                             >
-                              {mark > 0 ? mark : ""}
+                              Schedule Ended on{" "}
+                              {new Date(car.endDate).toLocaleDateString(
+                                "en-GB",
+                                {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              )}
                             </td>
-                          );
-                        })}
-                        <td className="border border-slate-300 p-1 text-center font-bold text-blue-600">
-                          {total}
-                        </td>
-                        <td className="border border-slate-300 p-1 text-center">
-                          {car.tips || 0}
-                        </td>
-                      </tr>
-                    );
-                  })
+                          ) : (
+                            Array.from(
+                              { length: daysInMonth },
+                              (_, dayIndex) => {
+                                const date = new Date(
+                                  filters.year,
+                                  filters.month - 1,
+                                  dayIndex + 1,
+                                );
+
+                                // Check if date is within the assignment period
+                                const currentDate = new Date(date);
+                                const startDate = car.startDate
+                                  ? new Date(car.startDate)
+                                  : null;
+                                const endDate = car.endDate
+                                  ? new Date(car.endDate)
+                                  : null;
+
+                                let isInDateRange = true;
+                                if (startDate && currentDate < startDate) {
+                                  isInDateRange = false;
+                                }
+                                if (endDate && currentDate > endDate) {
+                                  isInDateRange = false;
+                                }
+
+                                // Check if this day is SCHEDULED for this car
+                                let isScheduled = false;
+                                if (isInDateRange) {
+                                  if (car.scheduleType === "daily") {
+                                    isScheduled = true; // Daily = all days scheduled
+                                  } else if (
+                                    car.scheduleType === "weekly" &&
+                                    car.scheduleDays &&
+                                    car.scheduleDays.length > 0
+                                  ) {
+                                    const dayNames = [
+                                      "sunday",
+                                      "monday",
+                                      "tuesday",
+                                      "wednesday",
+                                      "thursday",
+                                      "friday",
+                                      "saturday",
+                                    ];
+                                    const currentDayName =
+                                      dayNames[date.getDay()];
+                                    isScheduled = car.scheduleDays.some(
+                                      (d) =>
+                                        d &&
+                                        String(d).toLowerCase() ===
+                                          currentDayName,
+                                    );
+                                  }
+                                }
+
+                                return (
+                                  <td
+                                    key={dayIndex}
+                                    className={`border border-slate-300 p-1 text-center ${date.getDay() === 0 ? "bg-yellow-100" : ""} ${isScheduled ? "font-bold text-green-600" : ""}`}
+                                  >
+                                    {isScheduled ? "1" : ""}
+                                  </td>
+                                );
+                              },
+                            )
+                          )}
+                          <td
+                            className={`border border-slate-300 p-1 text-center font-bold text-blue-600 ${isDeactivated ? "line-through" : ""}`}
+                          >
+                            {isDeactivated ? "-" : totalScheduledDays}
+                          </td>
+                          <td
+                            className={`border border-slate-300 p-1 text-center ${isDeactivated ? "line-through" : ""}`}
+                          >
+                            {isDeactivated ? "-" : car.tips || 0}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </>
                 ) : (
                   <>
                     {currentItems.map((worker, workerIndex) => {
@@ -739,47 +972,112 @@ const WorkRecords = () => {
                         </tr>
                       );
                     })}
-                    {/* Total Row */}
-                    <tr className="bg-slate-200 font-bold sticky bottom-0">
-                      <td
-                        colSpan="2"
-                        className="border border-slate-300 p-2 text-center sticky left-0 bg-slate-200 z-10"
-                      >
-                        TOTAL
-                      </td>
-                      {Array.from({ length: daysInMonth }, (_, dayIndex) => {
-                        const total = viewData.reduce(
-                          (sum, w) =>
-                            sum +
-                            ((w.dailyCounts && w.dailyCounts[dayIndex]) || 0),
-                          0,
-                        );
-                        return (
-                          <td
-                            key={dayIndex}
-                            className="border border-slate-300 p-1 text-center"
-                          >
-                            {total}
-                          </td>
-                        );
-                      })}
-                      <td className="border border-slate-300 p-1 text-center text-blue-600">
-                        {viewData.reduce(
-                          (sum, w) =>
-                            sum +
-                            (w.dailyCounts || []).reduce((s, c) => s + c, 0),
-                          0,
-                        )}
-                      </td>
-                      <td className="border border-slate-300 p-1 text-center">
-                        {filters.serviceType === "onewash"
-                          ? viewData.reduce((sum, w) => sum + (w.tips || 0), 0)
-                          : 0}
-                      </td>
-                    </tr>
                   </>
                 )}
               </tbody>
+              {(currentPage === totalPages || totalPages === 0) && (
+                <tfoot>
+                  {isCarFormat ? (
+                  /* Total Row for Worker Schedule */
+                  <tr className="bg-slate-200 font-bold">
+                    <td
+                      colSpan="5"
+                      className="border border-slate-300 p-2 text-center sticky left-0 bg-slate-200 z-10"
+                    >
+                      TOTAL
+                    </td>
+                    {Array.from({ length: daysInMonth }, (_, dayIndex) => {
+                      const total = viewData.reduce(
+                        (sum, car) =>
+                          sum +
+                          ((car.dailyMarks && car.dailyMarks[dayIndex]) || 0),
+                        0,
+                      );
+                      return (
+                        <td
+                          key={dayIndex}
+                          className="border border-slate-300 p-1 text-center font-bold text-blue-600"
+                        >
+                          {total > 0 ? total : ""}
+                        </td>
+                      );
+                    })}
+                    <td className="border border-slate-300 p-1 text-center font-bold text-blue-600">
+                      {viewData.reduce((sum, car) => {
+                        // Count total scheduled days for non-deactivated vehicles
+                        const monthStart = new Date(
+                          filters.year,
+                          filters.month - 1,
+                          1,
+                        );
+                        const isDeactivated =
+                          car.endDate && new Date(car.endDate) < monthStart;
+                        if (isDeactivated) return sum;
+
+                        const totalDays = car.dailyMarks
+                          ? car.dailyMarks.reduce(
+                              (s, mark) => s + (mark || 0),
+                              0,
+                            )
+                          : 0;
+                        return sum + totalDays;
+                      }, 0)}
+                    </td>
+                    <td className="border border-slate-300 p-1 text-center font-bold text-blue-600">
+                      {viewData.reduce((sum, car) => {
+                        const monthStart = new Date(
+                          filters.year,
+                          filters.month - 1,
+                          1,
+                        );
+                        const isDeactivated =
+                          car.endDate && new Date(car.endDate) < monthStart;
+                        return sum + (isDeactivated ? 0 : car.tips || 0);
+                      }, 0)}
+                    </td>
+                  </tr>
+                ) : (
+                  /* Total Row for All Workers */
+                  <tr className="bg-slate-200 font-bold">
+                    <td
+                      colSpan="2"
+                      className="border border-slate-300 p-2 text-center sticky left-0 bg-slate-200 z-10"
+                    >
+                      TOTAL
+                    </td>
+                    {Array.from({ length: daysInMonth }, (_, dayIndex) => {
+                      const total = viewData.reduce(
+                        (sum, w) =>
+                          sum +
+                          ((w.dailyCounts && w.dailyCounts[dayIndex]) || 0),
+                        0,
+                      );
+                      return (
+                        <td
+                          key={dayIndex}
+                          className="border border-slate-300 p-1 text-center"
+                        >
+                          {total}
+                        </td>
+                      );
+                    })}
+                    <td className="border border-slate-300 p-1 text-center text-blue-600">
+                      {viewData.reduce(
+                        (sum, w) =>
+                          sum +
+                          (w.dailyCounts || []).reduce((s, c) => s + c, 0),
+                        0,
+                      )}
+                    </td>
+                    <td className="border border-slate-300 p-1 text-center">
+                      {filters.serviceType === "onewash"
+                        ? viewData.reduce((sum, w) => sum + (w.tips || 0), 0)
+                        : 0}
+                    </td>
+                  </tr>
+                )}
+              </tfoot>
+              )}
             </table>
           </div>
 

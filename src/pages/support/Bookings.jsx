@@ -48,7 +48,7 @@ const Bookings = () => {
       fetchBookings({
         page: pagination.page,
         limit: pagination.limit,
-      })
+      }),
     );
   }, [dispatch, pagination.page, pagination.limit]);
 
@@ -143,7 +143,7 @@ const Bookings = () => {
       fetchBookings({
         page: pagination.page,
         limit: pagination.limit,
-      })
+      }),
     );
   };
 
