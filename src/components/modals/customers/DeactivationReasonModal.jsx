@@ -10,7 +10,6 @@ import { X, AlertTriangle, Calendar } from "lucide-react";
  * Requires:
  * - Deactivation date (defaults to today)
  * - Reason (required text)
- * - Expected reactivation date (optional)
  */
 const DeactivationReasonModal = ({
   isOpen,
@@ -22,7 +21,6 @@ const DeactivationReasonModal = ({
 }) => {
   const [formData, setFormData] = useState({
     deactivateDate: new Date().toISOString().split("T")[0],
-    reactivateDate: "",
     deactivateReason: "",
   });
   const [errors, setErrors] = useState({});
@@ -39,14 +37,6 @@ const DeactivationReasonModal = ({
       newErrors.deactivateReason = "Reason is required";
     }
 
-    if (
-      formData.reactivateDate &&
-      new Date(formData.reactivateDate) <= new Date(formData.deactivateDate)
-    ) {
-      newErrors.reactivateDate =
-        "Reactivation date must be after deactivation date";
-    }
-
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -55,16 +45,12 @@ const DeactivationReasonModal = ({
     // Send data with proper date objects
     onConfirm({
       deactivateDate: new Date(formData.deactivateDate),
-      reactivateDate: formData.reactivateDate
-        ? new Date(formData.reactivateDate)
-        : null,
       deactivateReason: formData.deactivateReason.trim(),
     });
 
     // Reset form
     setFormData({
       deactivateDate: new Date().toISOString().split("T")[0],
-      reactivateDate: "",
       deactivateReason: "",
     });
     setErrors({});
@@ -73,7 +59,6 @@ const DeactivationReasonModal = ({
   const handleCancel = () => {
     setFormData({
       deactivateDate: new Date().toISOString().split("T")[0],
-      reactivateDate: "",
       deactivateReason: "",
     });
     setErrors({});
@@ -126,34 +111,6 @@ const DeactivationReasonModal = ({
                 required
               />
             </div>
-          </div>
-
-          {/* Reactivation Date (Optional) */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Expected Reactivation Date{" "}
-              <span className="text-slate-400">(Optional)</span>
-            </label>
-            <div className="relative">
-              <Calendar
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                size={16}
-              />
-              <input
-                type="date"
-                value={formData.reactivateDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, reactivateDate: e.target.value })
-                }
-                min={formData.deactivateDate}
-                className="w-full rounded-md border border-slate-300 py-2 pl-10 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              />
-            </div>
-            {errors.reactivateDate && (
-              <p className="mt-1 text-xs text-red-500">
-                {errors.reactivateDate}
-              </p>
-            )}
           </div>
 
           {/* Reason */}

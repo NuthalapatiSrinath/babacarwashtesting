@@ -25,6 +25,7 @@ import DataTable from "../../components/DataTable";
 import CustomerModal from "../../components/modals/CustomerModal";
 import BlockedDeactivationModal from "../../components/modals/customers/BlockedDeactivationModal";
 import DeactivationReasonModal from "../../components/modals/customers/DeactivationReasonModal";
+import ReactivationDateModal from "../../components/modals/customers/ReactivationDateModal";
 
 // API
 import { customerService } from "../../api/customerService";
@@ -45,11 +46,20 @@ const Customers = () => {
     payments: [],
     totalDue: 0,
     customerName: "",
-    type: "customer"
+    type: "customer",
   });
 
   // Deactivation Modal
   const [deactivationModal, setDeactivationModal] = useState({
+    isOpen: false,
+    type: "", // "customer" or "vehicle"
+    entityId: "",
+    entityName: "",
+    customerId: "",
+  });
+
+  // Reactivation Modal
+  const [reactivationModal, setReactivationModal] = useState({
     isOpen: false,
     type: "", // "customer" or "vehicle"
     entityId: "",
@@ -82,10 +92,14 @@ const Customers = () => {
       const cleanSearch = typeof search === "string" ? search.trim() : search;
 
       const res = await customerService.list(page, limit, cleanSearch, status);
-      
-      console.log("\n💾 [CUSTOMERS PAGE] Fetched data:", res.data?.length, "customers");
+
+      console.log(
+        "\n💾 [CUSTOMERS PAGE] Fetched data:",
+        res.data?.length,
+        "customers",
+      );
       console.log("📊 [CUSTOMERS PAGE] Sample customer data:");
-      
+
       // Log first 3 customers with their pending dues
       if (res.data && res.data.length > 0) {
         res.data.slice(0, 3).forEach((customer, idx) => {
@@ -95,11 +109,11 @@ const Customers = () => {
             mobile: customer.mobile,
             pendingDues: customer.pendingDues,
             pendingCount: customer.pendingCount,
-            vehicles: customer.vehicles?.length || 0
+            vehicles: customer.vehicles?.length || 0,
           });
         });
       }
-      
+
       setServerData(res.data || []);
       setPagination({
         page: Number(page),
@@ -146,9 +160,13 @@ const Customers = () => {
       }
 
       // Combine all vehicle data into comma-separated strings
-      const vehicleNos = filteredVehicles.map((v) => v.registration_no || "").join(", ");
-      const parkingNos = filteredVehicles.map((v) => v.parking_no || "-").join(", ");
-      
+      const vehicleNos = filteredVehicles
+        .map((v) => v.registration_no || "")
+        .join(", ");
+      const parkingNos = filteredVehicles
+        .map((v) => v.parking_no || "-")
+        .join(", ");
+
       rows.push({
         customer: customer,
         uniqueId: customer._id,
@@ -238,19 +256,15 @@ const Customers = () => {
       `${customer.firstName || ""} ${customer.lastName || ""}`.trim() ||
       "Customer";
 
-    // If activating, just proceed with confirmation
+    // If activating, show reactivation date modal
     if (newStatus === 1) {
-      const confirmMessage = `Activate customer ${customerName}?\n\nThis will activate the entire customer account and all their vehicles.`;
-      if (!window.confirm(confirmMessage)) return;
-      
-      const loadingToast = toast.loading("Activating customer...");
-      try {
-        await customerService.update(customer._id, { status: newStatus });
-        toast.success(`Customer ${customerName} activated successfully`, { id: loadingToast });
-        fetchData(pagination.page, pagination.limit, searchTerm, activeTab);
-      } catch (e) {
-        toast.error("Failed to activate customer", { id: loadingToast });
-      }
+      setReactivationModal({
+        isOpen: true,
+        type: "customer",
+        entityId: customer._id,
+        entityName: customerName,
+        customerId: customer._id,
+      });
       return;
     }
 
@@ -262,9 +276,9 @@ const Customers = () => {
     if (pendingDues > 0 && pendingCount > 0) {
       toast.error(
         `Cannot deactivate: Customer has AED ${pendingDues.toFixed(2)} pending dues across ${pendingCount} transaction(s).`,
-        { duration: 4000 }
+        { duration: 4000 },
       );
-      
+
       // Try to deactivate to get full payment details from backend
       try {
         await customerService.update(customer._id, { status: 2 });
@@ -276,7 +290,7 @@ const Customers = () => {
             payments: payments,
             totalDue: pendingDues,
             customerName: customerName,
-            type: "customer"
+            type: "customer",
           });
         }
       }
@@ -300,47 +314,45 @@ const Customers = () => {
       "Customer";
     const vehicleInfo = vehicle.registration_no || "Vehicle";
 
-    // If activating, just proceed with confirmation
+    // If activating, show reactivation date modal
     if (newStatus === 1) {
-      const confirmMessage = `Activate vehicle ${vehicleInfo} for ${customerName}?\n\nNote: Only this vehicle will be affected.`;
-      if (!window.confirm(confirmMessage)) return;
-      
-      const loadingToast = toast.loading("Activating vehicle...");
-      try {
-        await customerService.toggleVehicle(vehicle._id, vehicle.status);
-        toast.success(`Vehicle ${vehicleInfo} activated successfully`, { id: loadingToast });
-        fetchData(pagination.page, pagination.limit, searchTerm, activeTab);
-      } catch (e) {
-        toast.error("Failed to activate vehicle", { id: loadingToast });
-      }
+      setReactivationModal({
+        isOpen: true,
+        type: "vehicle",
+        entityId: vehicle._id,
+        entityName: vehicleInfo,
+        customerId: customer._id,
+      });
       return;
     }
 
     // If deactivating, check for vehicle-specific pending dues first
     const checkingToast = toast.loading("Checking vehicle pending payments...");
     try {
-      const duesResponse = await customerService.checkVehiclePendingDues(vehicle._id);
+      const duesResponse = await customerService.checkVehiclePendingDues(
+        vehicle._id,
+      );
       const duesCheck = duesResponse.data;
-      
+
       toast.dismiss(checkingToast);
-      
+
       if (duesCheck.hasPendingDues && duesCheck.totalDue > 0) {
         // Vehicle has pending dues, show modal with payment details
         toast.error(
           `Cannot deactivate: Vehicle ${vehicleInfo} has AED ${duesCheck.totalDue.toFixed(2)} pending dues across ${duesCheck.pendingCount} transaction(s).`,
-          { duration: 4000 }
+          { duration: 4000 },
         );
-        
+
         setBlockedDeactivationModal({
           isOpen: true,
           payments: duesCheck.payments || [],
           totalDue: duesCheck.totalDue,
           customerName: `${customerName} - ${vehicleInfo}`,
-          type: "vehicle"
+          type: "vehicle",
         });
         return;
       }
-      
+
       // No pending dues, show deactivation modal
       setDeactivationModal({
         isOpen: true,
@@ -359,9 +371,10 @@ const Customers = () => {
 
   // --- DEACTIVATION CONFIRM HANDLER ---
   const handleDeactivationConfirm = async (deactivationData) => {
-    const { type, entityId, entityName, customerId, customerName } = deactivationModal;
+    const { type, entityId, entityName, customerId, customerName } =
+      deactivationModal;
     const loadingToast = toast.loading(`Deactivating ${type}...`);
-    
+
     try {
       if (type === "customer") {
         // Deactivate customer with dates and reason
@@ -369,44 +382,108 @@ const Customers = () => {
           status: 2,
           ...deactivationData,
         });
-        toast.success(`Customer ${entityName} deactivated successfully`, { id: loadingToast });
+        toast.success(`Customer ${entityName} deactivated successfully`, {
+          id: loadingToast,
+        });
       } else if (type === "vehicle") {
         // Deactivate vehicle with dates and reason
         await customerService.deactivateVehicle(entityId, deactivationData);
-        toast.success(`Vehicle ${entityName} deactivated successfully`, { id: loadingToast });
+        toast.success(`Vehicle ${entityName} deactivated successfully`, {
+          id: loadingToast,
+        });
       }
-      
+
       // Close modal and refresh data
-      setDeactivationModal({ isOpen: false, type: "", entityId: "", entityName: "", customerId: "" });
+      setDeactivationModal({
+        isOpen: false,
+        type: "",
+        entityId: "",
+        entityName: "",
+        customerId: "",
+      });
       fetchData(pagination.page, pagination.limit, searchTerm, activeTab);
     } catch (e) {
       console.error("Deactivation error:", e);
-      
+
       // Handle pending dues error
       if (e.response?.data?.code === "PENDING_DUES") {
         const totalDue = e.response.data.totalDue || 0;
         const pendingCount = e.response.data.pendingCount || 0;
         const payments = e.response.data.payments || [];
-        
+
         toast.error(
           `Cannot deactivate: ${totalDue > 0 ? `AED ${totalDue.toFixed(2)} pending dues across ${pendingCount} transaction(s)` : "Pending payments exist"}.`,
-          { id: loadingToast, duration: 4000 }
+          { id: loadingToast, duration: 4000 },
         );
-        
+
         // Show blocked deactivation modal
         setBlockedDeactivationModal({
           isOpen: true,
           payments: payments,
           totalDue: totalDue,
-          customerName: type === "customer" ? entityName : `${customerName} - ${entityName}`,
-          type: type
+          customerName:
+            type === "customer"
+              ? entityName
+              : `${customerName} - ${entityName}`,
+          type: type,
         });
-        
+
         // Close deactivation modal
-        setDeactivationModal({ isOpen: false, type: "", entityId: "", entityName: "", customerId: "" });
+        setDeactivationModal({
+          isOpen: false,
+          type: "",
+          entityId: "",
+          entityName: "",
+          customerId: "",
+        });
       } else {
         toast.error(`Failed to deactivate ${type}`, { id: loadingToast });
       }
+    }
+  };
+
+  // --- REACTIVATION CONFIRMATION HANDLER ---
+  const handleReactivationConfirm = async (formData) => {
+    const { type, entityId, customerId } = reactivationModal;
+    const loadingToast = toast.loading(`Reactivating ${type}...`);
+
+    try {
+      if (type === "customer") {
+        // Reactivate customer with restart date
+        await customerService.update(entityId, {
+          status: 1,
+          restart_date: formData.reactivateDate,
+        });
+        toast.success(`Customer reactivated successfully!`, {
+          id: loadingToast,
+        });
+      } else if (type === "vehicle") {
+        // Reactivate vehicle with restart date
+        await customerService.toggleVehicle(
+          entityId,
+          2,
+          "",
+          formData.reactivateDate,
+        );
+        toast.success(`Vehicle reactivated successfully!`, {
+          id: loadingToast,
+        });
+      }
+
+      // Refresh data
+      fetchData(pagination.page, pagination.limit, searchTerm, activeTab);
+
+      // Close modal
+      setReactivationModal({
+        isOpen: false,
+        type: "",
+        entityId: "",
+        entityName: "",
+        customerId: "",
+      });
+    } catch (e) {
+      console.error("Reactivation error:", e);
+      toast.error(`Failed to reactivate ${type}`, { id: loadingToast });
     }
   };
 
@@ -488,15 +565,18 @@ const Customers = () => {
 
       if (res.success || res.statusCode === 200) {
         const summary = res.data || res;
-        
+
         // Store results for modal
         setImportResults(summary);
         setShowImportResults(true);
 
-        toast.success(`Import complete! ${summary.success} records processed.`, {
-          id: toastId,
-          duration: 5000,
-        });
+        toast.success(
+          `Import complete! ${summary.success} records processed.`,
+          {
+            id: toastId,
+            duration: 5000,
+          },
+        );
 
         if (summary.errors && summary.errors.length > 0) {
           console.error("Import Errors:", summary.errors);
@@ -530,9 +610,11 @@ const Customers = () => {
       row.schedule_days?.map((d) => d.day).join(",") ||
       row.schedule_type ||
       "-";
-    
+
     // Get the specific vehicle data
-    const vehicle = c.vehicles?.find(v => v.registration_no === row.registration_no);
+    const vehicle = c.vehicles?.find(
+      (v) => v.registration_no === row.registration_no,
+    );
 
     return (
       <div className="bg-slate-50 p-5 rounded-lg border border-slate-200 ml-12 shadow-inner">
@@ -573,33 +655,51 @@ const Customers = () => {
                 <span className="text-amber-700 font-bold text-sm">!</span>
               </div>
               <div className="flex-1">
-                <h5 className="font-bold text-amber-800 text-sm mb-2">🚗 Vehicle Deactivated</h5>
+                <h5 className="font-bold text-amber-800 text-sm mb-2">
+                  🚗 Vehicle Deactivated
+                </h5>
                 <div className="space-y-1 text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-amber-700">Deactivated:</span>
+                    <span className="font-semibold text-amber-700">
+                      Deactivated:
+                    </span>
                     <span className="text-slate-700">
-                      {vehicle.deactivateDate ? new Date(vehicle.deactivateDate).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      }) : "-"}
+                      {vehicle.deactivateDate
+                        ? new Date(vehicle.deactivateDate).toLocaleDateString(
+                            "en-GB",
+                            {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            },
+                          )
+                        : "-"}
                     </span>
                   </div>
                   {vehicle.reactivateDate && (
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-amber-700">Expected Reactivation:</span>
+                      <span className="font-semibold text-amber-700">
+                        Expected Reactivation:
+                      </span>
                       <span className="text-blue-600 font-medium">
-                        {new Date(vehicle.reactivateDate).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
+                        {new Date(vehicle.reactivateDate).toLocaleDateString(
+                          "en-GB",
+                          {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          },
+                        )}
                       </span>
                     </div>
                   )}
                   <div className="mt-2 pt-2 border-t border-amber-200">
-                    <span className="font-semibold text-amber-700">Reason:</span>
-                    <p className="text-slate-700 italic mt-1">{vehicle.deactivateReason}</p>
+                    <span className="font-semibold text-amber-700">
+                      Reason:
+                    </span>
+                    <p className="text-slate-700 italic mt-1">
+                      {vehicle.deactivateReason}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -686,7 +786,7 @@ const Customers = () => {
                 {row.customer.firstName} {row.customer.lastName}
                 {vehicleCount > 0 && (
                   <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-semibold">
-                    {vehicleCount} {vehicleCount === 1 ? 'vehicle' : 'vehicles'}
+                    {vehicleCount} {vehicleCount === 1 ? "vehicle" : "vehicles"}
                   </span>
                 )}
               </span>
@@ -785,13 +885,18 @@ const Customers = () => {
               const pendingCount = vehicle.pendingCount || 0;
 
               return (
-                <div key={vehicle._id || idx} className="flex items-center gap-2 justify-between">
+                <div
+                  key={vehicle._id || idx}
+                  className="flex items-center gap-2 justify-between"
+                >
                   <span className="text-[10px] text-slate-500 font-mono w-16 truncate text-left">
                     {vehicle.registration_no}
                   </span>
                   {pendingDues === 0 ? (
                     <div className="flex items-center">
-                      <span className="text-xs font-bold text-green-600">✓ Cleared</span>
+                      <span className="text-xs font-bold text-green-600">
+                        ✓ Cleared
+                      </span>
                     </div>
                   ) : (
                     <div className="flex flex-col items-end">
@@ -799,7 +904,7 @@ const Customers = () => {
                         AED {pendingDues.toFixed(2)}
                       </span>
                       <span className="text-[10px] text-slate-500">
-                        {pendingCount} txn{pendingCount !== 1 ? 's' : ''}
+                        {pendingCount} txn{pendingCount !== 1 ? "s" : ""}
                       </span>
                     </div>
                   )}
@@ -843,18 +948,25 @@ const Customers = () => {
       className: "min-w-[140px] text-center",
       render: (row) => {
         if (!row.vehicles || row.vehicles.length === 0) {
-          return <span className="text-xs text-slate-400 italic">No Vehicle</span>;
+          return (
+            <span className="text-xs text-slate-400 italic">No Vehicle</span>
+          );
         }
-        
+
         return (
           <div className="flex flex-col gap-2">
             {row.vehicles.map((vehicle, idx) => (
-              <div key={vehicle._id || idx} className="flex items-center gap-2 justify-center">
+              <div
+                key={vehicle._id || idx}
+                className="flex items-center gap-2 justify-center"
+              >
                 <span className="text-[10px] text-slate-500 font-mono w-16 text-right truncate">
                   {vehicle.registration_no}
                 </span>
                 <button
-                  onClick={() => handleToggleVehicleStatus(vehicle, row.customer)}
+                  onClick={() =>
+                    handleToggleVehicleStatus(vehicle, row.customer)
+                  }
                   className={`w-12 h-6 rounded-full p-0.5 flex items-center transition-all duration-300 shadow-sm ${
                     vehicle.status === 1
                       ? "bg-gradient-to-r from-emerald-400 to-emerald-600 justify-end"
@@ -913,15 +1025,16 @@ const Customers = () => {
   if (activeTab === 2) {
     // Insert before "Actions" column (which is last)
     const actionsColumn = columns.pop();
-    
+
     columns.push({
       header: "Deactivated",
       accessor: "deactivateDate",
       className: "min-w-[100px] text-center",
       render: (row) => {
         const customer = row.customer;
-        const inactiveVehicles = customer.vehicles?.filter(v => v.status === 2) || [];
-        
+        const inactiveVehicles =
+          customer.vehicles?.filter((v) => v.status === 2) || [];
+
         if (customer.status === 2 && customer.deactivateDate) {
           return (
             <div className="text-xs">
@@ -936,7 +1049,7 @@ const Customers = () => {
             </div>
           );
         }
-        
+
         if (inactiveVehicles.length > 0) {
           return (
             <div className="flex flex-col gap-1 text-xs">
@@ -956,7 +1069,7 @@ const Customers = () => {
             </div>
           );
         }
-        
+
         return <span className="text-xs text-slate-400">-</span>;
       },
     });
@@ -967,8 +1080,9 @@ const Customers = () => {
       className: "min-w-[100px] text-center",
       render: (row) => {
         const customer = row.customer;
-        const inactiveVehicles = customer.vehicles?.filter(v => v.status === 2) || [];
-        
+        const inactiveVehicles =
+          customer.vehicles?.filter((v) => v.status === 2) || [];
+
         if (customer.status === 2 && customer.reactivateDate) {
           return (
             <div className="text-xs text-blue-600 font-medium">
@@ -980,23 +1094,28 @@ const Customers = () => {
             </div>
           );
         }
-        
-        if (inactiveVehicles.length > 0 && inactiveVehicles.some(v => v.reactivateDate)) {
+
+        if (
+          inactiveVehicles.length > 0 &&
+          inactiveVehicles.some((v) => v.reactivateDate)
+        ) {
           return (
             <div className="flex flex-col gap-1 text-xs">
               {inactiveVehicles.map((v, idx) => (
                 <div key={idx} className="text-blue-600">
-                  {v.reactivateDate ? new Date(v.reactivateDate).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  }) : "-"}
+                  {v.reactivateDate
+                    ? new Date(v.reactivateDate).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : "-"}
                 </div>
               ))}
             </div>
           );
         }
-        
+
         return <span className="text-xs text-slate-400">Not set</span>;
       },
     });
@@ -1007,8 +1126,9 @@ const Customers = () => {
       className: "min-w-[220px]",
       render: (row) => {
         const customer = row.customer;
-        const inactiveVehicles = customer.vehicles?.filter(v => v.status === 2) || [];
-        
+        const inactiveVehicles =
+          customer.vehicles?.filter((v) => v.status === 2) || [];
+
         // DEBUG: Log deactivation data
         if (customer.status === 2 || inactiveVehicles.length > 0) {
           console.log("📋 [Deactivation Data from DB]", {
@@ -1016,37 +1136,45 @@ const Customers = () => {
             customerStatus: customer.status,
             customerDeactivateReason: customer.deactivateReason,
             customerDeactivateDate: customer.deactivateDate,
-            inactiveVehicles: inactiveVehicles.map(v => ({
+            inactiveVehicles: inactiveVehicles.map((v) => ({
               regNo: v.registration_no,
               reason: v.deactivateReason,
-              date: v.deactivateDate
-            }))
+              date: v.deactivateDate,
+            })),
           });
         }
-        
+
         // Customer-level deactivation
         if (customer.status === 2 && customer.deactivateReason) {
           return (
             <div className="text-xs text-slate-700">
               <div className="px-2 py-1 bg-red-50 border border-red-200 rounded mb-2">
-                <div className="font-semibold text-red-700 mb-1">🚫 Customer Deactivated</div>
-                <div className="text-slate-600">{customer.deactivateReason}</div>
+                <div className="font-semibold text-red-700 mb-1">
+                  🚫 Customer Deactivated
+                </div>
+                <div className="text-slate-600">
+                  {customer.deactivateReason}
+                </div>
               </div>
               {inactiveVehicles.length > 0 && (
                 <div className="text-[10px] text-slate-500 italic">
-                  + {inactiveVehicles.length} vehicle{inactiveVehicles.length > 1 ? 's' : ''} also inactive
+                  + {inactiveVehicles.length} vehicle
+                  {inactiveVehicles.length > 1 ? "s" : ""} also inactive
                 </div>
               )}
             </div>
           );
         }
-        
+
         // Vehicle-level deactivation only (customer still active)
         if (inactiveVehicles.length > 0) {
           return (
             <div className="flex flex-col gap-1.5 text-xs">
               {inactiveVehicles.map((v, idx) => (
-                <div key={idx} className="px-2 py-1 bg-amber-50 border border-amber-200 rounded">
+                <div
+                  key={idx}
+                  className="px-2 py-1 bg-amber-50 border border-amber-200 rounded"
+                >
                   <div className="font-medium text-amber-700 mb-0.5">
                     🚗 {v.registration_no}
                   </div>
@@ -1058,7 +1186,7 @@ const Customers = () => {
             </div>
           );
         }
-        
+
         return <span className="text-xs text-slate-400 italic">-</span>;
       },
     });
@@ -1282,23 +1410,37 @@ const Customers = () => {
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
             <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-6 text-white">
               <h2 className="text-2xl font-bold">Import Results</h2>
-              <p className="text-blue-100 mt-1">Summary of customer import operation</p>
+              <p className="text-blue-100 mt-1">
+                Summary of customer import operation
+              </p>
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[60vh]">
               {/* Summary Stats */}
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                  <div className="text-3xl font-bold text-green-600">{importResults.success || 0}</div>
-                  <div className="text-sm text-green-700 font-medium mt-1">Total Success</div>
+                  <div className="text-3xl font-bold text-green-600">
+                    {importResults.success || 0}
+                  </div>
+                  <div className="text-sm text-green-700 font-medium mt-1">
+                    Total Success
+                  </div>
                 </div>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-                  <div className="text-3xl font-bold text-blue-600">{importResults.created || 0}</div>
-                  <div className="text-sm text-blue-700 font-medium mt-1">New Created</div>
+                  <div className="text-3xl font-bold text-blue-600">
+                    {importResults.created || 0}
+                  </div>
+                  <div className="text-sm text-blue-700 font-medium mt-1">
+                    New Created
+                  </div>
                 </div>
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
-                  <div className="text-3xl font-bold text-amber-600">{importResults.updated || 0}</div>
-                  <div className="text-sm text-amber-700 font-medium mt-1">Updated</div>
+                  <div className="text-3xl font-bold text-amber-600">
+                    {importResults.updated || 0}
+                  </div>
+                  <div className="text-sm text-amber-700 font-medium mt-1">
+                    Updated
+                  </div>
                 </div>
               </div>
 
@@ -1307,20 +1449,31 @@ const Customers = () => {
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                      <span className="text-red-600 font-bold">{importResults.errors.length}</span>
+                      <span className="text-red-600 font-bold">
+                        {importResults.errors.length}
+                      </span>
                     </div>
-                    <h3 className="text-lg font-bold text-red-800">Failed Records</h3>
+                    <h3 className="text-lg font-bold text-red-800">
+                      Failed Records
+                    </h3>
                   </div>
                   <div className="space-y-2 max-h-64 overflow-y-auto">
                     {importResults.errors.map((error, idx) => (
-                      <div key={idx} className="bg-white border border-red-200 rounded p-3">
+                      <div
+                        key={idx}
+                        className="bg-white border border-red-200 rounded p-3"
+                      >
                         <div className="flex items-start gap-3">
                           <span className="text-xs font-mono bg-red-100 text-red-700 px-2 py-1 rounded">
                             Row {error.row}
                           </span>
                           <div className="flex-1">
-                            <div className="font-medium text-gray-800">{error.name}</div>
-                            <div className="text-sm text-red-600 mt-1">{error.error}</div>
+                            <div className="font-medium text-gray-800">
+                              {error.name}
+                            </div>
+                            <div className="text-sm text-red-600 mt-1">
+                              {error.error}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1331,8 +1484,12 @@ const Customers = () => {
 
               {importResults.errors && importResults.errors.length === 0 && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                  <div className="text-green-600 text-lg font-bold">✓ All records imported successfully!</div>
-                  <p className="text-green-700 text-sm mt-1">No errors encountered during import</p>
+                  <div className="text-green-600 text-lg font-bold">
+                    ✓ All records imported successfully!
+                  </div>
+                  <p className="text-green-700 text-sm mt-1">
+                    No errors encountered during import
+                  </p>
                 </div>
               )}
             </div>
@@ -1352,7 +1509,15 @@ const Customers = () => {
       {/* Blocked Deactivation Modal (Shows pending payments when deactivation is blocked) */}
       <BlockedDeactivationModal
         isOpen={blockedDeactivationModal.isOpen}
-        onClose={() => setBlockedDeactivationModal({ isOpen: false, payments: [], totalDue: 0, customerName: "", type: "customer" })}
+        onClose={() =>
+          setBlockedDeactivationModal({
+            isOpen: false,
+            payments: [],
+            totalDue: 0,
+            customerName: "",
+            type: "customer",
+          })
+        }
         payments={blockedDeactivationModal.payments}
         totalDue={blockedDeactivationModal.totalDue}
         customerName={blockedDeactivationModal.customerName}
@@ -1362,11 +1527,37 @@ const Customers = () => {
       {/* Deactivation Reason Modal (Collects reason and dates when deactivation is allowed) */}
       <DeactivationReasonModal
         isOpen={deactivationModal.isOpen}
-        onClose={() => setDeactivationModal({ isOpen: false, type: "", entityId: "", entityName: "", customerId: "" })}
+        onClose={() =>
+          setDeactivationModal({
+            isOpen: false,
+            type: "",
+            entityId: "",
+            entityName: "",
+            customerId: "",
+          })
+        }
         onConfirm={handleDeactivationConfirm}
         title={`Deactivate ${deactivationModal.type === "customer" ? "Customer" : "Vehicle"}`}
         entityName={deactivationModal.entityName}
         type={deactivationModal.type}
+      />
+
+      {/* Reactivation Date Modal (Collects reactivation date when activating) */}
+      <ReactivationDateModal
+        isOpen={reactivationModal.isOpen}
+        onClose={() =>
+          setReactivationModal({
+            isOpen: false,
+            type: "",
+            entityId: "",
+            entityName: "",
+            customerId: "",
+          })
+        }
+        onConfirm={handleReactivationConfirm}
+        title={`Reactivate ${reactivationModal.type === "customer" ? "Customer" : "Vehicle"}`}
+        entityName={reactivationModal.entityName}
+        type={reactivationModal.type}
       />
     </div>
   );

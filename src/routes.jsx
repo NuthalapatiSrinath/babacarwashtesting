@@ -38,7 +38,7 @@ import Customers from "./pages/customers/Customers";
 import CustomerHistory from "./pages/customers/CustomerHistory";
 import OneWash from "./pages/washes/OneWash";
 import Residence from "./pages/washes/Residence";
-import Payments from "./pages/finance/Payments";
+
 import OneWashPayments from "./pages/finance/OneWashPayments";
 import ResidencePayments from "./pages/finance/ResidencePayments";
 import WorkRecords from "./pages/finance/WorkRecords";

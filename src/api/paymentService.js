@@ -130,4 +130,34 @@ export const paymentService = {
     const response = await api.put(`/payments/settlements/${id}`, {});
     return response.data;
   },
+
+  // Get months with pending bills
+  getMonthsWithPending: async () => {
+    const response = await api.get("/payments/months-with-pending");
+    return response.data;
+  },
+
+  // Close month
+  closeMonth: async (month, year) => {
+    const response = await api.post("/payments/close-month", { month, year });
+    return response.data;
+  },
+
+  // Revert month close
+  revertMonthClose: async (month, year) => {
+    const response = await api.post("/payments/revert-month-close", {
+      month,
+      year,
+    });
+    return response.data;
+  },
+
+  // Export PDF (all records)
+  exportPDF: async (filters = {}) => {
+    const response = await api.get("/payments/export/pdf", {
+      params: filters,
+      responseType: "blob",
+    });
+    return response.data;
+  },
 };

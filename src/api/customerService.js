@@ -32,7 +32,12 @@ export const customerService = {
   },
 
   // Toggle Vehicle Status
-  toggleVehicle: async (vehicleId, currentStatus, reason = "") => {
+  toggleVehicle: async (
+    vehicleId,
+    currentStatus,
+    reason = "",
+    reactivateDate = null,
+  ) => {
     if (currentStatus === 1) {
       const payload = {
         deactivateReason: reason || "Stopped",
@@ -45,7 +50,12 @@ export const customerService = {
       return response.data;
     } else {
       const payload = {
-        start_date: new Date().toISOString(),
+        start_date: reactivateDate
+          ? new Date(reactivateDate).toISOString()
+          : new Date().toISOString(),
+        restart_date: reactivateDate
+          ? new Date(reactivateDate).toISOString()
+          : new Date().toISOString(),
       };
       const response = await api.put(
         `/customers/vehicle/${vehicleId}/activate`,

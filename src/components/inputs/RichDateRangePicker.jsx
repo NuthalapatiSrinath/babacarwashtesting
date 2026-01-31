@@ -18,44 +18,35 @@ const months = [
   "December",
 ];
 
-// --- HELPER 1: Convert ISO (from Backend) to YYYY-MM-DD (for Calendar Display) ---
-// Handles: "2025-12-31T18:30:00Z" -> "2026-01-01" (Visual correction for IST)
-const toDisplayDate = (isoString, isEndDate) => {
+// --- HELPER 1: Convert ISO to YYYY-MM-DD for display ---
+const toDisplayDate = (isoString) => {
   if (!isoString) return "";
   // If it's already simple YYYY-MM-DD, return it
   if (isoString.length === 10) return isoString;
 
+  // For ISO dates, just extract the date part
   const date = new Date(isoString);
-  // Add 5 hours 30 mins to shift 18:30 UTC -> 00:00 IST next day
-  // Or simply: rely on the fact that 18:30 previous day represents the *start* of the target day.
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
 
-  if (!isEndDate) {
-    // Start Date: If 18:30 prev day, we want to show Next Day.
-    // Quick hack: Add 6 hours to push it into the correct visual day
-    date.setHours(date.getHours() + 6);
-  }
-
-  // Format to YYYY-MM-DD
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-    2,
-    "0"
-  )}-${String(date.getDate()).padStart(2, "0")}`;
+  return `${year}-${month}-${day}`;
 };
 
-// --- HELPER 2: Convert YYYY-MM-DD (from Click) to ISO 18:30 offset (for API) ---
+// --- HELPER 2: Convert YYYY-MM-DD to ISO (Start of Day and End of Day) ---
 const toApiDate = (dateStr, isEndDate) => {
   if (!dateStr) return "";
-  const date = new Date(dateStr);
+
+  // Parse the date string
+  const [year, month, day] = dateStr.split("-").map(Number);
 
   if (isEndDate) {
-    // End Date: Current Day 23:59:59 IST -> Current Day 18:29:59 UTC
-    // We set UTC hours directly to match your backend requirement
-    date.setUTCHours(18, 29, 59, 999);
+    // End Date: Set to 23:59:59.999 of the selected date
+    const date = new Date(year, month - 1, day, 23, 59, 59, 999);
     return date.toISOString();
   } else {
-    // Start Date: Current Day 00:00:00 IST -> Previous Day 18:30:00 UTC
-    date.setDate(date.getDate() - 1); // Go back 1 day
-    date.setUTCHours(18, 30, 0, 0); // Set to 18:30 UTC
+    // Start Date: Set to 00:00:00.000 of the selected date
+    const date = new Date(year, month - 1, day, 0, 0, 0, 0);
     return date.toISOString();
   }
 };
@@ -64,11 +55,21 @@ const RichDateRangePicker = ({ startDate, endDate, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
 
-  // Use display dates for internal calendar logic
-  const displayStart = toDisplayDate(startDate, false);
-  const displayEnd = toDisplayDate(endDate, true);
+  // Convert ISO dates to display format for showing in UI
+  const displayStart = toDisplayDate(startDate);
+  const displayEnd = toDisplayDate(endDate);
+
+  // Store the display dates for selection logic
+  const [tempStart, setTempStart] = useState(displayStart);
+  const [tempEnd, setTempEnd] = useState(displayEnd);
 
   const [currentDate, setCurrentDate] = useState(new Date());
+
+  // Update temp dates when props change
+  useEffect(() => {
+    setTempStart(displayStart);
+    setTempEnd(displayEnd);
+  }, [displayStart, displayEnd]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -101,18 +102,23 @@ const RichDateRangePicker = ({ startDate, endDate, onChange }) => {
     const d = String(day).padStart(2, "0");
     const clickedDateStr = `${year}-${month}-${d}`; // YYYY-MM-DD
 
-    // Logic for range selection
-    if (!displayStart || (displayStart && displayEnd)) {
+    // Logic for range selection using temp dates for display
+    if (!tempStart || (tempStart && tempEnd)) {
       // New Selection Start
-      // Convert to API Format immediately
+      setTempStart(clickedDateStr);
+      setTempEnd("");
+      // Convert to API Format with IST offset
       onChange("startDate", toApiDate(clickedDateStr, false));
       onChange("endDate", "");
     } else {
       // Range Completion
-      if (clickedDateStr < displayStart) {
-        onChange("endDate", toApiDate(displayStart, true));
+      if (clickedDateStr < tempStart) {
+        setTempEnd(tempStart);
+        setTempStart(clickedDateStr);
+        onChange("endDate", toApiDate(tempStart, true));
         onChange("startDate", toApiDate(clickedDateStr, false));
       } else {
+        setTempEnd(clickedDateStr);
         onChange("endDate", toApiDate(clickedDateStr, true));
       }
       setIsOpen(false);
@@ -125,14 +131,16 @@ const RichDateRangePicker = ({ startDate, endDate, onChange }) => {
     // 1st of Month
     const start = new Date(d.getFullYear(), d.getMonth(), 1);
     const startStr = `${start.getFullYear()}-${String(
-      start.getMonth() + 1
+      start.getMonth() + 1,
     ).padStart(2, "0")}-01`;
     // Today
     const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
       2,
-      "0"
+      "0",
     )}-${String(d.getDate()).padStart(2, "0")}`;
 
+    setTempStart(startStr);
+    setTempEnd(todayStr);
     onChange("startDate", toApiDate(startStr, false));
     onChange("endDate", toApiDate(todayStr, true));
 
@@ -144,9 +152,11 @@ const RichDateRangePicker = ({ startDate, endDate, onChange }) => {
     const d = new Date();
     const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
       2,
-      "0"
+      "0",
     )}-${String(d.getDate()).padStart(2, "0")}`;
 
+    setTempStart(todayStr);
+    setTempEnd(todayStr);
     onChange("startDate", toApiDate(todayStr, false));
     onChange("endDate", toApiDate(todayStr, true));
 
@@ -156,7 +166,7 @@ const RichDateRangePicker = ({ startDate, endDate, onChange }) => {
 
   const changeMonth = (offset) => {
     setCurrentDate(
-      new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1)
+      new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1),
     );
   };
   const changeYear = (year) => {
@@ -180,16 +190,12 @@ const RichDateRangePicker = ({ startDate, endDate, onChange }) => {
     for (let day = 1; day <= daysInMonth; day++) {
       const currentStr = `${year}-${String(month + 1).padStart(
         2,
-        "0"
+        "0",
       )}-${String(day).padStart(2, "0")}`;
 
-      const isSelected =
-        currentStr === displayStart || currentStr === displayEnd;
+      const isSelected = currentStr === tempStart || currentStr === tempEnd;
       const isInRange =
-        displayStart &&
-        displayEnd &&
-        currentStr > displayStart &&
-        currentStr < displayEnd;
+        tempStart && tempEnd && currentStr > tempStart && currentStr < tempEnd;
 
       let classes = "text-slate-700 hover:bg-slate-100 rounded-lg bg-white";
       if (isSelected) {
@@ -209,7 +215,7 @@ const RichDateRangePicker = ({ startDate, endDate, onChange }) => {
           className={`h-9 w-9 text-xs flex items-center justify-center transition-all duration-200 ${classes}`}
         >
           {day}
-        </button>
+        </button>,
       );
     }
     return days;
@@ -218,9 +224,9 @@ const RichDateRangePicker = ({ startDate, endDate, onChange }) => {
   const years = Array.from({ length: 20 }, (_, i) => 2020 + i);
 
   const getDisplayText = () => {
-    if (!displayStart && !displayEnd) return "Select Date Range";
-    if (displayStart && !displayEnd) return `${displayStart} - ...`;
-    return `${displayStart} - ${displayEnd}`;
+    if (!tempStart && !tempEnd) return "Select Date Range";
+    if (tempStart && !tempEnd) return `${tempStart} - ...`;
+    return `${tempStart} - ${tempEnd}`;
   };
 
   return (
@@ -254,6 +260,8 @@ const RichDateRangePicker = ({ startDate, endDate, onChange }) => {
             <button
               onClick={(e) => {
                 e.stopPropagation();
+                setTempStart("");
+                setTempEnd("");
                 onChange("clear");
               }}
               className="p-1 hover:bg-red-50 rounded-full text-slate-400 hover:text-red-500 transition-colors"

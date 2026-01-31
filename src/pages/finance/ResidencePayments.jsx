@@ -43,12 +43,13 @@ import {
   settlePaymentsBulk,
   bulkUpdatePaymentStatus,
 } from "../../redux/slices/paymentSlice";
+import { paymentService } from "../../api/paymentService";
 
 const ResidencePayments = () => {
   const dispatch = useDispatch();
 
   const { payments, stats, loading, total } = useSelector(
-    (state) => state.residencePayment
+    (state) => state.residencePayment,
   );
   const { workers } = useSelector((state) => state.worker);
 
@@ -74,20 +75,22 @@ const ResidencePayments = () => {
     let start, end;
 
     if (tab === "this_month") {
+      // Current month: 1st of month to today
       start = new Date(today.getFullYear(), today.getMonth(), 1);
-      start.setDate(start.getDate() - 1);
-      start.setUTCHours(18, 30, 0, 0);
-
-      end = new Date();
-      end.setUTCHours(18, 29, 59, 999);
+      end = new Date(today);
     } else {
+      // Last month: 1st to last day of last month
       start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      start.setDate(start.getDate() - 1);
-      start.setUTCHours(18, 30, 0, 0);
-
       end = new Date(today.getFullYear(), today.getMonth(), 0);
-      end.setUTCHours(18, 29, 59, 999);
     }
+
+    // Set to start and end of day
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
+    console.log(`📅 Tab: ${tab}`);
+    console.log(`   Start: ${start.toISOString()}`);
+    console.log(`   End: ${end.toISOString()}`);
 
     return {
       startDate: start.toISOString(),
@@ -125,6 +128,12 @@ const ResidencePayments = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
+  const [isClosingMonth, setIsClosingMonth] = useState(false);
+  const [isRevertingMonth, setIsRevertingMonth] = useState(false);
+  const [showMonthSelector, setShowMonthSelector] = useState(false);
+  const [availableMonths, setAvailableMonths] = useState([]);
+  const [selectedMonthForClose, setSelectedMonthForClose] = useState(null);
+  const [closeOperation, setCloseOperation] = useState(null); // 'close' or 'revert'
 
   // Load Currency & Initial Data
   useEffect(() => {
@@ -161,7 +170,7 @@ const ResidencePayments = () => {
           limit: fetchLimit,
           search: "",
           filters: filters,
-        })
+        }),
       ).unwrap();
 
       setPagination({
@@ -245,7 +254,7 @@ const ResidencePayments = () => {
       !window.confirm(
         `Mark ${pendingIds.length} payments as SETTLED for ${
           activeTab === "this_month" ? thisMonth : lastMonth
-        }?`
+        }?`,
       )
     )
       return;
@@ -278,10 +287,10 @@ const ResidencePayments = () => {
     try {
       console.log("🚀 [FRONTEND] Sending Bulk Status Update for:", pendingIds);
       await dispatch(
-        bulkUpdatePaymentStatus({ ids: pendingIds, status: "completed" })
+        bulkUpdatePaymentStatus({ ids: pendingIds, status: "completed" }),
       ).unwrap();
       toast.success(
-        `Successfully marked ${pendingIds.length} payments as Paid!`
+        `Successfully marked ${pendingIds.length} payments as Paid!`,
       );
       console.log("🔄 [FRONTEND] Refetching data...");
       await fetchData(pagination.page, pagination.limit);
@@ -291,6 +300,189 @@ const ResidencePayments = () => {
     } finally {
       setIsMarkingPaid(false);
     }
+  };
+
+  const fetchAvailableMonths = async () => {
+    try {
+      console.log("🔍 Fetching available months with pending bills...");
+
+      const result = await paymentService.getMonthsWithPending();
+
+      console.log("📦 Result:", result);
+
+      if (result.months) {
+        console.log("📅 Available months:", result.months);
+        setAvailableMonths(result.months);
+        return result.months;
+      }
+      return [];
+    } catch (error) {
+      console.error("❌ Error fetching months:", error);
+      console.error("❌ Response data:", error.response?.data);
+      return [];
+    }
+  };
+
+  const handleMonthEndClose = async (month, year) => {
+    if (!month && month !== 0) {
+      // No month selected, show dropdown
+      console.log("📅 Opening month selector for close...");
+      const months = await fetchAvailableMonths();
+      if (months.length === 0) {
+        toast.error("No months with pending bills found");
+        return;
+      }
+      setCloseOperation("close");
+      setShowMonthSelector(true);
+      return;
+    }
+
+    // Month selected, proceed with close
+    const monthName = new Date(year, month, 1).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+
+    console.log("\n🔵 ========== MONTH-END CLOSE STARTED ==========");
+    console.log("📅 Selected Month:", monthName);
+    console.log("📅 Month Index:", month, "(0-11)");
+    console.log("📅 Year:", year);
+
+    const confirmMsg = `⚠️ MONTH-END CLOSING FOR ${monthName.toUpperCase()} ⚠️
+
+This will:
+1. Close all pending bills from ${monthName} as "completed"
+2. Transfer unpaid balances to next month
+3. Create new bills with carried forward balances
+
+Are you sure you want to proceed?`;
+
+    if (!window.confirm(confirmMsg)) {
+      console.log("❌ Month-end close cancelled by user");
+      setShowMonthSelector(false);
+      return;
+    }
+
+    setIsClosingMonth(true);
+    const toastId = toast.loading(`Closing ${monthName}...`);
+
+    try {
+      console.log("\n🚀 [FRONTEND] Sending month-end close request...");
+      console.log("📤 Payload:", { month, year });
+
+      // Call backend API using paymentService
+      const result = await paymentService.closeMonth(month, year);
+      console.log("📦 [FRONTEND] Response data:", result);
+
+      console.log("✅ [FRONTEND] Month-end close SUCCESS!");
+      console.log("   📊 Bills Closed:", result.closedBills || 0);
+      console.log("   📊 New Bills Created:", result.newBills || 0);
+      console.log("🔄 [FRONTEND] Refreshing data...");
+
+      toast.success(
+        `✅ Month closed successfully!\n` +
+          `${result.closedBills || 0} bills closed\n` +
+          `${result.newBills || 0} new bills created`,
+        { id: toastId, duration: 5000 },
+      );
+      await fetchData(pagination.page, pagination.limit);
+      console.log("✅ [FRONTEND] Data refresh complete");
+      console.log("🔵 ========== MONTH-END CLOSE COMPLETE ==========\n");
+      setShowMonthSelector(false);
+    } catch (e) {
+      console.error("❌ [FRONTEND] Month-end close error:", e);
+      console.error("❌ Error stack:", e.stack);
+      toast.error("Failed to close month: " + e.message, { id: toastId });
+    } finally {
+      setIsClosingMonth(false);
+      console.log("🔵 ========== MONTH-END CLOSE ENDED ==========\n");
+    }
+  };
+
+  const handleMonthCloseClick = () => {
+    handleMonthEndClose();
+  };
+
+  const handleRevertMonthClose = async (month, year) => {
+    if (!month && month !== 0) {
+      // No month selected, show dropdown
+      console.log("📅 Opening month selector for revert...");
+      const months = await fetchAvailableMonths();
+      if (months.length === 0) {
+        toast.error("No months with pending bills found");
+        return;
+      }
+      setCloseOperation("revert");
+      setShowMonthSelector(true);
+      return;
+    }
+
+    // Month selected, proceed with revert
+    const monthName = new Date(year, month, 1).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+
+    console.log("\n🟠 ========== REVERT MONTH-END CLOSE STARTED ==========");
+    console.log("📅 Selected Month:", monthName);
+    console.log("📅 Month Index:", month, "(0-11)");
+    console.log("📅 Year:", year);
+
+    const confirmMsg = `⚠️ REVERT MONTH-END CLOSE FOR ${monthName.toUpperCase()} ⚠️
+
+This will:
+1. Delete new bills created for next month (with old_balance > 0)
+2. Reopen closed bills from ${monthName} back to "pending"
+3. Restore original balances
+
+⚠️ WARNING: Only use this to undo an accidental month-end close!
+
+Are you sure you want to revert?`;
+
+    if (!window.confirm(confirmMsg)) {
+      console.log("❌ Revert cancelled by user");
+      setShowMonthSelector(false);
+      return;
+    }
+
+    setIsRevertingMonth(true);
+    const toastId = toast.loading(`Reverting ${monthName} closure...`);
+
+    try {
+      console.log("\n🚀 [FRONTEND] Sending revert request...");
+      console.log("📤 Payload:", { month, year });
+
+      // Call backend API using paymentService
+      const result = await paymentService.revertMonthClose(month, year);
+      console.log("📦 [FRONTEND] Response data:", result);
+
+      console.log("✅ [FRONTEND] Revert SUCCESS!");
+      console.log("   📊 Bills Deleted:", result.deletedBills || 0);
+      console.log("   📊 Bills Reopened:", result.reopenedBills || 0);
+      console.log("🔄 [FRONTEND] Refreshing data...");
+
+      toast.success(
+        `✅ Month closure reverted!\n` +
+          `${result.deletedBills || 0} new bills deleted\n` +
+          `${result.reopenedBills || 0} bills reopened`,
+        { id: toastId, duration: 5000 },
+      );
+      await fetchData(pagination.page, pagination.limit);
+      console.log("✅ [FRONTEND] Data refresh complete");
+      console.log("🟠 ========== REVERT MONTH-END CLOSE COMPLETE ==========\n");
+      setShowMonthSelector(false);
+    } catch (e) {
+      console.error("❌ [FRONTEND] Revert error:", e);
+      console.error("❌ Error stack:", e.stack);
+      toast.error("Failed to revert: " + e.message, { id: toastId });
+    } finally {
+      setIsRevertingMonth(false);
+      console.log("🟠 ========== REVERT MONTH-END CLOSE ENDED ==========\n");
+    }
+  };
+
+  const handleRevertCloseClick = () => {
+    handleRevertMonthClose();
   };
 
   const handleDateChange = (field, value) => {
@@ -329,7 +521,7 @@ const ResidencePayments = () => {
       billAmountDesc: row.createdAt
         ? `For the month of ${new Date(row.createdAt).toLocaleDateString(
             "en-US",
-            { month: "long" }
+            { month: "long" },
           )}`
         : "",
     };
@@ -370,7 +562,7 @@ const ResidencePayments = () => {
     const toastId = toast.loading("Downloading report...");
     try {
       const result = await dispatch(
-        exportPayments({ search: searchTerm, ...filters })
+        exportPayments({ search: searchTerm, ...filters }),
       ).unwrap();
       const blobData = result.blob || result;
       const blob = new Blob([blobData], {
@@ -388,6 +580,33 @@ const ResidencePayments = () => {
       toast.success("Download complete", { id: toastId });
     } catch (e) {
       toast.error("Export failed", { id: toastId });
+    }
+  };
+
+  const handleExportPDF = async () => {
+    const toastId = toast.loading("Generating PDF report...");
+    try {
+      // Call backend API through paymentService
+      const blob = await paymentService.exportPDF({
+        ...filters,
+        search: searchTerm || "",
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const dateStr = new Date().toISOString().split("T")[0];
+      link.href = url;
+      link.setAttribute("download", `residence_payments_${dateStr}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success("PDF downloaded successfully!", { id: toastId });
+    } catch (e) {
+      console.error("PDF export error:", e);
+      toast.error("Failed to generate PDF: " + e.message, { id: toastId });
     }
   };
 
@@ -499,7 +718,7 @@ const ResidencePayments = () => {
       ),
     },
     {
-      header: "Date",
+      header: "Bill Date",
       accessor: "createdAt",
       className: "w-28",
       render: (row) => {
@@ -524,6 +743,123 @@ const ResidencePayments = () => {
       },
     },
     {
+      header: "Paid Date",
+      accessor: "collectedDate",
+      className: "w-28",
+      render: (row) => {
+        if (!row.collectedDate) {
+          // Check if this is an old bill (not from current month)
+          const billDate = new Date(row.createdAt);
+          const today = new Date();
+          const billMonth = billDate.getMonth();
+          const billYear = billDate.getFullYear();
+          const currentMonth = today.getMonth();
+          const currentYear = today.getFullYear();
+
+          const isOldBill =
+            billYear < currentYear ||
+            (billYear === currentYear && billMonth < currentMonth);
+
+          const hasBalance = row.balance > 0;
+          const isPending = (row.status || "").toLowerCase() !== "completed";
+          const hasOldBalance = (row.old_balance || 0) > 0;
+
+          // Bill was actually carried forward from previous month (has old_balance)
+          if (isOldBill && isPending && hasBalance && hasOldBalance) {
+            const prevMonth = new Date(billYear, billMonth - 1, 1);
+            const prevMonthName = prevMonth.toLocaleDateString("en-US", {
+              month: "short",
+              year: "numeric",
+            });
+
+            return (
+              <div className="flex flex-col items-center">
+                <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded border border-orange-200">
+                  Carried Fwd →
+                </span>
+                <span className="text-[9px] text-orange-400 mt-0.5">
+                  from {prevMonthName}
+                </span>
+              </div>
+            );
+          }
+
+          // Old pending bill without old_balance = just overdue
+          if (isOldBill && isPending && hasBalance) {
+            return (
+              <div className="flex flex-col items-center">
+                <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+                  ⚠️ Overdue
+                </span>
+                <span className="text-[9px] text-red-400 mt-0.5">
+                  Not Closed
+                </span>
+              </div>
+            );
+          }
+
+          // Current month unpaid
+          return (
+            <div className="flex items-center justify-center">
+              <span className="text-xs text-slate-300 italic">Not Paid</span>
+            </div>
+          );
+        }
+
+        // Use backend-provided flag for month-end close
+        const isMonthEndClosed = row.isMonthEndClosed || false;
+        const amountPaid = row.amount_paid || 0;
+        const totalAmount = row.total_amount || 0;
+        const hasPartialPayment = amountPaid > 0;
+
+        // Extract carried forward amount from notes (fix regex to match actual format)
+        let carriedForwardAmount = 0;
+        if (isMonthEndClosed && row.notes) {
+          const match = row.notes.match(/Carried Forward:\s*([\d.]+)\s*AED/i);
+          if (match) {
+            carriedForwardAmount = parseFloat(match[1]);
+          }
+        }
+
+        return (
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1.5 text-emerald-700 font-medium text-sm">
+              <Calendar className="w-3 h-3 text-emerald-500" />
+              {new Date(row.collectedDate).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+              })}
+            </div>
+
+            {/* Show amount paid if customer paid something */}
+            {hasPartialPayment && (
+              <span className="text-[9px] text-emerald-600 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded">
+                💰 Paid: {amountPaid} {currency}
+              </span>
+            )}
+
+            {/* Show carried forward amount if month-end closed */}
+            {isMonthEndClosed && carriedForwardAmount > 0 ? (
+              <span className="text-[9px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
+                🔒 Carried: {carriedForwardAmount} {currency}
+              </span>
+            ) : isMonthEndClosed ? (
+              <span className="text-[9px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">
+                🔒 Fully Paid
+              </span>
+            ) : !hasPartialPayment ? (
+              <span className="text-[10px] text-emerald-400 pl-4.5">
+                {new Date(row.collectedDate).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            ) : null}
+          </div>
+        );
+      },
+    },
+    {
       header: "Vehicle Info",
       accessor: "vehicle.registration_no",
       render: (row) => (
@@ -540,7 +876,7 @@ const ResidencePayments = () => {
       ),
     },
     {
-      header: "Actual",
+      header: "Subscription Amount",
       accessor: "amount_charged",
       className: "text-right",
       render: (row) => (
@@ -550,7 +886,7 @@ const ResidencePayments = () => {
       ),
     },
     {
-      header: "Last Bal",
+      header: "Previous Payment Due",
       accessor: "old_balance",
       className: "text-right",
       render: (row) => (
@@ -558,7 +894,7 @@ const ResidencePayments = () => {
       ),
     },
     {
-      header: "Total",
+      header: "Total Amount Due",
       accessor: "total_amount",
       className: "text-right",
       render: (row) => (
@@ -583,17 +919,34 @@ const ResidencePayments = () => {
       header: "Balance",
       accessor: "balance",
       className: "text-right",
-      render: (row) => (
-        <span
-          className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
-            row.balance > 0
-              ? "bg-rose-50 text-rose-600 border-rose-100"
-              : "bg-slate-50 text-slate-400 border-slate-100"
-          }`}
-        >
-          {row.balance}
-        </span>
-      ),
+      render: (row) => {
+        const hasBalance = row.balance > 0;
+        const isPending = (row.status || "").toLowerCase() !== "completed";
+        const hasOldBalance = (row.old_balance || 0) > 0;
+
+        // Only show "Carried Forward" if bill actually has old_balance (created by month-end close)
+        const isActuallyCarriedForward =
+          hasBalance && isPending && hasOldBalance;
+
+        return (
+          <div className="flex flex-col items-end gap-1">
+            <span
+              className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                hasBalance
+                  ? "bg-rose-50 text-rose-600 border-rose-100"
+                  : "bg-slate-50 text-slate-400 border-slate-100"
+              }`}
+            >
+              {row.balance}
+            </span>
+            {isActuallyCarriedForward && (
+              <span className="text-[9px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200 whitespace-nowrap">
+                → Carried Forward
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       header: "Mode",
@@ -787,6 +1140,21 @@ const ResidencePayments = () => {
                 {isMarkingPaid ? "Updating..." : `Mark Status This Page Paid`}
               </button>
 
+              {/* MONTH-END CLOSE BUTTON */}
+              <button
+                onClick={handleMonthCloseClick}
+                disabled={isClosingMonth || isRevertingMonth}
+                className={`h-10 px-4 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all ${
+                  isClosingMonth || isRevertingMonth
+                    ? "opacity-70 cursor-wait"
+                    : ""
+                }`}
+                title="Close selected month and transfer balances"
+              >
+                <Calendar className="w-4 h-4" />
+                {isClosingMonth ? "Closing..." : "Month-End Close"}
+              </button>
+
               {/* SETTLE ALL BUTTON */}
               <button
                 onClick={handleBulkSettle}
@@ -803,7 +1171,15 @@ const ResidencePayments = () => {
                 onClick={handleExport}
                 className="h-10 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
               >
-                <Download className="w-4 h-4" /> Export
+                <Download className="w-4 h-4" /> Export Excel
+              </button>
+
+              {/* PDF EXPORT BUTTON */}
+              <button
+                onClick={handleExportPDF}
+                className="h-10 px-4 bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
+              >
+                <FileText className="w-4 h-4" /> Export PDF
               </button>
             </div>
           </div>
@@ -975,6 +1351,172 @@ const ResidencePayments = () => {
           }}
         />
       </div>
+
+      {/* MONTH SELECTOR MODAL */}
+      {showMonthSelector && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="mb-6">
+              <h3 className="text-2xl font-bold text-slate-800 mb-2">
+                {closeOperation === "close"
+                  ? "🔒 Month-End Closing"
+                  : "🔓 Revert Month Closure"}
+              </h3>
+              <p className="text-slate-600">
+                {closeOperation === "close"
+                  ? "Select a month to close all pending bills and carry forward unpaid balances"
+                  : "Select a month to revert the closure and reopen bills"}
+              </p>
+            </div>
+
+            {availableMonths.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle2 className="w-10 h-10 text-green-600" />
+                </div>
+                <p className="text-lg font-semibold text-slate-800 mb-2">
+                  All Clear!
+                </p>
+                <p className="text-slate-500 mb-6">
+                  No months with pending bills found
+                </p>
+                <button
+                  onClick={() => setShowMonthSelector(false)}
+                  className="px-6 py-2 bg-slate-200 hover:bg-slate-300 rounded-lg font-medium transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Summary Stats */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200">
+                    <p className="text-sm text-slate-600 mb-1">Total Months</p>
+                    <p className="text-3xl font-bold text-blue-700">
+                      {availableMonths.length}
+                    </p>
+                  </div>
+                  <div className="bg-gradient-to-br from-orange-50 to-red-50 p-4 rounded-xl border border-orange-200">
+                    <p className="text-sm text-slate-600 mb-1">
+                      Total Pending Bills
+                    </p>
+                    <p className="text-3xl font-bold text-orange-700">
+                      {availableMonths.reduce((sum, m) => sum + m.count, 0)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Month Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  {availableMonths.map((monthData) => {
+                    const monthName = new Date(
+                      monthData.year,
+                      monthData.month,
+                      1,
+                    ).toLocaleDateString("en-US", {
+                      month: "long",
+                      year: "numeric",
+                    });
+                    const isClosed =
+                      monthData.isClosed || monthData.pending === 0;
+                    return (
+                      <button
+                        key={`${monthData.year}-${monthData.month}`}
+                        onClick={() => {
+                          if (isClosed && closeOperation === "close") {
+                            toast.info(`${monthName} is already closed`);
+                            return;
+                          }
+                          console.log(`✅ Selected month:`, monthName);
+                          setSelectedMonthForClose({
+                            month: monthData.month,
+                            year: monthData.year,
+                          });
+                          if (closeOperation === "close") {
+                            handleMonthEndClose(
+                              monthData.month,
+                              monthData.year,
+                            );
+                          } else {
+                            handleRevertMonthClose(
+                              monthData.month,
+                              monthData.year,
+                            );
+                          }
+                        }}
+                        disabled={isClosed && closeOperation === "close"}
+                        className={`group p-6 rounded-xl border-2 transition-all text-left ${
+                          isClosed
+                            ? "bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 border-green-300 opacity-75 cursor-not-allowed"
+                            : "bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 hover:from-indigo-100 hover:via-blue-100 hover:to-purple-100 border-indigo-200 hover:border-indigo-400 hover:shadow-lg"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p
+                                className={`text-lg font-bold group-hover:scale-105 transition-colors ${
+                                  isClosed
+                                    ? "text-green-700"
+                                    : "text-slate-800 group-hover:text-indigo-700"
+                                }`}
+                              >
+                                {monthName}
+                              </p>
+                              {isClosed && (
+                                <span className="px-2 py-0.5 bg-green-200 text-green-800 text-xs font-bold rounded-full">
+                                  CLOSED
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {isClosed ? (
+                            <CheckCircle2 className="w-6 h-6 text-green-600" />
+                          ) : (
+                            <Calendar className="w-6 h-6 text-indigo-600 group-hover:scale-110 transition-transform" />
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2">
+                            <span className="text-sm font-medium text-slate-600">
+                              {isClosed ? "Total Bills" : "Pending Bills"}
+                            </span>
+                            <span
+                              className={`text-lg font-bold ${
+                                isClosed ? "text-green-700" : "text-indigo-700"
+                              }`}
+                            >
+                              {monthData.pending || monthData.count}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2">
+                            <span className="text-sm font-medium text-slate-600">
+                              Total Balance
+                            </span>
+                            <span className="text-lg font-bold text-orange-600">
+                              {currency}{" "}
+                              {monthData.totalBalance.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() => setShowMonthSelector(false)}
+                  className="w-full px-6 py-3 bg-slate-200 hover:bg-slate-300 rounded-xl font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
