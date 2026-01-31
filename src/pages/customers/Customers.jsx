@@ -865,9 +865,9 @@ const Customers = () => {
       ),
     },
     {
-      header: "Pending Dues",
+      header: "Payment Status",
       accessor: "vehicles",
-      className: "min-w-[140px]",
+      className: "min-w-[180px]",
       render: (row) => {
         if (!row.vehicles || row.vehicles.length === 0) {
           return (
@@ -877,12 +877,13 @@ const Customers = () => {
           );
         }
 
-        // Show dues for each vehicle
+        // Show payment status for each vehicle
         return (
           <div className="flex flex-col gap-2">
             {row.vehicles.map((vehicle, idx) => {
               const pendingDues = vehicle.pendingDues || 0;
               const pendingCount = vehicle.pendingCount || 0;
+              const lastPayment = vehicle.lastPayment;
 
               return (
                 <div
@@ -893,10 +894,27 @@ const Customers = () => {
                     {vehicle.registration_no}
                   </span>
                   {pendingDues === 0 ? (
-                    <div className="flex items-center">
-                      <span className="text-xs font-bold text-green-600">
-                        ✓ Cleared
-                      </span>
+                    <div className="flex flex-col items-end gap-0.5">
+                      {lastPayment ? (
+                        <>
+                          <span className={`text-xs font-bold ${
+                            lastPayment.paymentMethod === "monthly_close"
+                              ? "text-blue-600"
+                              : "text-green-600"
+                          }`}>
+                            {lastPayment.paymentMethod === "monthly_close"
+                              ? "Monthly Close"
+                              : "Paid by Customer"}
+                          </span>
+                          <span className="text-[10px] text-slate-600 font-semibold">
+                            AED {lastPayment.amount.toFixed(2)}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">
+                          No payment
+                        </span>
+                      )}
                     </div>
                   ) : (
                     <div className="flex flex-col items-end">
@@ -904,7 +922,7 @@ const Customers = () => {
                         AED {pendingDues.toFixed(2)}
                       </span>
                       <span className="text-[10px] text-slate-500">
-                        {pendingCount} txn{pendingCount !== 1 ? "s" : ""}
+                        {pendingCount} pending
                       </span>
                     </div>
                   )}
