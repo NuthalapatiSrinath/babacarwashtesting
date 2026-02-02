@@ -30,6 +30,7 @@ import Staff from "./pages/workers-management/Staff";
 import Attendance from "./pages/workers-management/Attendance";
 
 import Settings from "./pages/support/Settings";
+import SalarySettings from "./pages/support/SalarySettings";
 import ImportLogs from "./pages/support/ImportLogs";
 import Bookings from "./pages/support/Bookings";
 import Enquiry from "./pages/support/Enquiry";
@@ -264,5 +265,10 @@ export const routes = [
     path: "/settings",
     title: "Settings",
     component: <Settings />,
+  },
+  {
+    path: "/settings/salary",
+    title: "Salary Configuration",
+    component: <SalarySettings />,
   },
 ];

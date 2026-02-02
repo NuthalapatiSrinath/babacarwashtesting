@@ -129,7 +129,6 @@ const ResidencePayments = () => {
   const [isSettling, setIsSettling] = useState(false);
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
   const [isClosingMonth, setIsClosingMonth] = useState(false);
-  const [isRevertingMonth, setIsRevertingMonth] = useState(false);
   const [showMonthSelector, setShowMonthSelector] = useState(false);
   const [availableMonths, setAvailableMonths] = useState([]);
   const [selectedMonthForClose, setSelectedMonthForClose] = useState(null);
@@ -401,88 +400,6 @@ Are you sure you want to proceed?`;
 
   const handleMonthCloseClick = () => {
     handleMonthEndClose();
-  };
-
-  const handleRevertMonthClose = async (month, year) => {
-    if (!month && month !== 0) {
-      // No month selected, show dropdown
-      console.log("📅 Opening month selector for revert...");
-      const months = await fetchAvailableMonths();
-      if (months.length === 0) {
-        toast.error("No months with pending bills found");
-        return;
-      }
-      setCloseOperation("revert");
-      setShowMonthSelector(true);
-      return;
-    }
-
-    // Month selected, proceed with revert
-    const monthName = new Date(year, month, 1).toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    });
-
-    console.log("\n🟠 ========== REVERT MONTH-END CLOSE STARTED ==========");
-    console.log("📅 Selected Month:", monthName);
-    console.log("📅 Month Index:", month, "(0-11)");
-    console.log("📅 Year:", year);
-
-    const confirmMsg = `⚠️ REVERT MONTH-END CLOSE FOR ${monthName.toUpperCase()} ⚠️
-
-This will:
-1. Delete new bills created for next month (with old_balance > 0)
-2. Reopen closed bills from ${monthName} back to "pending"
-3. Restore original balances
-
-⚠️ WARNING: Only use this to undo an accidental month-end close!
-
-Are you sure you want to revert?`;
-
-    if (!window.confirm(confirmMsg)) {
-      console.log("❌ Revert cancelled by user");
-      setShowMonthSelector(false);
-      return;
-    }
-
-    setIsRevertingMonth(true);
-    const toastId = toast.loading(`Reverting ${monthName} closure...`);
-
-    try {
-      console.log("\n🚀 [FRONTEND] Sending revert request...");
-      console.log("📤 Payload:", { month, year });
-
-      // Call backend API using paymentService
-      const result = await paymentService.revertMonthClose(month, year);
-      console.log("📦 [FRONTEND] Response data:", result);
-
-      console.log("✅ [FRONTEND] Revert SUCCESS!");
-      console.log("   📊 Bills Deleted:", result.deletedBills || 0);
-      console.log("   📊 Bills Reopened:", result.reopenedBills || 0);
-      console.log("🔄 [FRONTEND] Refreshing data...");
-
-      toast.success(
-        `✅ Month closure reverted!\n` +
-          `${result.deletedBills || 0} new bills deleted\n` +
-          `${result.reopenedBills || 0} bills reopened`,
-        { id: toastId, duration: 5000 },
-      );
-      await fetchData(pagination.page, pagination.limit);
-      console.log("✅ [FRONTEND] Data refresh complete");
-      console.log("🟠 ========== REVERT MONTH-END CLOSE COMPLETE ==========\n");
-      setShowMonthSelector(false);
-    } catch (e) {
-      console.error("❌ [FRONTEND] Revert error:", e);
-      console.error("❌ Error stack:", e.stack);
-      toast.error("Failed to revert: " + e.message, { id: toastId });
-    } finally {
-      setIsRevertingMonth(false);
-      console.log("🟠 ========== REVERT MONTH-END CLOSE ENDED ==========\n");
-    }
-  };
-
-  const handleRevertCloseClick = () => {
-    handleRevertMonthClose();
   };
 
   const handleDateChange = (field, value) => {
@@ -1143,11 +1060,9 @@ Are you sure you want to revert?`;
               {/* MONTH-END CLOSE BUTTON */}
               <button
                 onClick={handleMonthCloseClick}
-                disabled={isClosingMonth || isRevertingMonth}
+                disabled={isClosingMonth}
                 className={`h-10 px-4 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all ${
-                  isClosingMonth || isRevertingMonth
-                    ? "opacity-70 cursor-wait"
-                    : ""
+                  isClosingMonth ? "opacity-70 cursor-wait" : ""
                 }`}
                 title="Close selected month and transfer balances"
               >
@@ -1359,14 +1274,11 @@ Are you sure you want to revert?`;
             {/* Header */}
             <div className="mb-6">
               <h3 className="text-2xl font-bold text-slate-800 mb-2">
-                {closeOperation === "close"
-                  ? "🔒 Month-End Closing"
-                  : "🔓 Revert Month Closure"}
+                🔒 Month-End Closing
               </h3>
               <p className="text-slate-600">
-                {closeOperation === "close"
-                  ? "Select a month to close all pending bills and carry forward unpaid balances"
-                  : "Select a month to revert the closure and reopen bills"}
+                Select a month to close all pending bills and carry forward
+                unpaid balances
               </p>
             </div>
 

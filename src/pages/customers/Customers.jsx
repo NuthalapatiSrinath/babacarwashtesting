@@ -605,20 +605,11 @@ const Customers = () => {
 
   const renderExpandedRow = (row) => {
     const c = row.customer;
-    const workerName = row.worker?.name || "Unassigned";
-    const schedule =
-      row.schedule_days?.map((d) => d.day).join(",") ||
-      row.schedule_type ||
-      "-";
-
-    // Get the specific vehicle data
-    const vehicle = c.vehicles?.find(
-      (v) => v.registration_no === row.registration_no,
-    );
+    const vehicles = row.vehicles || [];
 
     return (
-      <div className="bg-slate-50 p-5 rounded-lg border border-slate-200 ml-12 shadow-inner">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 pb-3">
+      <div className="bg-slate-50 p-5 rounded-lg border border-slate-200 shadow-inner">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 pb-3 border-b border-slate-300">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-xl shadow-sm">
               {c.firstName?.[0]?.toUpperCase() || "U"}
@@ -647,110 +638,140 @@ const Customers = () => {
           </div>
         </div>
 
-        {/* Vehicle Deactivation Info - Show if vehicle is inactive */}
-        {vehicle && vehicle.status === 2 && vehicle.deactivateReason && (
-          <div className="mb-4 p-4 bg-amber-50 border border-amber-300 rounded-lg">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center">
-                <span className="text-amber-700 font-bold text-sm">!</span>
-              </div>
-              <div className="flex-1">
-                <h5 className="font-bold text-amber-800 text-sm mb-2">
-                  🚗 Vehicle Deactivated
-                </h5>
-                <div className="space-y-1 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-amber-700">
-                      Deactivated:
-                    </span>
-                    <span className="text-slate-700">
-                      {vehicle.deactivateDate
-                        ? new Date(vehicle.deactivateDate).toLocaleDateString(
-                            "en-GB",
-                            {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            },
-                          )
-                        : "-"}
-                    </span>
-                  </div>
-                  {vehicle.reactivateDate && (
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-amber-700">
-                        Expected Reactivation:
-                      </span>
-                      <span className="text-blue-600 font-medium">
-                        {new Date(vehicle.reactivateDate).toLocaleDateString(
-                          "en-GB",
-                          {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          },
-                        )}
-                      </span>
+        {/* Display each vehicle in its own box */}
+        <div className="space-y-4">
+          {vehicles.length === 0 ? (
+            <div className="text-center py-8 text-slate-400">
+              <span className="text-sm italic">No vehicles found</span>
+            </div>
+          ) : (
+            vehicles.map((vehicle, idx) => {
+              const workerName = vehicle.worker?.name || "UNASSIGNED";
+              const schedule =
+                vehicle.schedule_days?.map((d) => d.day).join(", ") ||
+                vehicle.schedule_type ||
+                "-";
+
+              return (
+                <div
+                  key={vehicle._id || idx}
+                  className="bg-white border-2 border-slate-300 rounded-xl overflow-hidden shadow-md"
+                >
+                  {/* Vehicle Deactivation Info - Show if vehicle is inactive */}
+                  {vehicle.status === 2 && vehicle.deactivateReason && (
+                    <div className="p-4 bg-amber-50 border-b-2 border-amber-300">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center">
+                          <span className="text-amber-700 font-bold text-sm">
+                            !
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <h5 className="font-bold text-amber-800 text-sm mb-2">
+                            🚗 Vehicle Deactivated
+                          </h5>
+                          <div className="space-y-1 text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-amber-700">
+                                Deactivated:
+                              </span>
+                              <span className="text-slate-700">
+                                {vehicle.deactivateDate
+                                  ? new Date(
+                                      vehicle.deactivateDate,
+                                    ).toLocaleDateString("en-GB", {
+                                      day: "numeric",
+                                      month: "short",
+                                      year: "numeric",
+                                    })
+                                  : "-"}
+                              </span>
+                            </div>
+                            {vehicle.reactivateDate && (
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-amber-700">
+                                  Expected Reactivation:
+                                </span>
+                                <span className="text-blue-600 font-medium">
+                                  {new Date(
+                                    vehicle.reactivateDate,
+                                  ).toLocaleDateString("en-GB", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
+                                </span>
+                              </div>
+                            )}
+                            <div className="mt-2 pt-2 border-t border-amber-200">
+                              <span className="font-semibold text-amber-700">
+                                Reason:
+                              </span>
+                              <p className="text-slate-700 italic mt-1">
+                                {vehicle.deactivateReason}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
-                  <div className="mt-2 pt-2 border-t border-amber-200">
-                    <span className="font-semibold text-amber-700">
-                      Reason:
-                    </span>
-                    <p className="text-slate-700 italic mt-1">
-                      {vehicle.deactivateReason}
-                    </p>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-gray-100 text-gray-700 font-bold border-b-2 border-gray-300">
+                        <tr>
+                          <th className="px-6 py-3 min-w-[100px]">Vehicle</th>
+                          <th className="px-6 py-3 min-w-[120px]">Schedule</th>
+                          <th className="px-6 py-3 min-w-[100px]">Amount</th>
+                          <th className="px-6 py-3 min-w-[100px]">Advance</th>
+                          <th className="px-6 py-3 min-w-[120px]">
+                            Onboard Date
+                          </th>
+                          <th className="px-6 py-3 min-w-[120px]">
+                            Start Date
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white">
+                        <tr>
+                          <td className="px-6 py-4 font-mono font-bold text-slate-800 text-base">
+                            {vehicle.registration_no || "-"}
+                          </td>
+                          <td className="px-6 py-4 text-slate-700">
+                            {schedule}
+                          </td>
+                          <td className="px-6 py-4 text-slate-700 font-semibold">
+                            {vehicle.amount || 0}
+                          </td>
+                          <td className="px-6 py-4 text-slate-700">
+                            {vehicle.advance_amount || 0}
+                          </td>
+                          <td className="px-6 py-4 text-slate-700">
+                            {formatDateForTable(vehicle.onboard_date || vehicle.start_date)}
+                          </td>
+                          <td className="px-6 py-4 text-slate-700">
+                            {formatDateForTable(vehicle.start_date) || "-"}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row justify-between items-center px-6 py-4 bg-gray-100 border-t-2 border-gray-300 gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900 text-sm">
+                        Cleaner:
+                      </span>
+                      <span className="text-slate-700 text-sm font-semibold uppercase">
+                        {workerName}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 text-gray-700 font-bold border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 min-w-[100px]">Vehicle</th>
-                  <th className="px-6 py-3 min-w-[120px]">Schedule</th>
-                  <th className="px-6 py-3 min-w-[100px]">Amount</th>
-                  <th className="px-6 py-3 min-w-[100px]">Advance</th>
-                  <th className="px-6 py-3 min-w-[120px]">Onboard Date</th>
-                  <th className="px-6 py-3 min-w-[120px]">Start Date</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-100">
-                <tr>
-                  <td className="px-6 py-4 font-mono font-medium text-slate-700">
-                    {row.registration_no}
-                  </td>
-                  <td className="px-6 py-4 text-slate-700">{schedule}</td>
-                  <td className="px-6 py-4 text-slate-700 font-medium">
-                    {row.amount}
-                  </td>
-                  <td className="px-6 py-4 text-slate-700">
-                    {row.advance_amount || 0}
-                  </td>
-                  <td className="px-6 py-4 text-slate-700">
-                    {formatDateForTable(row.onboard_date)}
-                  </td>
-                  <td className="px-6 py-4 text-slate-700">
-                    {formatDateForTable(row.start_date)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex flex-col sm:flex-row justify-between items-center px-6 py-4 bg-gray-50/50 border-t border-gray-200 gap-4">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-900 text-sm">Cleaner:</span>
-              <span className="text-slate-700 text-sm uppercase">
-                {workerName}
-              </span>
-            </div>
-          </div>
+              );
+            })
+          )}
         </div>
       </div>
     );
@@ -775,15 +796,15 @@ const Customers = () => {
       accessor: "customer.mobile",
       className: "min-w-[200px]",
       render: (row) => {
-        const vehicleCount = row.customer.vehicles?.length || 0;
+        const vehicleCount = row.customer?.vehicles?.length || 0;
         return (
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-md text-white font-bold text-xs">
-              {row.customer.firstName?.[0] || "C"}
+              {row.customer?.firstName?.[0] || "C"}
             </div>
             <div className="flex flex-col">
               <span className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                {row.customer.firstName} {row.customer.lastName}
+                {row.customer?.firstName} {row.customer?.lastName}
                 {vehicleCount > 0 && (
                   <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-semibold">
                     {vehicleCount} {vehicleCount === 1 ? "vehicle" : "vehicles"}
@@ -791,7 +812,7 @@ const Customers = () => {
                 )}
               </span>
               <span className="text-xs text-slate-500 font-mono flex items-center gap-1">
-                <Phone className="w-3 h-3" /> {row.customer.mobile}
+                <Phone className="w-3 h-3" /> {row.customer?.mobile}
               </span>
             </div>
           </div>
@@ -897,11 +918,13 @@ const Customers = () => {
                     <div className="flex flex-col items-end gap-0.5">
                       {lastPayment ? (
                         <>
-                          <span className={`text-xs font-bold ${
-                            lastPayment.paymentMethod === "monthly_close"
-                              ? "text-blue-600"
-                              : "text-green-600"
-                          }`}>
+                          <span
+                            className={`text-xs font-bold ${
+                              lastPayment.paymentMethod === "monthly_close"
+                                ? "text-blue-600"
+                                : "text-green-600"
+                            }`}
+                          >
                             {lastPayment.paymentMethod === "monthly_close"
                               ? "Monthly Close"
                               : "Paid by Customer"}

@@ -143,15 +143,6 @@ export const paymentService = {
     return response.data;
   },
 
-  // Revert month close
-  revertMonthClose: async (month, year) => {
-    const response = await api.post("/payments/revert-month-close", {
-      month,
-      year,
-    });
-    return response.data;
-  },
-
   // Export PDF (all records)
   exportPDF: async (filters = {}) => {
     const response = await api.get("/payments/export/pdf", {

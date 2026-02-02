@@ -34,6 +34,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
     workers: false,
     washes: false,
     payments: false,
+    settings: false,
   });
 
   // auto expand menu if route is inside it
@@ -46,6 +47,9 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
     }
     if (location.pathname.startsWith("/payments")) {
       setOpenMenus((p) => ({ ...p, payments: true }));
+    }
+    if (location.pathname.startsWith("/settings")) {
+      setOpenMenus((p) => ({ ...p, settings: true }));
     }
   }, [location.pathname]);
 
@@ -366,13 +370,31 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
               onClick={handleLinkClick}
               isMobile={isMobile}
             />
-            <NavItem
-              to="/settings"
-              icon={Settings}
-              label="Settings"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
+
+            {/* SETTINGS SUBMENU */}
+            <li>
+              <MenuButton
+                label="Settings"
+                icon={Settings}
+                isOpen={openMenus.settings}
+                isActive={isActiveParent(["/settings"])}
+                onClick={() => toggleMenu("settings")}
+                isMobile={isMobile}
+              />
+
+              <SubMenu isOpen={openMenus.settings} isMobile={isMobile}>
+                <SubNavItem
+                  to="/settings"
+                  label="General Settings"
+                  onClick={handleLinkClick}
+                />
+                <SubNavItem
+                  to="/settings/salary"
+                  label="Salary Configuration"
+                  onClick={handleLinkClick}
+                />
+              </SubMenu>
+            </li>
           </ul>
         </nav>
 

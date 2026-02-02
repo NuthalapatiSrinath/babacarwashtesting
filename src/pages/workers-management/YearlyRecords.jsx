@@ -11,7 +11,7 @@ import {
   FileText,
   Printer,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -20,15 +20,27 @@ import CustomDropdown from "../../components/ui/CustomDropdown";
 
 const YearlyRecords = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Restore state from sessionStorage if available
+  const savedState = sessionStorage.getItem("yearlyRecordsState");
+  const initialState = savedState ? JSON.parse(savedState) : null;
+
   // --- STATE ---
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
-  const [serviceType, setServiceType] = useState("onewash");
-  const [selectedWorker, setSelectedWorker] = useState("");
+  const [serviceType, setServiceType] = useState(
+    initialState?.serviceType || "onewash",
+  );
+  const [selectedWorker, setSelectedWorker] = useState(
+    initialState?.selectedWorker || "",
+  );
 
   // Time Mode: 'year' or 'last6' (Removed 'last3')
-  const [timeMode, setTimeMode] = useState("year");
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [timeMode, setTimeMode] = useState(initialState?.timeMode || "year");
+  const [selectedYear, setSelectedYear] = useState(
+    initialState?.selectedYear || new Date().getFullYear(),
+  );
 
   const [allWorkers, setAllWorkers] = useState([]);
   const [filteredWorkers, setFilteredWorkers] = useState([]);
@@ -50,6 +62,21 @@ const YearlyRecords = () => {
   ];
 
   // --- UseEffects ---
+  // Save state to sessionStorage whenever it changes
+  useEffect(() => {
+    if (serviceType || selectedWorker) {
+      sessionStorage.setItem(
+        "yearlyRecordsState",
+        JSON.stringify({
+          serviceType,
+          selectedWorker,
+          timeMode,
+          selectedYear,
+        }),
+      );
+    }
+  }, [serviceType, selectedWorker, timeMode, selectedYear]);
+
   useEffect(() => {
     const fetchWorkers = async () => {
       try {
@@ -72,8 +99,12 @@ const YearlyRecords = () => {
       );
     else filtered = allWorkers.filter((w) => w.service_type === "residence");
     setFilteredWorkers(filtered);
-    setSelectedWorker("");
-    setReportData(null);
+
+    // Only reset selectedWorker if not coming from saved state
+    if (!initialState) {
+      setSelectedWorker("");
+      setReportData(null);
+    }
   }, [serviceType, allWorkers]);
 
   useEffect(() => {
@@ -153,8 +184,25 @@ const YearlyRecords = () => {
 
   const handleViewSlip = (monthIndex) => {
     if (!selectedWorker) return;
+
+    // Save current state before navigating
+    sessionStorage.setItem(
+      "yearlyRecordsState",
+      JSON.stringify({
+        serviceType,
+        selectedWorker,
+        timeMode,
+        selectedYear,
+      }),
+    );
+
     const url = `/salary/slip/${selectedWorker}/${selectedYear}/${monthIndex}`;
-    window.open(url, "_blank");
+    navigate(url, {
+      state: {
+        from: "/workers-management/yearly-records",
+        returnState: { serviceType, selectedWorker, timeMode, selectedYear },
+      },
+    });
   };
 
   const getDownloadLabel = () => {

@@ -200,7 +200,9 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
                   : "",
                 onboard_date: v.onboard_date
                   ? new Date(v.onboard_date).toISOString().split("T")[0]
-                  : "",
+                  : v.start_date
+                    ? new Date(v.start_date).toISOString().split("T")[0]
+                    : "", // Use start_date as fallback for old records
                 advance_amount: v.advance_amount || "",
                 status: v.status || 1, // Preserve vehicle status
               };
@@ -309,7 +311,19 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
     setLoading(true);
     try {
       if (customer) {
-        await customerService.update(customer._id, formData);
+        // For updates, remove onboard_date from existing vehicles (backend will preserve it)
+        const updatePayload = {
+          ...formData,
+          vehicles: formData.vehicles.map(v => {
+            const vehicleData = { ...v };
+            // Remove onboard_date for existing vehicles (let backend preserve original)
+            if (v._id) {
+              delete vehicleData.onboard_date;
+            }
+            return vehicleData;
+          })
+        };
+        await customerService.update(customer._id, updatePayload);
         toast.success("Customer updated successfully");
       } else {
         await customerService.create(formData);
