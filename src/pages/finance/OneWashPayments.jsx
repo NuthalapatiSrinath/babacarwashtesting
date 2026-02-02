@@ -44,7 +44,7 @@ const OneWashPayments = () => {
 
   // Redux State
   const { oneWashJobs, stats, total, loading } = useSelector(
-    (state) => state.oneWash
+    (state) => state.oneWash,
   );
   const { workers } = useSelector((state) => state.worker);
 
@@ -168,7 +168,7 @@ const OneWashPayments = () => {
           limit: fetchLimit,
           search: "",
           filters: apiFilters,
-        })
+        }),
       ).unwrap();
 
       setPagination({
@@ -228,7 +228,8 @@ const OneWashPayments = () => {
 
   const handleViewReceipt = (row) => {
     const receiptData = {
-      id: row.id || "000000",
+      id: row.id,
+      receipt_no: row.receipt_no, // Pass receipt_no from backend
       createdAt: row.createdAt,
       vehicle: {
         registration_no: row.registration_no || "-",
@@ -299,7 +300,7 @@ const OneWashPayments = () => {
       link.href = url;
       link.setAttribute(
         "download",
-        `onewash_payments_${new Date().toISOString().split("T")[0]}.xlsx`
+        `onewash_payments_${new Date().toISOString().split("T")[0]}.xlsx`,
       );
       document.body.appendChild(link);
       link.click();

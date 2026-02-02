@@ -412,13 +412,13 @@ Are you sure you want to proceed?`;
     }
   };
 
-  // ✅ UPDATED: Handle Open Doc with Serial Number Logic
-  const handleOpenDoc = (row, type, serialNo = 0) => {
-    // Generate clean ID: 140000 + serialNo (e.g. 140001, 140002)
-    const receiptNumber = serialNo ? 140000 + serialNo : row._id || row.id;
-
+  // ✅ UPDATED: Handle Open Doc with Receipt Number from Backend
+  const handleOpenDoc = (row, type) => {
+    // Use receipt_no from backend directly
     const docData = {
-      id: receiptNumber, // Pass the generated Receipt Number here
+      id: row.id, // Pass payment id for receipt number generation
+      _id: row._id, // Pass MongoDB ID as fallback
+      receipt_no: row.receipt_no, // Use actual receipt_no from database
       createdAt: row.createdAt,
       vehicle: row.vehicle || {},
       customer: row.customer || {},
@@ -622,17 +622,33 @@ Are you sure you want to proceed?`;
   // --- COLUMNS ---
   const columns = [
     {
-      header: "#", // Reverted to # to match Receipt Number logic
-      accessor: "id",
-      className: "w-12 text-center",
-      render: (row, idx) => (
-        <div className="flex justify-center">
-          <span className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs font-mono border border-slate-200">
-            {/* Show the Serial Number that matches the Receipt ID */}
-            {(pagination.page - 1) * pagination.limit + idx + 1}
-          </span>
-        </div>
-      ),
+      header: "Rcpt#", // Receipt Number
+      accessor: "receipt_no",
+      className: "w-20 text-center",
+      render: (row, idx) => {
+        // Only show receipt number for COMPLETED payments
+        const isCompleted = (row.status || "").toLowerCase() === "completed";
+
+        if (!isCompleted) {
+          return <span className="text-slate-300 text-xs italic">Pending</span>;
+        }
+
+        // Format receipt number: prefer receipt_no, fallback to RCP{id}
+        const formatReceiptNo = () => {
+          if (row.receipt_no) return row.receipt_no;
+          // Use numeric id field, not MongoDB _id
+          if (row.id) return `RCP${String(row.id).padStart(6, "0")}`;
+          return "-";
+        };
+
+        return (
+          <div className="flex justify-center">
+            <span className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 font-bold text-[10px] font-mono border border-emerald-200">
+              {formatReceiptNo()}
+            </span>
+          </div>
+        );
+      },
     },
     {
       header: "Bill Date",
@@ -932,15 +948,14 @@ Are you sure you want to proceed?`;
         );
       },
     },
-    // ✅ MODIFIED: Pass Serial Number to Invoice
+    // ✅ Use receipt_no from backend
     {
       header: "Invoice",
       className: "text-center w-16",
       render: (row, idx) => {
-        const serialNo = (pagination.page - 1) * pagination.limit + idx + 1;
         return (
           <button
-            onClick={() => handleOpenDoc(row, "Invoice", serialNo)}
+            onClick={() => handleOpenDoc(row, "Invoice")}
             className="text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all p-1.5 rounded-lg"
             title="View Tax Invoice"
           >
@@ -949,7 +964,7 @@ Are you sure you want to proceed?`;
         );
       },
     },
-    // ✅ MODIFIED: Receipt only if Completed & Pass Serial Number
+    // ✅ Receipt only if Completed, use receipt_no from backend
     {
       header: "Receipt",
       className: "text-center w-16",
@@ -957,12 +972,9 @@ Are you sure you want to proceed?`;
         const isPaid = (row.status || "").toLowerCase() === "completed";
         if (!isPaid) return <span className="text-slate-300">-</span>;
 
-        // Calculate Serial Number
-        const serialNo = (pagination.page - 1) * pagination.limit + idx + 1;
-
         return (
           <button
-            onClick={() => handleOpenDoc(row, "Receipt", serialNo)}
+            onClick={() => handleOpenDoc(row, "Receipt")}
             className="text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all p-1.5 rounded-lg"
             title="View Receipt"
           >

@@ -314,14 +314,14 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
         // For updates, remove onboard_date from existing vehicles (backend will preserve it)
         const updatePayload = {
           ...formData,
-          vehicles: formData.vehicles.map(v => {
+          vehicles: formData.vehicles.map((v) => {
             const vehicleData = { ...v };
             // Remove onboard_date for existing vehicles (let backend preserve original)
             if (v._id) {
               delete vehicleData.onboard_date;
             }
             return vehicleData;
-          })
+          }),
         };
         await customerService.update(customer._id, updatePayload);
         toast.success("Customer updated successfully");

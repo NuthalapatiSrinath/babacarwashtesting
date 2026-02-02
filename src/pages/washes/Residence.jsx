@@ -129,7 +129,7 @@ const Residence = () => {
       let fetchedData = res.data || [];
 
       fetchedData.sort(
-        (a, b) => new Date(b.assignedDate) - new Date(a.assignedDate)
+        (a, b) => new Date(b.assignedDate) - new Date(a.assignedDate),
       );
 
       setData(fetchedData);
@@ -425,6 +425,18 @@ const Residence = () => {
             <span className="text-[10px] text-slate-500 pl-6">
               Parking:{" "}
               <span className="font-bold">{row.vehicle.parking_no}</span>
+            </span>
+          )}
+          {row.vehicle?.schedule_type && (
+            <span className="text-[10px] text-slate-500 pl-6">
+              Schedule:{" "}
+              <span className="font-bold capitalize">
+                {row.vehicle.schedule_type === "daily"
+                  ? "Daily"
+                  : row.vehicle.schedule_type === "weekly"
+                    ? `Weekly (${row.vehicle.schedule_days?.join(", ") || ""})`
+                    : row.vehicle.schedule_type}
+              </span>
             </span>
           )}
         </div>

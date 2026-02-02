@@ -16,18 +16,24 @@ const ResidenceReceiptModal = ({ isOpen, onClose, data, type = "Receipt" }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [localData, setLocalData] = useState(null);
 
-  // ✅ FIX: Handle both Numbers (Serial) and Strings (Mongo ID)
-  const formatId = (rawId) => {
-    if (!rawId) return "000000";
-    const strId = String(rawId); // Convert to string immediately
-    if (strId.length < 10) return strId; // It's likely our Serial Number
-    return strId.slice(-6).toUpperCase(); // It's a Mongo ID, slice it
+  // ✅ FIX: Handle Receipt Numbers - only for completed payments
+  const formatId = (rawId, receiptNo) => {
+    // Prefer receipt_no from backend (e.g., RCP000001)
+    if (receiptNo) return receiptNo;
+
+    // Fallback: Generate receipt number from payment id (numeric field, not MongoDB _id)
+    if (rawId && !isNaN(rawId)) {
+      return `RCP${String(rawId).padStart(6, "0")}`;
+    }
+
+    // No valid ID found
+    return "N/A";
   };
 
   useEffect(() => {
     if (data) {
       setLocalData({
-        displayId: formatId(data.id || data._id),
+        displayId: formatId(data.id || data._id, data.receipt_no),
         originalId: data.id || data._id,
         date: data.createdAt ? new Date(data.createdAt) : new Date(),
         carNo: data.vehicle?.registration_no || "-",

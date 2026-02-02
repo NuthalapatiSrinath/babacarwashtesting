@@ -874,7 +874,8 @@ const WorkRecords = () => {
                                 let isScheduled = false;
                                 if (isInDateRange) {
                                   if (car.scheduleType === "daily") {
-                                    isScheduled = true; // Daily = all days scheduled
+                                    // Daily = all days except Sunday (0 = Sunday)
+                                    isScheduled = date.getDay() !== 0;
                                   } else if (
                                     car.scheduleType === "weekly" &&
                                     car.scheduleDays &&

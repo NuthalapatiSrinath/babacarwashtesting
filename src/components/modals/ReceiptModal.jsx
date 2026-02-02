@@ -18,8 +18,16 @@ const ReceiptModal = ({ isOpen, onClose, data, onSave }) => {
 
   useEffect(() => {
     if (data) {
+      // Format receipt number: prefer receipt_no, fallback to RCP{id} format
+      const formatReceiptNo = () => {
+        if (data.receipt_no) return data.receipt_no;
+        const id = data.id || data._id;
+        if (id && !isNaN(id)) return `RCP${String(id).padStart(6, "0")}`;
+        return id ? String(id).slice(-6).toUpperCase() : "000000";
+      };
+
       const initData = data._saved_receipt_state || {
-        id: data.id || data._id || "000000",
+        id: formatReceiptNo(),
         date: data.createdAt ? new Date(data.createdAt) : new Date(),
         carNo: data.vehicle?.registration_no || "-",
         parkingNo: data.vehicle?.parking_no || "-",

@@ -4,6 +4,7 @@ import {
   FileSpreadsheet,
   Building,
   User,
+  Users,
   Loader2,
   Filter,
   Layers,
@@ -456,7 +457,11 @@ const CollectionSheet = () => {
             <div className="md:col-span-1 flex gap-2">
               <button
                 onClick={handleDownloadExcel}
-                disabled={downloading || availableMonths.length === 0}
+                disabled={
+                  downloading ||
+                  availableMonths.length === 0 ||
+                  filters.worker === "all"
+                }
                 className="flex-1 h-[42px] bg-white border border-emerald-200 text-emerald-700 font-bold rounded-xl hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-xs"
               >
                 {downloading ? (
@@ -468,7 +473,11 @@ const CollectionSheet = () => {
               </button>
               <button
                 onClick={handleDownloadPDF}
-                disabled={pdfLoading || availableMonths.length === 0}
+                disabled={
+                  pdfLoading ||
+                  availableMonths.length === 0 ||
+                  filters.worker === "all"
+                }
                 className="flex-1 h-[42px] bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-xs"
               >
                 {pdfLoading ? (
@@ -485,7 +494,18 @@ const CollectionSheet = () => {
 
       {/* --- WORKSHEET VIEW (Table Below) --- */}
       <div className="max-w-7xl mx-auto mt-8">
-        {viewLoading ? (
+        {/* Only show data when a specific worker is selected */}
+        {filters.worker === "all" ? (
+          <div className="flex flex-col items-center justify-center py-16 bg-white rounded-xl shadow-lg border border-slate-100">
+            <Users className="w-16 h-16 text-slate-300 mb-4" />
+            <p className="text-slate-500 text-lg font-semibold">
+              Please select a specific worker
+            </p>
+            <p className="text-slate-400 text-sm mt-2">
+              Choose a worker from the dropdown to view their collection sheet
+            </p>
+          </div>
+        ) : viewLoading ? (
           <div className="flex justify-center py-10">
             <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
           </div>

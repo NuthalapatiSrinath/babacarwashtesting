@@ -748,7 +748,9 @@ const Customers = () => {
                             {vehicle.advance_amount || 0}
                           </td>
                           <td className="px-6 py-4 text-slate-700">
-                            {formatDateForTable(vehicle.onboard_date || vehicle.start_date)}
+                            {formatDateForTable(
+                              vehicle.onboard_date || vehicle.start_date,
+                            )}
                           </td>
                           <td className="px-6 py-4 text-slate-700">
                             {formatDateForTable(vehicle.start_date) || "-"}
