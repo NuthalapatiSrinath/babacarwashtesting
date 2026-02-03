@@ -22,6 +22,7 @@ const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
     worker: "",
     assignedDate: "",
     status: "pending",
+    rejectionReason: "",
   });
 
   // 1. Load Initial Data (Workers & Customers)
@@ -62,6 +63,7 @@ const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
             ? new Date(job.assignedDate).toISOString().split("T")[0]
             : "",
           status: job.status || "pending",
+          rejectionReason: job.rejectionReason || "",
         });
       } else {
         // Reset
@@ -71,6 +73,7 @@ const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
           worker: "",
           assignedDate: "",
           status: "pending",
+          rejectionReason: "",
         });
         setAvailableVehicles([]);
       }
@@ -97,6 +100,13 @@ const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validate rejection reason when status is cancelled
+    if (formData.status === "cancelled" && !formData.rejectionReason?.trim()) {
+      toast.error("Please provide a reason for rejection");
+      return;
+    }
+
     setLoading(true);
     try {
       if (job) {
@@ -256,9 +266,25 @@ const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
                 >
                   <option value="pending">Pending</option>
                   <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
+                  <option value="cancelled">Rejected</option>
                 </select>
               </div>
+
+              {/* Rejection Reason - Only show when status is cancelled/rejected */}
+              {formData.status === "cancelled" && (
+                <div>
+                  <label className={labelClass}>Rejection Reason *</label>
+                  <textarea
+                    name="rejectionReason"
+                    value={formData.rejectionReason}
+                    onChange={handleChange}
+                    placeholder="Please provide a reason for rejection..."
+                    rows={3}
+                    className={`${inputClass} resize-none`}
+                    required
+                  />
+                </div>
+              )}
             </form>
 
             {/* Footer */}

@@ -85,4 +85,13 @@ export const jobService = {
     console.log("✅ [JobService] Settle success:", response.data);
     return response.data;
   },
+
+  /**
+   * Run Scheduler Manually
+   * Matches API: POST /api/jobs/run-scheduler
+   */
+  runScheduler: async (targetDate = null) => {
+    const response = await api.post("/jobs/run-scheduler", { targetDate });
+    return response.data;
+  },
 };

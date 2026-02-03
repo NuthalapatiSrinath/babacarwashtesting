@@ -16,6 +16,7 @@ import {
   Phone,
   Building2,
   Loader2,
+  Play,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
@@ -74,6 +75,9 @@ const Residence = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [isSchedulerModalOpen, setIsSchedulerModalOpen] = useState(false);
+  const [schedulerDate, setSchedulerDate] = useState("");
+  const [runningScheduler, setRunningScheduler] = useState(false);
 
   // --- LOAD RESOURCES ---
   useEffect(() => {
@@ -272,6 +276,38 @@ const Residence = () => {
     }
   };
 
+  const handleRunScheduler = () => {
+    // Default to tomorrow's date
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setSchedulerDate(formatDateLocal(tomorrow));
+    setIsSchedulerModalOpen(true);
+  };
+
+  const handleConfirmScheduler = async () => {
+    if (!schedulerDate) {
+      toast.error("Please select a date");
+      return;
+    }
+
+    setRunningScheduler(true);
+    try {
+      const result = await jobService.runScheduler(schedulerDate);
+      toast.success(
+        `✅ Scheduler executed successfully! Generated ${result.jobsGenerated} jobs for ${result.targetDate}`,
+      );
+      setIsSchedulerModalOpen(false);
+      // Refresh the data
+      fetchData(pagination.page, pagination.limit);
+    } catch (error) {
+      const errorMsg =
+        error.response?.data?.message || "Failed to run scheduler";
+      toast.error(errorMsg);
+    } finally {
+      setRunningScheduler(false);
+    }
+  };
+
   const handleCreate = () => {
     setSelectedJob(null);
     setIsModalOpen(true);
@@ -298,7 +334,7 @@ const Residence = () => {
     { value: "", label: "All Status" },
     { value: "pending", label: "Pending" },
     { value: "completed", label: "Completed" },
-    { value: "cancelled", label: "Cancelled" },
+    { value: "cancelled", label: "Rejected" },
   ];
 
   const buildingOptions = useMemo(() => {
@@ -372,18 +408,25 @@ const Residence = () => {
         const status = (row.status || "pending").toLowerCase();
         const config = {
           completed: {
+            text: "Completed",
             classes: "bg-emerald-50 text-emerald-600 border-emerald-100",
             icon: CheckCircle,
           },
           cancelled: {
+            text: "Rejected",
             classes: "bg-red-50 text-red-600 border-red-100",
             icon: XCircle,
           },
           pending: {
+            text: "Pending",
             classes: "bg-amber-50 text-amber-600 border-amber-100",
             icon: Clock,
           },
-        }[status] || { classes: "bg-gray-50 text-gray-600", icon: Clock };
+        }[status] || {
+          text: status,
+          classes: "bg-gray-50 text-gray-600",
+          icon: Clock,
+        };
 
         const Icon = config.icon;
         return (
@@ -391,7 +434,7 @@ const Residence = () => {
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-wide ${config.classes}`}
           >
             <Icon className="w-3 h-3" />
-            {status}
+            {config.text}
           </div>
         );
       },
@@ -434,7 +477,7 @@ const Residence = () => {
                 {row.vehicle.schedule_type === "daily"
                   ? "Daily"
                   : row.vehicle.schedule_type === "weekly"
-                    ? `Weekly (${row.vehicle.schedule_days?.join(", ") || ""})`
+                    ? `Weekly (${row.vehicle.schedule_days?.map((d) => (typeof d === "object" ? d.day : d)).join(", ") || ""})`
                     : row.vehicle.schedule_type}
               </span>
             </span>
@@ -512,6 +555,18 @@ const Residence = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleRunScheduler}
+            disabled={runningScheduler}
+            className="h-11 px-5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-200 hover:shadow-emerald-300 transition-all flex items-center gap-2 disabled:opacity-70"
+          >
+            {runningScheduler ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Play className="w-4 h-4" />
+            )}{" "}
+            Run Scheduler
+          </button>
           <button
             onClick={handleExport}
             disabled={exporting}
@@ -615,6 +670,74 @@ const Residence = () => {
         job={selectedJob}
         onSuccess={() => fetchData(pagination.page, pagination.limit)}
       />
+
+      {/* Scheduler Modal */}
+      {isSchedulerModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-5">
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <Play className="w-5 h-5 text-emerald-600" />
+                Run Job Scheduler
+              </h3>
+              <p className="text-sm text-slate-500 mt-1">
+                Generate jobs for a specific date
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">
+                Target Date
+              </label>
+              <input
+                type="date"
+                value={schedulerDate}
+                onChange={(e) => setSchedulerDate(e.target.value)}
+                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+              />
+              <p className="text-xs text-slate-500 mt-1.5">
+                💡 Jobs will be created for this date based on customer
+                schedules
+              </p>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-xs text-amber-800">
+                <strong>⚠️ Warning:</strong> This will create jobs for the
+                selected date. If jobs already exist for that date, the
+                operation will be blocked.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsSchedulerModalOpen(false)}
+                disabled={runningScheduler}
+                className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-sm transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmScheduler}
+                disabled={runningScheduler || !schedulerDate}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-lg font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {runningScheduler ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Running...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" />
+                    Run Scheduler
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

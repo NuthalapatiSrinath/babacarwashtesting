@@ -15,6 +15,7 @@ import {
   Building,
   Home,
   Phone,
+  X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
@@ -26,9 +27,12 @@ import CustomerModal from "../../components/modals/CustomerModal";
 import BlockedDeactivationModal from "../../components/modals/customers/BlockedDeactivationModal";
 import DeactivationReasonModal from "../../components/modals/customers/DeactivationReasonModal";
 import ReactivationDateModal from "../../components/modals/customers/ReactivationDateModal";
+import CustomDropdown from "../../components/ui/CustomDropdown";
 
 // API
 import { customerService } from "../../api/customerService";
+import { workerService } from "../../api/workerService";
+import { buildingService } from "../../api/buildingService";
 import api from "../../api/axiosInstance";
 
 const Customers = () => {
@@ -71,6 +75,20 @@ const Customers = () => {
   const [activeTab, setActiveTab] = useState(1); // Customer status filter
   const [vehicleStatusFilter, setVehicleStatusFilter] = useState("all"); // all, active, inactive
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedWorker, setSelectedWorker] = useState(""); // Worker filter - empty means show ALL customers
+  const [selectedBuilding, setSelectedBuilding] = useState(""); // Building filter
+
+  // Dropdown data
+  const [workers, setWorkers] = useState([]);
+  const [buildings, setBuildings] = useState([]);
+  const [loadingFilters, setLoadingFilters] = useState(false);
+  const [filtersDataLoaded, setFiltersDataLoaded] = useState(false); // Track if filters data is loaded
+
+  // ⚡ Fast filter counts from backend (no need to load all customers)
+  const [workerCountsState, setWorkerCountsState] = useState({});
+  const [buildingCountsState, setBuildingCountsState] = useState({});
+  const [totalWorkersCount, setTotalWorkersCount] = useState(0);
+  const [totalBuildingsCount, setTotalBuildingsCount] = useState(0);
 
   const [pagination, setPagination] = useState({
     page: 1,
@@ -84,25 +102,139 @@ const Customers = () => {
   const [importResults, setImportResults] = useState(null);
   const [showImportResults, setShowImportResults] = useState(false);
 
+  // --- Fetch Workers and Buildings for Filters ---
+  useEffect(() => {
+    console.log("🚀 ========== useEffect for FILTERS TRIGGERED ==========");
+    const fetchFiltersData = async () => {
+      console.log("🚀 Starting fetchFiltersData function...");
+      setLoadingFilters(true);
+      try {
+        console.log("🔄 Fetching workers and buildings for filters...");
+
+        // Fetch all workers (active status)
+        const workersRes = await workerService.list(1, 1000, "", 1);
+        console.log("👷 Workers response:", workersRes);
+
+        const workerData = workersRes?.data || [];
+        console.log("👷 Workers data:", workerData.length, "workers");
+        setWorkers(workerData);
+
+        // Fetch all buildings
+        const buildingsRes = await buildingService.list(1, 1000, "");
+        console.log("🏢 Buildings response:", buildingsRes);
+
+        const buildingData = buildingsRes?.data || [];
+        console.log("🏢 Buildings data:", buildingData.length, "buildings");
+        setBuildings(buildingData);
+
+        // ⚡ FAST: Fetch filter counts using dedicated endpoint (no pending dues calculation)
+        console.log(
+          "📊 ========== FETCHING FILTER COUNTS (FAST ENDPOINT) ==========",
+        );
+        const countsRes = await api.get("/customers/filter-counts");
+        console.log("✅ Filter counts response:", countsRes.data);
+
+        if (countsRes.data?.data) {
+          const {
+            workerCounts,
+            buildingCounts,
+            totalCustomersWithWorkers,
+            totalCustomersWithBuildings,
+          } = countsRes.data.data;
+
+          // Store counts directly instead of loading all customers
+          setWorkerCountsState(workerCounts || {});
+          setBuildingCountsState(buildingCounts || {});
+          setTotalWorkersCount(totalCustomersWithWorkers || 0);
+          setTotalBuildingsCount(totalCustomersWithBuildings || 0);
+
+          console.log("✅ Filter counts loaded:");
+          console.log(
+            "   - Worker counts:",
+            Object.keys(workerCounts || {}).length,
+            "workers",
+          );
+          console.log(
+            "   - Building counts:",
+            Object.keys(buildingCounts || {}).length,
+            "buildings",
+          );
+          console.log("   - Total with workers:", totalCustomersWithWorkers);
+          console.log(
+            "   - Total with buildings:",
+            totalCustomersWithBuildings,
+          );
+        }
+
+        // Set filters loaded flag AFTER state is updated
+        console.log("✅ Setting filtersDataLoaded to true...");
+        setFiltersDataLoaded(true);
+        console.log("✅ Filters data loaded flag set to true");
+      } catch (error) {
+        console.error("❌ ========== ERROR FETCHING FILTER DATA ==========");
+        console.error("❌ Error object:", error);
+        console.error("❌ Error message:", error.message);
+        console.error("❌ Error response:", error.response);
+        console.error(
+          "❌ Error details:",
+          error.response?.data || error.message,
+        );
+        toast.error("Failed to load filters");
+        // Still set to true even on error, but with empty data
+        setFiltersDataLoaded(true);
+      } finally {
+        setLoadingFilters(false);
+        console.log(
+          "✅ Filter loading complete. filtersDataLoaded should now be true",
+        );
+      }
+    };
+
+    fetchFiltersData();
+  }, []);
+
   // --- Fetch Data ---
-  const fetchData = async (page = 1, limit = 50, search = "", status = 1) => {
+  const fetchData = async (
+    page = 1,
+    limit = 50,
+    search = "",
+    status = 1,
+    worker = "",
+    building = "",
+  ) => {
     setLoading(true);
     try {
       // ✅ FIX: Trim search term to ignore trailing spaces (e.g., "John " becomes "John")
       const cleanSearch = typeof search === "string" ? search.trim() : search;
 
-      const res = await customerService.list(page, limit, cleanSearch, status);
+      const params = {
+        pageNo: page - 1,
+        pageSize: limit,
+        search: cleanSearch,
+        status,
+      };
+
+      // Add worker and building filters if selected
+      if (worker) {
+        params.worker = worker;
+      }
+      if (building) {
+        params.building = building;
+      }
+
+      console.log("📡 [CUSTOMERS PAGE] Fetching with params:", params);
+      const res = await api.get("/customers", { params });
 
       console.log(
         "\n💾 [CUSTOMERS PAGE] Fetched data:",
-        res.data?.length,
+        res.data?.data?.length,
         "customers",
       );
       console.log("📊 [CUSTOMERS PAGE] Sample customer data:");
 
       // Log first 3 customers with their pending dues
-      if (res.data && res.data.length > 0) {
-        res.data.slice(0, 3).forEach((customer, idx) => {
+      if (res.data?.data && res.data.data.length > 0) {
+        res.data.data.slice(0, 3).forEach((customer, idx) => {
           console.log(`\n  Customer ${idx + 1}:`, {
             id: customer._id,
             name: `${customer.firstName} ${customer.lastName}`,
@@ -114,12 +246,12 @@ const Customers = () => {
         });
       }
 
-      setServerData(res.data || []);
+      setServerData(res.data?.data || []);
       setPagination({
         page: Number(page),
         limit: Number(limit),
-        total: res.total || 0,
-        totalPages: Math.ceil((res.total || 0) / Number(limit)) || 1,
+        total: res.data?.total || 0,
+        totalPages: Math.ceil((res.data?.total || 0) / Number(limit)) || 1,
       });
     } catch (e) {
       console.error("❌ [CUSTOMERS PAGE] Error:", e);
@@ -132,12 +264,26 @@ const Customers = () => {
   // --- Unified Effect for Fetching ---
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
-      fetchData(1, pagination.limit, searchTerm, activeTab);
+      fetchData(
+        1,
+        pagination.limit,
+        searchTerm,
+        activeTab,
+        selectedWorker,
+        selectedBuilding,
+      );
     }, 500);
 
     return () => clearTimeout(delayDebounceFn);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, searchTerm]);
+  }, [activeTab, searchTerm, selectedWorker, selectedBuilding]);
+
+  // ⚡ Filter counts are now loaded from backend, no expensive calculations needed!
+  // Just use the state values directly
+  const workerCounts = workerCountsState;
+  const buildingCounts = buildingCountsState;
+  const totalCustomersWithWorkers = totalWorkersCount;
+  const totalCustomersWithBuildings = totalBuildingsCount;
 
   // --- Flatten Data & Search Logic ---
   const flattenedData = useMemo(() => {
@@ -177,12 +323,13 @@ const Customers = () => {
       });
     });
 
-    // 2. Client-Side Search
-    if (!searchTerm) return rows;
+    // 2. Client-Side Search (already handled by backend, this is just for additional filtering)
+    let filteredRows = rows;
+    if (!searchTerm) return filteredRows;
 
     const lowerSearch = searchTerm.toLowerCase().trim();
 
-    return rows.filter((row) => {
+    return filteredRows.filter((row) => {
       const c = row.customer || {};
 
       // ✅ 1. Name Search
@@ -208,7 +355,13 @@ const Customers = () => {
         building.includes(lowerSearch)
       );
     });
-  }, [serverData, searchTerm, vehicleStatusFilter]);
+  }, [
+    serverData,
+    searchTerm,
+    vehicleStatusFilter,
+    selectedWorker,
+    selectedBuilding,
+  ]);
 
   // --- Handlers ---
   const handleTabChange = (status) => {
@@ -233,7 +386,14 @@ const Customers = () => {
     try {
       await customerService.delete(customerId);
       toast.success("Deleted");
-      fetchData(pagination.page, pagination.limit, searchTerm, activeTab);
+      fetchData(
+        pagination.page,
+        pagination.limit,
+        searchTerm,
+        activeTab,
+        selectedWorker,
+        selectedBuilding,
+      );
     } catch (e) {
       toast.error("Delete failed");
     }
@@ -244,7 +404,14 @@ const Customers = () => {
     try {
       await customerService.archive(customerId);
       toast.success("Archived");
-      fetchData(pagination.page, pagination.limit, searchTerm, activeTab);
+      fetchData(
+        pagination.page,
+        pagination.limit,
+        searchTerm,
+        activeTab,
+        selectedWorker,
+        selectedBuilding,
+      );
     } catch (e) {
       toast.error("Archive failed");
     }
@@ -401,7 +568,14 @@ const Customers = () => {
         entityName: "",
         customerId: "",
       });
-      fetchData(pagination.page, pagination.limit, searchTerm, activeTab);
+      fetchData(
+        pagination.page,
+        pagination.limit,
+        searchTerm,
+        activeTab,
+        selectedWorker,
+        selectedBuilding,
+      );
     } catch (e) {
       console.error("Deactivation error:", e);
 
@@ -471,7 +645,14 @@ const Customers = () => {
       }
 
       // Refresh data
-      fetchData(pagination.page, pagination.limit, searchTerm, activeTab);
+      fetchData(
+        pagination.page,
+        pagination.limit,
+        searchTerm,
+        activeTab,
+        selectedWorker,
+        selectedBuilding,
+      );
 
       // Close modal
       setReactivationModal({
@@ -1248,7 +1429,7 @@ const Customers = () => {
         className="hidden"
       />
 
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6 relative z-20 overflow-visible">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div className="flex-1">
             {/* <div className="flex items-center gap-3 mb-4">
@@ -1348,6 +1529,93 @@ const Customers = () => {
                 </div>
               </div>
             </div>
+
+            {/* Additional Filters Row */}
+            <div className="flex flex-wrap gap-3 items-end mt-4 relative z-50 overflow-visible">
+              {/* Worker Filter */}
+              <div className="w-64 relative z-50">
+                <CustomDropdown
+                  key={`worker-${totalCustomersWithWorkers}-${selectedBuilding}`}
+                  label={`Filter by Worker (${workers.length})`}
+                  value={selectedWorker}
+                  onChange={(value) => {
+                    console.log("🔄 Worker filter changed:", value);
+                    setSelectedWorker(value);
+                    setPagination((prev) => ({ ...prev, page: 1 }));
+                  }}
+                  options={[
+                    {
+                      value: "__ANY_WORKER__",
+                      label: `All Workers (${totalCustomersWithWorkers})`,
+                    },
+                    ...workers.map((worker) => {
+                      const count = workerCounts[worker._id] || 0;
+                      const name =
+                        worker.name ||
+                        `${worker.firstName || ""} ${worker.lastName || ""}`.trim() ||
+                        "Unknown Worker";
+                      return {
+                        value: worker._id,
+                        label: `${name} (${count})`,
+                      };
+                    }),
+                  ]}
+                  placeholder="Select Worker"
+                  icon={Users}
+                  searchable={true}
+                  disabled={loadingFilters}
+                />
+              </div>
+
+              {/* Building Filter */}
+              <div className="w-64 relative z-50">
+                <CustomDropdown
+                  key={`building-${totalCustomersWithBuildings}-${selectedWorker}`}
+                  label={`Filter by Building (${buildings.length})`}
+                  value={selectedBuilding}
+                  onChange={(value) => {
+                    console.log("🔄 Building filter changed:", value);
+                    setSelectedBuilding(value);
+                    setPagination((prev) => ({ ...prev, page: 1 }));
+                  }}
+                  options={[
+                    {
+                      value: "",
+                      label: `All Buildings (${totalCustomersWithBuildings})`,
+                    },
+                    ...buildings.map((building) => {
+                      const count = buildingCounts[building._id] || 0;
+                      const name = building.name || "Unknown Building";
+                      return {
+                        value: building._id,
+                        label: `${name} (${count})`,
+                      };
+                    }),
+                  ]}
+                  placeholder="Select Building"
+                  icon={Building}
+                  searchable={true}
+                  disabled={loadingFilters}
+                />
+              </div>
+
+              {/* Clear Filters Button */}
+              {((selectedWorker && selectedWorker !== "__ANY_WORKER__") ||
+                selectedBuilding) && (
+                <button
+                  onClick={() => {
+                    setSelectedWorker("");
+                    setSelectedBuilding("");
+                    setPagination((prev) => ({ ...prev, page: 1 }));
+                  }}
+                  className="h-10 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold flex items-center gap-2 transition-all"
+                  title="Clear all filters"
+                >
+                  <X className="w-4 h-4" />
+                  Clear Filters
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 justify-end">
@@ -1419,7 +1687,7 @@ const Customers = () => {
         )}
       </div>
 
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden relative z-10">
         <DataTable
           key={activeTab}
           columns={columns}
@@ -1430,9 +1698,25 @@ const Customers = () => {
             displayTotal: flattenedData.length, // Custom prop for display count
           }}
           onPageChange={(p) =>
-            fetchData(p, pagination.limit, searchTerm, activeTab)
+            fetchData(
+              p,
+              pagination.limit,
+              searchTerm,
+              activeTab,
+              selectedWorker,
+              selectedBuilding,
+            )
           }
-          onLimitChange={(l) => fetchData(1, l, searchTerm, activeTab)}
+          onLimitChange={(l) =>
+            fetchData(
+              1,
+              l,
+              searchTerm,
+              activeTab,
+              selectedWorker,
+              selectedBuilding,
+            )
+          }
           renderExpandedRow={renderExpandedRow}
           hideSearch={true}
         />
@@ -1443,7 +1727,14 @@ const Customers = () => {
         onClose={() => setIsModalOpen(false)}
         customer={selectedCustomer}
         onSuccess={() =>
-          fetchData(pagination.page, pagination.limit, searchTerm, activeTab)
+          fetchData(
+            pagination.page,
+            pagination.limit,
+            searchTerm,
+            activeTab,
+            selectedWorker,
+            selectedBuilding,
+          )
         }
       />
 

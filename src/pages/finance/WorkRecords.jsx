@@ -90,7 +90,7 @@ const WorkRecords = () => {
     return allMonths.filter((m) => {
       if (selectedYear < currentYear) return true;
       if (selectedYear === currentYear) {
-        return m.value < currentMonth;
+        return m.value <= currentMonth; // Include current month
       }
       return false;
     });

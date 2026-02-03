@@ -33,7 +33,7 @@ const CustomDropdown = ({
 
   // Filter options based on search
   const filteredOptions = options.filter((opt) =>
-    opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+    opt.label.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   // Close on click outside
@@ -78,8 +78,8 @@ const CustomDropdown = ({
               error
                 ? "border-red-300 bg-red-50 text-red-900"
                 : isOpen
-                ? "border-indigo-500 ring-4 ring-indigo-50 bg-white"
-                : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300"
+                  ? "border-indigo-500 ring-4 ring-indigo-50 bg-white"
+                  : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300"
             }
             ${
               disabled
@@ -118,7 +118,7 @@ const CustomDropdown = ({
 
         {/* Dropdown Menu */}
         {isOpen && (
-          <div className="absolute z-50 mt-2 w-full bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top">
+          <div className="absolute z-[9999] mt-2 w-full bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top">
             {/* Search Input (If enabled) */}
             {searchable && (
               <div className="p-2 border-b border-slate-100">
