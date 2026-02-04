@@ -56,9 +56,16 @@ const Residence = () => {
     return formatDateLocal(d);
   };
 
+  const getLastOfMonth = () => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    d.setDate(0);
+    return formatDateLocal(d);
+  };
+
   const [filters, setFilters] = useState({
     startDate: getFirstOfMonth(),
-    endDate: getToday(),
+    endDate: getLastOfMonth(),
     worker: "",
     status: "",
     building: "",
