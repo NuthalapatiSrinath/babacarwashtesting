@@ -11,6 +11,7 @@ const PaymentModal = ({ isOpen, onClose, payment, onSuccess }) => {
     amount: "",
     payment_mode: "cash",
     payment_date: new Date().toISOString().split("T")[0],
+    notes: "",
   });
 
   // Load remaining balance
@@ -24,6 +25,7 @@ const PaymentModal = ({ isOpen, onClose, payment, onSuccess }) => {
         amount: remaining > 0 ? remaining : "",
         payment_mode: "cash",
         payment_date: new Date().toISOString().split("T")[0],
+        notes: payment.notes || "",
       });
     }
   }, [isOpen, payment]);
@@ -34,24 +36,46 @@ const PaymentModal = ({ isOpen, onClose, payment, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.amount || Number(formData.amount) <= 0) {
-      toast.error("Please enter a valid amount");
+
+    const hasAmount = formData.amount && Number(formData.amount) > 0;
+    const hasRemarks = formData.notes && formData.notes.trim();
+
+    // Require at least amount OR remarks
+    if (!hasAmount && !hasRemarks) {
+      toast.error("Please enter an amount or add remarks");
       return;
     }
 
     setLoading(true);
     try {
-      await paymentService.collect(
-        payment._id,
-        formData.amount,
-        formData.payment_mode,
-        formData.payment_date
-      );
-      toast.success("Payment collected successfully");
+      const payload = {};
+
+      // Include payment details if amount is provided
+      if (hasAmount) {
+        payload.amount = Number(formData.amount);
+        payload.payment_mode = formData.payment_mode;
+        payload.payment_date = formData.payment_date;
+      }
+
+      // Include notes if provided
+      if (hasRemarks) {
+        payload.notes = formData.notes.trim();
+      }
+
+      await paymentService.updatePayment(payment._id, payload);
+
+      if (hasAmount && hasRemarks) {
+        toast.success("Payment collected and remarks updated");
+      } else if (hasAmount) {
+        toast.success("Payment collected successfully");
+      } else {
+        toast.success("Remarks updated successfully");
+      }
+
       onSuccess();
       onClose();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to collect payment");
+      toast.error(error.response?.data?.message || "Failed to update payment");
     } finally {
       setLoading(false);
     }
@@ -98,7 +122,7 @@ const PaymentModal = ({ isOpen, onClose, payment, onSuccess }) => {
 
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
               <div>
-                <label className={labelClass}>Amount (AED)</label>
+                <label className={labelClass}>Amount (AED) - Optional</label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                   <input
@@ -107,7 +131,7 @@ const PaymentModal = ({ isOpen, onClose, payment, onSuccess }) => {
                     value={formData.amount}
                     onChange={handleChange}
                     className={`${inputClass} pl-9 text-lg font-bold text-emerald-600`}
-                    placeholder="0.00"
+                    placeholder="0.00 (Leave empty to only update remarks)"
                     autoFocus
                   />
                 </div>
@@ -143,6 +167,18 @@ const PaymentModal = ({ isOpen, onClose, payment, onSuccess }) => {
                     className={`${inputClass} pl-9 cursor-pointer`}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>Remarks / Comments</label>
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  rows={3}
+                  className={inputClass}
+                  placeholder="Add any additional notes or comments..."
+                />
               </div>
             </form>
 

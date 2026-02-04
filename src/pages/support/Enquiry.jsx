@@ -3,7 +3,6 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   Plus,
   Trash2,
-  Edit2,
   CheckCircle,
   Clock,
   XCircle,
@@ -13,6 +12,8 @@ import {
   Calendar,
   Filter,
   Search,
+  MapPin,
+  Home,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -110,7 +111,7 @@ const Enquiry = () => {
         page: pagination.page,
         limit: pagination.limit,
         filters: apiFilters,
-      })
+      }),
     );
   }, [dispatch, pagination.page, pagination.limit, filters]);
 
@@ -130,7 +131,7 @@ const Enquiry = () => {
       (row) =>
         row.mobile?.toLowerCase().includes(lowerTerm) ||
         row.registration_no?.toLowerCase().includes(lowerTerm) ||
-        row.parking_no?.toLowerCase().includes(lowerTerm)
+        row.parking_no?.toLowerCase().includes(lowerTerm),
     );
   }, [enquiries, clientSearchTerm]);
 
@@ -190,7 +191,7 @@ const Enquiry = () => {
           page: pagination.page,
           limit: pagination.limit,
           filters,
-        })
+        }),
       );
     } catch (error) {
       toast.error(error || "Delete failed");
@@ -207,7 +208,7 @@ const Enquiry = () => {
         page: pagination.page,
         limit: pagination.limit,
         filters: filters,
-      })
+      }),
     );
   };
 
@@ -267,33 +268,61 @@ const Enquiry = () => {
     {
       header: "Vehicle Details",
       accessor: "registration_no",
-      render: (row) => (
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <Car className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-xs font-bold uppercase tracking-wide bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
-              {row.registration_no || "N/A"}
-            </span>
+      render: (row) => {
+        // Debug logging
+        console.log("🚗 Row data:", {
+          id: row.id,
+          vehicles: row.vehicles,
+          registration_no: row.registration_no,
+          parking_no: row.parking_no,
+        });
+
+        // Show first vehicle details or "N/A" if no vehicles
+        const firstVehicle =
+          row.vehicles && row.vehicles.length > 0 ? row.vehicles[0] : null;
+        const vehicleCount = row.vehicles?.length || 0;
+
+        const regNo =
+          firstVehicle?.registration_no || row.registration_no || "N/A";
+        const parkNo = firstVehicle?.parking_no || row.parking_no;
+
+        return (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <Car className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-xs font-bold uppercase tracking-wide bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+                {regNo}
+              </span>
+              {vehicleCount > 1 && (
+                <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-bold">
+                  +{vehicleCount - 1}
+                </span>
+              )}
+            </div>
+            {parkNo && (
+              <span className="text-[10px] text-slate-400 pl-6">
+                Parking:{" "}
+                <span className="font-mono text-slate-600">{parkNo}</span>
+              </span>
+            )}
           </div>
-          {row.parking_no && (
-            <span className="text-[10px] text-slate-400 pl-6">
-              Parking:{" "}
-              <span className="font-mono text-slate-600">{row.parking_no}</span>
-            </span>
-          )}
-        </div>
-      ),
+        );
+      },
     },
     {
       header: "Worker",
       accessor: "worker",
       render: (row) => {
-        const hasWorker = row.worker?.name || row.worker;
+        // Show first vehicle's worker or "Unassigned"
+        const firstVehicle =
+          row.vehicles && row.vehicles.length > 0 ? row.vehicles[0] : null;
+        const hasWorker = firstVehicle?.worker?.name || firstVehicle?.worker;
+
         return hasWorker ? (
           <div className="flex items-center gap-2">
             <User className="w-3.5 h-3.5 text-purple-500" />
             <span className="text-sm font-medium text-purple-700">
-              {row.worker?.name || row.worker}
+              {firstVehicle.worker?.name || firstVehicle.worker}
             </span>
           </div>
         ) : (
@@ -349,9 +378,9 @@ const Enquiry = () => {
           <button
             onClick={() => handleEdit(row)}
             className="p-2 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition-all"
-            title="Edit"
+            title="View/Edit Enquiry"
           >
-            <Edit2 className="w-4 h-4" />
+            <Plus className="w-4 h-4" />
           </button>
           <button
             onClick={() => openDeleteModal(row)}

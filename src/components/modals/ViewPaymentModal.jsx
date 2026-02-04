@@ -66,6 +66,17 @@ const ViewPaymentModal = ({ isOpen, onClose, payment }) => {
                   : "-"}
               </span>
             </div>
+
+            {payment.notes && (
+              <div className="pt-2 border-t border-slate-200">
+                <span className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                  Remarks / Comments
+                </span>
+                <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  {payment.notes}
+                </p>
+              </div>
+            )}
           </div>
         </motion.div>
       </div>

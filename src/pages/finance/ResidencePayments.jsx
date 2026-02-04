@@ -20,6 +20,8 @@ import {
   CheckSquare, // Mark Paid Icon
   Clock,
   Building2,
+  StickyNote,
+  X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -35,6 +37,7 @@ import CustomDropdown from "../../components/ui/CustomDropdown"; // Import Custo
 
 // API
 import { buildingService } from "../../api/buildingService";
+import { customerService } from "../../api/customerService";
 
 // Redux
 import {
@@ -138,6 +141,12 @@ const ResidencePayments = () => {
   const [availableMonths, setAvailableMonths] = useState([]);
   const [selectedMonthForClose, setSelectedMonthForClose] = useState(null);
   const [closeOperation, setCloseOperation] = useState(null); // 'close' or 'revert'
+  const [customerNotesModal, setCustomerNotesModal] = useState({
+    isOpen: false,
+    customer: null,
+    notes: "",
+  });
+  const [savingNotes, setSavingNotes] = useState(false);
 
   // Load Currency & Initial Data
   useEffect(() => {
@@ -975,6 +984,47 @@ Are you sure you want to proceed?`;
         );
       },
     },
+    {
+      header: "Remarks",
+      accessor: "notes",
+      className: "max-w-[200px]",
+      render: (row) => (
+        <div
+          className="text-xs text-slate-600 truncate"
+          title={row.notes || "-"}
+        >
+          {row.notes || "-"}
+        </div>
+      ),
+    },
+    {
+      header: "Customer Notes",
+      accessor: "customer.notes",
+      className: "max-w-[250px]",
+      render: (row) => (
+        <div className="flex items-center gap-2 group">
+          <div
+            className="text-xs text-slate-600 truncate flex-1"
+            title={row.customer?.notes || "Click edit to add notes"}
+          >
+            {row.customer?.notes || "-"}
+          </div>
+          <button
+            onClick={() =>
+              setCustomerNotesModal({
+                isOpen: true,
+                customer: row.customer,
+                notes: row.customer?.notes || "",
+              })
+            }
+            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-50 rounded text-blue-500 transition-all"
+            title="Edit customer notes"
+          >
+            <StickyNote className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ),
+    },
     // ✅ Use receipt_no from backend
     {
       header: "Invoice",
@@ -1484,6 +1534,107 @@ Are you sure you want to proceed?`;
                 </button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Customer Notes Modal */}
+      {customerNotesModal.isOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+            <div className="px-6 py-4 border-b flex justify-between items-center">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <StickyNote className="w-5 h-5 text-blue-500" />
+                Customer Notes
+              </h3>
+              <button
+                onClick={() =>
+                  setCustomerNotesModal({
+                    isOpen: false,
+                    customer: null,
+                    notes: "",
+                  })
+                }
+                className="p-2 hover:bg-slate-100 rounded-full text-slate-400"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <div className="text-sm text-slate-600 mb-3">
+                  <div className="font-semibold">
+                    {customerNotesModal.customer?.firstName}{" "}
+                    {customerNotesModal.customer?.lastName}
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {customerNotesModal.customer?.building?.name} - Flat{" "}
+                    {customerNotesModal.customer?.flat_no}
+                  </div>
+                </div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                  Notes / Remarks
+                </label>
+                <textarea
+                  value={customerNotesModal.notes}
+                  onChange={(e) =>
+                    setCustomerNotesModal((prev) => ({
+                      ...prev,
+                      notes: e.target.value,
+                    }))
+                  }
+                  rows={5}
+                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500 focus:bg-white transition-all resize-none"
+                  placeholder="e.g., NO WASHES FOR OCT AND NOV, STOPPED LAST WASHED ON 24-10-2025, etc."
+                />
+              </div>
+            </div>
+            <div className="p-4 bg-slate-50 border-t flex justify-end gap-3">
+              <button
+                onClick={() =>
+                  setCustomerNotesModal({
+                    isOpen: false,
+                    customer: null,
+                    notes: "",
+                  })
+                }
+                className="px-5 py-2.5 border border-slate-300 text-slate-600 font-bold rounded-xl hover:bg-slate-100"
+                disabled={savingNotes}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setSavingNotes(true);
+                  try {
+                    await customerService.update(
+                      customerNotesModal.customer._id,
+                      {
+                        notes: customerNotesModal.notes.trim(),
+                      },
+                    );
+                    toast.success("Customer notes updated successfully");
+                    setCustomerNotesModal({
+                      isOpen: false,
+                      customer: null,
+                      notes: "",
+                    });
+                    fetchData(pagination.page, pagination.limit);
+                  } catch (error) {
+                    toast.error(
+                      error.response?.data?.message || "Failed to update notes",
+                    );
+                  } finally {
+                    setSavingNotes(false);
+                  }
+                }}
+                disabled={savingNotes}
+                className="px-8 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
+              >
+                {savingNotes && <Clock className="w-4 h-4 animate-spin" />}
+                Save Notes
+              </button>
+            </div>
           </div>
         </div>
       )}

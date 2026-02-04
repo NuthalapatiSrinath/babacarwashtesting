@@ -286,6 +286,7 @@ const CollectionSheet = () => {
               "Rcpt",
               "Due Date",
               "Rem",
+              "Cust Notes",
             ],
           ];
 
@@ -307,6 +308,7 @@ const CollectionSheet = () => {
             p.receipt,
             p.dueDate,
             p.remarks,
+            p.customerNotes || "-",
           ]);
 
           autoTable(doc, {
@@ -331,20 +333,21 @@ const CollectionSheet = () => {
               0: { cellWidth: 7 }, // Sl
               1: { cellWidth: 12 }, // Parking
               2: { cellWidth: 15 }, // Car
-              3: { cellWidth: 18 }, // Mobile
+              3: { cellWidth: 17 }, // Mobile
               4: { cellWidth: 10 }, // Flat
-              5: { cellWidth: 15 }, // Start
-              6: { cellWidth: 12 }, // Sch
+              5: { cellWidth: 14 }, // Start
+              6: { cellWidth: 11 }, // Sch
               7: { cellWidth: 8 }, // Adv
-              8: { cellWidth: 12 }, // Sub
-              9: { cellWidth: 12 }, // Prev
-              10: { cellWidth: 12 }, // Total
-              11: { cellWidth: 12 }, // Paid
-              12: { cellWidth: 12 }, // Bal
-              13: { cellWidth: 16 }, // Pay Date
-              14: { cellWidth: 14 }, // Rcpt
-              15: { cellWidth: 16 }, // Due Date
-              16: { cellWidth: "auto" }, // Rem (auto fills rest)
+              8: { cellWidth: 11 }, // Sub
+              9: { cellWidth: 11 }, // Prev
+              10: { cellWidth: 11 }, // Total
+              11: { cellWidth: 11 }, // Paid
+              12: { cellWidth: 11 }, // Bal
+              13: { cellWidth: 15 }, // Pay Date
+              14: { cellWidth: 13 }, // Rcpt
+              15: { cellWidth: 15 }, // Due Date
+              16: { cellWidth: 18 }, // Rem
+              17: { cellWidth: "auto" }, // Cust Notes (auto fills rest)
             },
             margin: { left: 10, right: 10 },
           });
