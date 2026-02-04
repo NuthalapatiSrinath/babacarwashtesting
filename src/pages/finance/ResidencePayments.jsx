@@ -19,6 +19,7 @@ import {
   CheckCircle2, // Settle Icon
   CheckSquare, // Mark Paid Icon
   Clock,
+  Building2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -31,6 +32,9 @@ import DeleteModal from "../../components/modals/DeleteModal";
 import PaymentModal from "../../components/modals/PaymentModal";
 import RichDateRangePicker from "../../components/inputs/RichDateRangePicker";
 import CustomDropdown from "../../components/ui/CustomDropdown"; // Import CustomDropdown
+
+// API
+import { buildingService } from "../../api/buildingService";
 
 // Redux
 import {
@@ -53,6 +57,7 @@ const ResidencePayments = () => {
   );
   const { workers } = useSelector((state) => state.worker);
 
+  const [buildings, setBuildings] = useState([]);
   const [currency, setCurrency] = useState("AED"); // Default Currency
 
   // --- DATES & TABS LOGIC ---
@@ -140,6 +145,18 @@ const ResidencePayments = () => {
     if (savedCurrency) setCurrency(savedCurrency);
 
     dispatch(fetchWorkers({ page: 1, limit: 1000, status: 1 }));
+    
+    // Load buildings
+    const loadBuildings = async () => {
+      try {
+        const res = await buildingService.list(1, 1000);
+        setBuildings(res.data || []);
+      } catch (e) {
+        console.error("Failed to load buildings", e);
+      }
+    };
+    loadBuildings();
+    
     fetchData(1, 50);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
@@ -798,13 +815,23 @@ Are you sure you want to proceed?`;
       render: (row) => (
         <div className="flex flex-col gap-1">
           <span className="font-bold text-slate-700 text-xs bg-slate-100 px-2 py-1 rounded w-fit border border-slate-200">
-            {row.vehicle?.registration_no || "N/A"}
+            {row.vehicle?.registration_no || "-"}
           </span>
-          {row.vehicle?.parking_no && (
-            <span className="text-[10px] text-slate-500 ml-1">
-              Slot: {row.vehicle.parking_no}
-            </span>
-          )}
+          <span className="text-[10px] text-slate-400 pl-1">
+            P: {row.vehicle?.parking_no || "-"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      header: "Building",
+      accessor: "building.name",
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <Building2 className="w-3 h-3 text-indigo-500" />
+          <span className="text-xs font-bold uppercase text-slate-600 truncate max-w-[150px]">
+            {row.building?.name || row.customer?.building?.name || "-"}
+          </span>
         </div>
       ),
     },
@@ -1181,7 +1208,26 @@ Are you sure you want to proceed?`;
               />
             </div>
 
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
+              {/* Building Dropdown */}
+              <div>
+                <CustomDropdown
+                  label="Building"
+                  value={filters.building}
+                  onChange={(val) => setFilters({ ...filters, building: val })}
+                  options={[
+                    { value: "", label: "All Buildings" },
+                    ...buildings.map((b) => ({
+                      value: b._id,
+                      label: b.name,
+                    })),
+                  ]}
+                  icon={Building2}
+                  placeholder="All Buildings"
+                  searchable={true}
+                />
+              </div>
+
               {/* Payment Status Dropdown (CustomDropdown) */}
               <div>
                 <CustomDropdown

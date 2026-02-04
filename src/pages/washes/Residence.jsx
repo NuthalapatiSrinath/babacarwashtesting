@@ -334,7 +334,7 @@ const Residence = () => {
     { value: "", label: "All Status" },
     { value: "pending", label: "Pending" },
     { value: "completed", label: "Completed" },
-    { value: "cancelled", label: "Rejected" },
+    { value: "rejected", label: "Rejected" },
   ];
 
   const buildingOptions = useMemo(() => {
@@ -349,14 +349,14 @@ const Residence = () => {
     return options;
   }, [workers]);
 
-  // ✅ HELPER: Format UTC Date (Prevents "Next Day" issue)
+  // ✅ HELPER: Format Date (Shows the actual date without timezone conversion)
   const formatUtcDate = (isoString) => {
     if (!isoString) return "-";
     const date = new Date(isoString);
-    const day = String(date.getUTCDate()).padStart(2, "0");
+    // Use local date components to avoid timezone shift
+    const day = String(date.getDate()).padStart(2, "0");
     const month = date.toLocaleString("en-US", {
       month: "short",
-      timeZone: "UTC",
     });
     return `${month} ${day}`;
   };
@@ -376,7 +376,7 @@ const Residence = () => {
       ),
     },
     {
-      header: "Created",
+      header: "Date",
       accessor: "assignedDate",
       render: (row) => (
         <div className="flex items-center gap-2">
@@ -412,7 +412,7 @@ const Residence = () => {
             classes: "bg-emerald-50 text-emerald-600 border-emerald-100",
             icon: CheckCircle,
           },
-          cancelled: {
+          rejected: {
             text: "Rejected",
             classes: "bg-red-50 text-red-600 border-red-100",
             icon: XCircle,

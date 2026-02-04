@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { X, Save, Loader2, User, Car, Calendar, Briefcase } from "lucide-react";
+import {
+  X,
+  Save,
+  Loader2,
+  User,
+  Car,
+  Calendar,
+  Briefcase,
+  CheckCircle,
+  Clock,
+  XCircle,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 
@@ -7,6 +18,9 @@ import toast from "react-hot-toast";
 import { jobService } from "../../api/jobService";
 import { customerService } from "../../api/customerService";
 import { workerService } from "../../api/workerService";
+
+// Components
+import CustomDropdown from "../ui/CustomDropdown";
 
 const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
   const [loading, setLoading] = useState(false);
@@ -101,8 +115,8 @@ const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate rejection reason when status is cancelled
-    if (formData.status === "cancelled" && !formData.rejectionReason?.trim()) {
+    // Validate rejection reason when status is rejected
+    if (formData.status === "rejected" && !formData.rejectionReason?.trim()) {
       toast.error("Please provide a reason for rejection");
       return;
     }
@@ -156,7 +170,7 @@ const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
               damping: 25,
               mass: 0.5,
             }}
-            className="bg-white w-full max-w-lg rounded-2xl shadow-2xl relative z-10 flex flex-col max-h-[90vh] overflow-hidden"
+            className="bg-white w-full max-w-lg rounded-2xl shadow-2xl relative z-10 flex flex-col max-h-[95vh] overflow-hidden"
           >
             {/* Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white">
@@ -178,67 +192,60 @@ const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
             >
               {/* Customer Selection */}
               <div>
-                <label className={labelClass}>Customer</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                  <select
-                    name="customer"
-                    value={formData.customer}
-                    onChange={handleCustomerChange}
-                    className={`${inputClass} pl-9 cursor-pointer`}
-                  >
-                    <option value="">Select Customer</option>
-                    {customers.map((c) => (
-                      <option key={c._id} value={c._id}>
-                        {c.firstName} {c.lastName} ({c.mobile})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <CustomDropdown
+                  label="Customer"
+                  value={formData.customer}
+                  onChange={(val) => {
+                    const selectedCus = customers.find((c) => c._id === val);
+                    setFormData((prev) => ({
+                      ...prev,
+                      customer: val,
+                      vehicle: "",
+                    }));
+                    setAvailableVehicles(selectedCus?.vehicles || []);
+                  }}
+                  options={customers.map((c) => ({
+                    value: c._id,
+                    label: `${c.firstName} ${c.lastName} (${c.mobile})`,
+                  }))}
+                  icon={User}
+                  placeholder="Select Customer"
+                  searchable={true}
+                />
               </div>
 
               {/* Vehicle Selection */}
               <div>
-                <label className={labelClass}>Vehicle</label>
-                <div className="relative">
-                  <Car className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                  <select
-                    name="vehicle"
-                    value={formData.vehicle}
-                    onChange={handleChange}
-                    className={`${inputClass} pl-9 cursor-pointer`}
-                    disabled={!formData.customer}
-                  >
-                    <option value="">Select Vehicle</option>
-                    {availableVehicles.map((v) => (
-                      <option key={v._id} value={v._id}>
-                        {v.registration_no} - {v.parking_no}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <CustomDropdown
+                  label="Vehicle"
+                  value={formData.vehicle}
+                  onChange={(val) => setFormData({ ...formData, vehicle: val })}
+                  options={availableVehicles.map((v) => ({
+                    value: v._id,
+                    label: `${v.registration_no} - ${v.parking_no}`,
+                  }))}
+                  icon={Car}
+                  placeholder="Select Vehicle"
+                  disabled={!formData.customer}
+                />
               </div>
 
               {/* Worker & Date Row */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>Assign Worker</label>
-                  <div className="relative">
-                    <Briefcase className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                    <select
-                      name="worker"
-                      value={formData.worker}
-                      onChange={handleChange}
-                      className={`${inputClass} pl-9 cursor-pointer`}
-                    >
-                      <option value="">Select Worker</option>
-                      {workers.map((w) => (
-                        <option key={w._id} value={w._id}>
-                          {w.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <CustomDropdown
+                    label="Assign Worker"
+                    value={formData.worker}
+                    onChange={(val) =>
+                      setFormData({ ...formData, worker: val })
+                    }
+                    options={workers.map((w) => ({
+                      value: w._id,
+                      label: w.name,
+                    }))}
+                    icon={Briefcase}
+                    placeholder="Select Worker"
+                  />
                 </div>
                 <div>
                   <label className={labelClass}>Assigned Date</label>
@@ -257,21 +264,25 @@ const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
 
               {/* Status */}
               <div>
-                <label className={labelClass}>Status</label>
-                <select
-                  name="status"
+                <CustomDropdown
+                  label="Status"
                   value={formData.status}
-                  onChange={handleChange}
-                  className={`${inputClass} font-bold text-xs uppercase`}
-                >
-                  <option value="pending">Pending</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Rejected</option>
-                </select>
+                  onChange={(val) => setFormData({ ...formData, status: val })}
+                  options={[
+                    { value: "pending", label: "Pending", icon: Clock },
+                    {
+                      value: "completed",
+                      label: "Completed",
+                      icon: CheckCircle,
+                    },
+                    { value: "rejected", label: "Rejected", icon: XCircle },
+                  ]}
+                  placeholder="Select Status"
+                />
               </div>
 
-              {/* Rejection Reason - Only show when status is cancelled/rejected */}
-              {formData.status === "cancelled" && (
+              {/* Rejection Reason - Only show when status is rejected */}
+              {formData.status === "rejected" && (
                 <div>
                   <label className={labelClass}>Rejection Reason *</label>
                   <textarea
