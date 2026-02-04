@@ -400,17 +400,42 @@ const Attendance = () => {
     {
       header: "Remark / Notes",
       accessor: "notes",
-      render: (row) => (
-        <div className="relative group w-full max-w-xs">
-          <input
-            type="text"
-            defaultValue={row.notes || ""}
-            onBlur={(e) => handleNoteBlur(row, e.target.value)}
-            placeholder="Add note..."
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all text-slate-700 placeholder:text-slate-400"
-          />
-        </div>
-      ),
+      render: (row) => {
+        const noteOptions = [
+          { value: "", label: "No Remark" },
+          { value: "AB", label: "Absent (AB)" },
+          { value: "ND", label: "No Duty (ND)" },
+          { value: "SL", label: "Sick Leave (SL)" },
+        ];
+        return (
+          <div className="relative group w-full max-w-xs">
+              <CustomDropdown
+                value={!row.notes || String(row.notes).trim() === "" ? "" : row.notes}
+                onChange={async (newNote) => {
+                  if (row.notes === newNote) return;
+                  // If 'No Remark' is selected, set notes to a single space
+                  const noteValue = newNote === "" ? " " : newNote;
+                  setAllData((prev) => prev.map((item) =>
+                    item._id === row._id ? { ...item, notes: noteValue } : item
+                  ));
+                  try {
+                    await attendanceService.update({
+                      ids: [row._id],
+                      present: row.present,
+                      type: row.type,
+                      notes: noteValue,
+                    });
+                    toast.success("Note saved");
+                  } catch (error) {
+                    toast.error("Failed to save note");
+                  }
+                }}
+              options={noteOptions}
+              placeholder="Select Remark"
+            />
+          </div>
+        );
+      },
     },
   ];
 
