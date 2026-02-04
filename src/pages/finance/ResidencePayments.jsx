@@ -145,7 +145,7 @@ const ResidencePayments = () => {
     if (savedCurrency) setCurrency(savedCurrency);
 
     dispatch(fetchWorkers({ page: 1, limit: 1000, status: 1 }));
-    
+
     // Load buildings
     const loadBuildings = async () => {
       try {
@@ -156,7 +156,7 @@ const ResidencePayments = () => {
       }
     };
     loadBuildings();
-    
+
     fetchData(1, 50);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
