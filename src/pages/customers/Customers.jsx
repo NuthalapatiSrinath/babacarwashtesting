@@ -75,8 +75,8 @@ const Customers = () => {
   const [activeTab, setActiveTab] = useState(1); // Customer status filter
   const [vehicleStatusFilter, setVehicleStatusFilter] = useState("all"); // all, active, inactive
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedWorker, setSelectedWorker] = useState(""); // Worker filter - empty means show ALL customers
-  const [selectedBuilding, setSelectedBuilding] = useState(""); // Building filter
+  const [selectedWorker, setSelectedWorker] = useState("__ANY_WORKER__"); // Worker filter - __ANY_WORKER__ means show ALL customers
+  const [selectedBuilding, setSelectedBuilding] = useState(""); // Building filter - empty string means show ALL customers
 
   // Dropdown data
   const [workers, setWorkers] = useState([]);
@@ -1560,7 +1560,7 @@ const Customers = () => {
                       };
                     }),
                   ]}
-                  placeholder="Select Worker"
+                  placeholder="All Workers"
                   icon={Users}
                   searchable={true}
                   disabled={loadingFilters}
@@ -1592,7 +1592,7 @@ const Customers = () => {
                       };
                     }),
                   ]}
-                  placeholder="Select Building"
+                  placeholder="All Buildings"
                   icon={Building}
                   searchable={true}
                   disabled={loadingFilters}
@@ -1604,7 +1604,7 @@ const Customers = () => {
                 selectedBuilding) && (
                 <button
                   onClick={() => {
-                    setSelectedWorker("");
+                    setSelectedWorker("__ANY_WORKER__");
                     setSelectedBuilding("");
                     setPagination((prev) => ({ ...prev, page: 1 }));
                   }}

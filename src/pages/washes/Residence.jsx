@@ -31,6 +31,7 @@ import CustomDropdown from "../../components/ui/CustomDropdown";
 import { jobService } from "../../api/jobService";
 import { workerService } from "../../api/workerService";
 import { buildingService } from "../../api/buildingService";
+import { customerService } from "../../api/customerService";
 
 const Residence = () => {
   const [loading, setLoading] = useState(false);
@@ -38,6 +39,7 @@ const Residence = () => {
   const [data, setData] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [buildings, setBuildings] = useState([]);
+  const [customers, setCustomers] = useState([]);
 
   // --- DATE HELPERS ---
   const formatDateLocal = (date) => {
@@ -90,12 +92,14 @@ const Residence = () => {
   useEffect(() => {
     const loadResources = async () => {
       try {
-        const [wRes, bRes] = await Promise.all([
+        const [wRes, bRes, cRes] = await Promise.all([
           workerService.list(1, 1000),
           buildingService.list(1, 1000),
+          customerService.list(1, 1000),
         ]);
         setWorkers(wRes.data || []);
         setBuildings(bRes.data || []);
+        setCustomers(cRes.data || []);
       } catch (e) {
         console.error(e);
       }
@@ -344,17 +348,57 @@ const Residence = () => {
     { value: "rejected", label: "Rejected" },
   ];
 
+  // Extract unique buildings from current job data
   const buildingOptions = useMemo(() => {
-    const options = [{ value: "", label: "All Buildings" }];
-    buildings.forEach((b) => options.push({ value: b._id, label: b.name }));
-    return options;
-  }, [buildings]);
+    const uniqueBuildings = new Map();
+    data.forEach((job) => {
+      if (job.building && job.building._id) {
+        uniqueBuildings.set(job.building._id, job.building.name);
+      }
+    });
 
-  const workerOptions = useMemo(() => {
-    const options = [{ value: "", label: "All Workers" }];
-    workers.forEach((w) => options.push({ value: w._id, label: w.name }));
+    const options = [
+      { value: "", label: `All Buildings (${uniqueBuildings.size})` },
+    ];
+    uniqueBuildings.forEach((name, id) => {
+      options.push({ value: id, label: name });
+    });
+
+    console.log(
+      "🏢 Building Options:",
+      options.length - 1,
+      "buildings from",
+      data.length,
+      "jobs",
+    );
     return options;
-  }, [workers]);
+  }, [data]);
+
+  // Extract unique workers from current job data
+  const workerOptions = useMemo(() => {
+    const uniqueWorkers = new Map();
+    data.forEach((job) => {
+      if (job.worker && job.worker._id) {
+        uniqueWorkers.set(job.worker._id, job.worker.name);
+      }
+    });
+
+    const options = [
+      { value: "", label: `All Workers (${uniqueWorkers.size})` },
+    ];
+    uniqueWorkers.forEach((name, id) => {
+      options.push({ value: id, label: name });
+    });
+
+    console.log(
+      "👷 Worker Options:",
+      options.length - 1,
+      "workers from",
+      data.length,
+      "jobs",
+    );
+    return options;
+  }, [data]);
 
   // ✅ HELPER: Format Date (Shows the actual date without timezone conversion)
   const formatUtcDate = (isoString) => {
@@ -676,6 +720,8 @@ const Residence = () => {
         onClose={() => setIsModalOpen(false)}
         job={selectedJob}
         onSuccess={() => fetchData(pagination.page, pagination.limit)}
+        workers={workers}
+        customers={customers}
       />
 
       {/* Scheduler Modal */}

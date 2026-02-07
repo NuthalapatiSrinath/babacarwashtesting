@@ -16,19 +16,24 @@ import toast from "react-hot-toast";
 
 // API
 import { jobService } from "../../api/jobService";
-import { customerService } from "../../api/customerService";
-import { workerService } from "../../api/workerService";
 
 // Components
 import CustomDropdown from "../ui/CustomDropdown";
 
-const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
+const JobModal = ({
+  isOpen,
+  onClose,
+  job,
+  onSuccess,
+  workers = [],
+  customers = [],
+}) => {
   const [loading, setLoading] = useState(false);
 
   // Dropdown Data
-  const [workers, setWorkers] = useState([]);
-  const [customers, setCustomers] = useState([]);
   const [availableVehicles, setAvailableVehicles] = useState([]);
+  const [mergedCustomers, setMergedCustomers] = useState([]);
+  const [mergedWorkers, setMergedWorkers] = useState([]);
 
   const [formData, setFormData] = useState({
     customer: "",
@@ -39,40 +44,62 @@ const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
     rejectionReason: "",
   });
 
-  // 1. Load Initial Data (Workers & Customers)
+  // 1. Load Initial Data
   useEffect(() => {
     if (isOpen) {
-      const loadData = async () => {
-        try {
-          const [wRes, cRes] = await Promise.all([
-            workerService.list(1, 1000),
-            customerService.list(1, 1000), // Fetching all customers for dropdown
-          ]);
-          setWorkers(wRes.data || []);
-          setCustomers(cRes.data || []);
-        } catch (e) {
-          console.error("Failed to load options", e);
-        }
-      };
-      loadData();
-
       // Pre-fill if editing
       if (job) {
         // If editing, we need to populate vehicles based on the existing customer
         const selectedCustomer = job.customer;
+        const selectedWorker = job.worker;
+
         // The backend 'list' usually populates customer, so we check if it's an object or ID
         const customerId = selectedCustomer?._id || selectedCustomer;
+        const workerId = selectedWorker?._id || selectedWorker;
+
+        // Ensure the job's customer is in the customers list
+        let updatedCustomers = [...customers];
+        if (
+          selectedCustomer &&
+          typeof selectedCustomer === "object" &&
+          selectedCustomer._id
+        ) {
+          const existsInList = customers.some(
+            (c) => c._id === selectedCustomer._id,
+          );
+          if (!existsInList) {
+            updatedCustomers = [selectedCustomer, ...customers];
+          }
+        }
+        setMergedCustomers(updatedCustomers);
+
+        // Ensure the job's worker is in the workers list
+        let updatedWorkers = [...workers];
+        if (
+          selectedWorker &&
+          typeof selectedWorker === "object" &&
+          selectedWorker._id
+        ) {
+          const existsInList = workers.some(
+            (w) => w._id === selectedWorker._id,
+          );
+          if (!existsInList) {
+            updatedWorkers = [selectedWorker, ...workers];
+          }
+        }
+        setMergedWorkers(updatedWorkers);
 
         // Find full customer object to get vehicles
-        // (Note: In a real app with pagination, you might need to fetch the specific customer details if not in list)
-        // For now, we rely on the list or the job object having the populated customer with vehicles.
-        const vehicles = selectedCustomer?.vehicles || [];
+        const customerObj =
+          updatedCustomers.find((c) => c._id === customerId) ||
+          selectedCustomer;
+        const vehicles = customerObj?.vehicles || [];
         setAvailableVehicles(vehicles);
 
         setFormData({
           customer: customerId || "",
           vehicle: job.vehicle?._id || job.vehicle || "", // Backend sends populated vehicle or ID
-          worker: job.worker?._id || job.worker || "",
+          worker: workerId || "",
           assignedDate: job.assignedDate
             ? new Date(job.assignedDate).toISOString().split("T")[0]
             : "",
@@ -80,7 +107,9 @@ const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
           rejectionReason: job.rejectionReason || "",
         });
       } else {
-        // Reset
+        // Reset - use props directly for new jobs
+        setMergedCustomers(customers);
+        setMergedWorkers(workers);
         setFormData({
           customer: "",
           vehicle: "",
@@ -92,12 +121,12 @@ const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
         setAvailableVehicles([]);
       }
     }
-  }, [isOpen, job]);
+  }, [isOpen, job, customers, workers]);
 
   // 2. Handle Customer Change -> Update Vehicles
   const handleCustomerChange = (e) => {
     const customerId = e.target.value;
-    const selectedCus = customers.find((c) => c._id === customerId);
+    const selectedCus = mergedCustomers.find((c) => c._id === customerId);
 
     setFormData((prev) => ({
       ...prev,
@@ -196,7 +225,9 @@ const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
                   label="Customer"
                   value={formData.customer}
                   onChange={(val) => {
-                    const selectedCus = customers.find((c) => c._id === val);
+                    const selectedCus = mergedCustomers.find(
+                      (c) => c._id === val,
+                    );
                     setFormData((prev) => ({
                       ...prev,
                       customer: val,
@@ -204,7 +235,7 @@ const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
                     }));
                     setAvailableVehicles(selectedCus?.vehicles || []);
                   }}
-                  options={customers.map((c) => ({
+                  options={mergedCustomers.map((c) => ({
                     value: c._id,
                     label: `${c.firstName} ${c.lastName} (${c.mobile})`,
                   }))}
@@ -239,7 +270,7 @@ const JobModal = ({ isOpen, onClose, job, onSuccess }) => {
                     onChange={(val) =>
                       setFormData({ ...formData, worker: val })
                     }
-                    options={workers.map((w) => ({
+                    options={mergedWorkers.map((w) => ({
                       value: w._id,
                       label: w.name,
                     }))}

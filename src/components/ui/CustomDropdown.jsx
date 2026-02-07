@@ -36,6 +36,17 @@ const CustomDropdown = ({
     opt.label.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
+  // Debug logging
+  useEffect(() => {
+    if (isOpen) {
+      console.log(`📋 Dropdown opened - ${label}:`, {
+        totalOptions: options.length,
+        filteredOptions: filteredOptions.length,
+        searchTerm,
+      });
+    }
+  }, [isOpen, options.length, filteredOptions.length, searchTerm, label]);
+
   // Close on click outside
   useEffect(() => {
     const handleClickOutside = (event) => {
