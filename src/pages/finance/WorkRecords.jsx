@@ -979,105 +979,105 @@ const WorkRecords = () => {
               {(currentPage === totalPages || totalPages === 0) && (
                 <tfoot>
                   {isCarFormat ? (
-                  /* Total Row for Worker Schedule */
-                  <tr className="bg-slate-200 font-bold">
-                    <td
-                      colSpan="5"
-                      className="border border-slate-300 p-2 text-center sticky left-0 bg-slate-200 z-10"
-                    >
-                      TOTAL
-                    </td>
-                    {Array.from({ length: daysInMonth }, (_, dayIndex) => {
-                      const total = viewData.reduce(
-                        (sum, car) =>
-                          sum +
-                          ((car.dailyMarks && car.dailyMarks[dayIndex]) || 0),
-                        0,
-                      );
-                      return (
-                        <td
-                          key={dayIndex}
-                          className="border border-slate-300 p-1 text-center font-bold text-blue-600"
-                        >
-                          {total > 0 ? total : ""}
-                        </td>
-                      );
-                    })}
-                    <td className="border border-slate-300 p-1 text-center font-bold text-blue-600">
-                      {viewData.reduce((sum, car) => {
-                        // Count total scheduled days for non-deactivated vehicles
-                        const monthStart = new Date(
-                          filters.year,
-                          filters.month - 1,
-                          1,
+                    /* Total Row for Worker Schedule */
+                    <tr className="bg-slate-200 font-bold">
+                      <td
+                        colSpan="5"
+                        className="border border-slate-300 p-2 text-center sticky left-0 bg-slate-200 z-10"
+                      >
+                        TOTAL
+                      </td>
+                      {Array.from({ length: daysInMonth }, (_, dayIndex) => {
+                        const total = viewData.reduce(
+                          (sum, car) =>
+                            sum +
+                            ((car.dailyMarks && car.dailyMarks[dayIndex]) || 0),
+                          0,
                         );
-                        const isDeactivated =
-                          car.endDate && new Date(car.endDate) < monthStart;
-                        if (isDeactivated) return sum;
+                        return (
+                          <td
+                            key={dayIndex}
+                            className="border border-slate-300 p-1 text-center font-bold text-blue-600"
+                          >
+                            {total > 0 ? total : ""}
+                          </td>
+                        );
+                      })}
+                      <td className="border border-slate-300 p-1 text-center font-bold text-blue-600">
+                        {viewData.reduce((sum, car) => {
+                          // Count total scheduled days for non-deactivated vehicles
+                          const monthStart = new Date(
+                            filters.year,
+                            filters.month - 1,
+                            1,
+                          );
+                          const isDeactivated =
+                            car.endDate && new Date(car.endDate) < monthStart;
+                          if (isDeactivated) return sum;
 
-                        const totalDays = car.dailyMarks
-                          ? car.dailyMarks.reduce(
-                              (s, mark) => s + (mark || 0),
-                              0,
-                            )
-                          : 0;
-                        return sum + totalDays;
-                      }, 0)}
-                    </td>
-                    <td className="border border-slate-300 p-1 text-center font-bold text-blue-600">
-                      {viewData.reduce((sum, car) => {
-                        const monthStart = new Date(
-                          filters.year,
-                          filters.month - 1,
-                          1,
+                          const totalDays = car.dailyMarks
+                            ? car.dailyMarks.reduce(
+                                (s, mark) => s + (mark || 0),
+                                0,
+                              )
+                            : 0;
+                          return sum + totalDays;
+                        }, 0)}
+                      </td>
+                      <td className="border border-slate-300 p-1 text-center font-bold text-blue-600">
+                        {viewData.reduce((sum, car) => {
+                          const monthStart = new Date(
+                            filters.year,
+                            filters.month - 1,
+                            1,
+                          );
+                          const isDeactivated =
+                            car.endDate && new Date(car.endDate) < monthStart;
+                          return sum + (isDeactivated ? 0 : car.tips || 0);
+                        }, 0)}
+                      </td>
+                    </tr>
+                  ) : (
+                    /* Total Row for All Workers */
+                    <tr className="bg-slate-200 font-bold">
+                      <td
+                        colSpan="2"
+                        className="border border-slate-300 p-2 text-center sticky left-0 bg-slate-200 z-10"
+                      >
+                        TOTAL
+                      </td>
+                      {Array.from({ length: daysInMonth }, (_, dayIndex) => {
+                        const total = viewData.reduce(
+                          (sum, w) =>
+                            sum +
+                            ((w.dailyCounts && w.dailyCounts[dayIndex]) || 0),
+                          0,
                         );
-                        const isDeactivated =
-                          car.endDate && new Date(car.endDate) < monthStart;
-                        return sum + (isDeactivated ? 0 : car.tips || 0);
-                      }, 0)}
-                    </td>
-                  </tr>
-                ) : (
-                  /* Total Row for All Workers */
-                  <tr className="bg-slate-200 font-bold">
-                    <td
-                      colSpan="2"
-                      className="border border-slate-300 p-2 text-center sticky left-0 bg-slate-200 z-10"
-                    >
-                      TOTAL
-                    </td>
-                    {Array.from({ length: daysInMonth }, (_, dayIndex) => {
-                      const total = viewData.reduce(
-                        (sum, w) =>
-                          sum +
-                          ((w.dailyCounts && w.dailyCounts[dayIndex]) || 0),
-                        0,
-                      );
-                      return (
-                        <td
-                          key={dayIndex}
-                          className="border border-slate-300 p-1 text-center"
-                        >
-                          {total}
-                        </td>
-                      );
-                    })}
-                    <td className="border border-slate-300 p-1 text-center text-blue-600">
-                      {viewData.reduce(
-                        (sum, w) =>
-                          sum +
-                          (w.dailyCounts || []).reduce((s, c) => s + c, 0),
-                        0,
-                      )}
-                    </td>
-                    <td className="border border-slate-300 p-1 text-center">
-                      {filters.serviceType === "onewash"
-                        ? viewData.reduce((sum, w) => sum + (w.tips || 0), 0)
-                        : 0}
-                    </td>
-                  </tr>
-                )}
-              </tfoot>
+                        return (
+                          <td
+                            key={dayIndex}
+                            className="border border-slate-300 p-1 text-center"
+                          >
+                            {total}
+                          </td>
+                        );
+                      })}
+                      <td className="border border-slate-300 p-1 text-center text-blue-600">
+                        {viewData.reduce(
+                          (sum, w) =>
+                            sum +
+                            (w.dailyCounts || []).reduce((s, c) => s + c, 0),
+                          0,
+                        )}
+                      </td>
+                      <td className="border border-slate-300 p-1 text-center">
+                        {filters.serviceType === "onewash"
+                          ? viewData.reduce((sum, w) => sum + (w.tips || 0), 0)
+                          : 0}
+                      </td>
+                    </tr>
+                  )}
+                </tfoot>
               )}
             </table>
           </div>
