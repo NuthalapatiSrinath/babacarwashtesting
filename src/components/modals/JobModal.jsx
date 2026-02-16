@@ -42,6 +42,7 @@ const JobModal = ({
     assignedDate: "",
     status: "pending",
     rejectionReason: "",
+    service_type: "", // Auto-detected from customer's building/location
   });
 
   // 1. Load Initial Data
@@ -96,6 +97,14 @@ const JobModal = ({
         const vehicles = customerObj?.vehicles || [];
         setAvailableVehicles(vehicles);
 
+        // Auto-detect service_type from customer's building/location
+        let serviceType = "";
+        if (customerObj?.building) {
+          serviceType = "Residence";
+        } else if (customerObj?.location) {
+          serviceType = "Mall";
+        }
+
         setFormData({
           customer: customerId || "",
           vehicle: job.vehicle?._id || job.vehicle || "", // Backend sends populated vehicle or ID
@@ -105,6 +114,7 @@ const JobModal = ({
             : "",
           status: job.status || "pending",
           rejectionReason: job.rejectionReason || "",
+          service_type: job.service_type || serviceType || "", // Use existing or auto-detect
         });
       } else {
         // Reset - use props directly for new jobs
@@ -117,21 +127,31 @@ const JobModal = ({
           assignedDate: "",
           status: "pending",
           rejectionReason: "",
+          service_type: "",
         });
         setAvailableVehicles([]);
       }
     }
   }, [isOpen, job, customers, workers]);
 
-  // 2. Handle Customer Change -> Update Vehicles
+  // 2. Handle Customer Change -> Update Vehicles & Service Type
   const handleCustomerChange = (e) => {
     const customerId = e.target.value;
     const selectedCus = mergedCustomers.find((c) => c._id === customerId);
+
+    // Auto-detect service_type from customer's building/location
+    let serviceType = "";
+    if (selectedCus?.building) {
+      serviceType = "Residence";
+    } else if (selectedCus?.location) {
+      serviceType = "Mall";
+    }
 
     setFormData((prev) => ({
       ...prev,
       customer: customerId,
       vehicle: "", // Reset vehicle when customer changes
+      service_type: serviceType,
     }));
 
     setAvailableVehicles(selectedCus?.vehicles || []);
@@ -228,10 +248,20 @@ const JobModal = ({
                     const selectedCus = mergedCustomers.find(
                       (c) => c._id === val,
                     );
+
+                    // Auto-detect service_type from customer's building/location
+                    let serviceType = "";
+                    if (selectedCus?.building) {
+                      serviceType = "Residence";
+                    } else if (selectedCus?.location) {
+                      serviceType = "Mall";
+                    }
+
                     setFormData((prev) => ({
                       ...prev,
                       customer: val,
                       vehicle: "",
+                      service_type: serviceType,
                     }));
                     setAvailableVehicles(selectedCus?.vehicles || []);
                   }}
@@ -244,6 +274,22 @@ const JobModal = ({
                   searchable={true}
                 />
               </div>
+
+              {/* Service Type - Auto-detected, readonly */}
+              {formData.service_type && (
+                <div>
+                  <label className={labelClass}>Service Type</label>
+                  <div className="relative">
+                    <Briefcase className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={formData.service_type}
+                      readOnly
+                      className={`${inputClass} pl-9 bg-slate-100 cursor-not-allowed`}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Vehicle Selection */}
               <div>

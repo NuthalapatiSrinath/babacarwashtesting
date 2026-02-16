@@ -93,7 +93,7 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess, editData }) => {
     if (data.buildings && Array.isArray(data.buildings)) {
       initialBuildings = data.buildings.map((b) =>
         // Handle if backend sends full object or just ID
-        typeof b === "object" ? b : { _id: b, name: "Loading..." }
+        typeof b === "object" ? b : { _id: b, name: "Loading..." },
       );
     }
 
@@ -132,7 +132,7 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess, editData }) => {
   const filteredBuildings = allBuildings.filter(
     (b) =>
       b.name.toLowerCase().includes(buildingSearch.toLowerCase()) &&
-      !selectedBuildings.find((selected) => selected._id === b._id)
+      !selectedBuildings.find((selected) => selected._id === b._id),
   );
 
   // Close dropdown when clicking outside
@@ -156,12 +156,13 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess, editData }) => {
 
     // Password validation for new supervisors
     if (!editData && !formData.password) {
-      toast.error("Password is required");
+      toast.error("Password is required for new supervisors");
       return;
     }
 
-    // Check password match
-    if (formData.password !== formData.confirmPassword) {
+    // Check password match (only if password is provided)
+    if (formData.password && formData.password !== formData.confirmPassword) {
+      toast.error("Passwords do not match");
       return;
     }
 
@@ -173,7 +174,10 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess, editData }) => {
         number: formData.number,
       };
 
-      if (formData.password) payload.password = formData.password;
+      // Only include password if it's provided (and not empty)
+      if (formData.password && formData.password.trim() !== "") {
+        payload.password = formData.password;
+      }
 
       // 2. Assignment Logic
       if (formData.serviceType === "mall") {
@@ -294,7 +298,12 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess, editData }) => {
               <div className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-600 block">
-                    Password
+                    Password{" "}
+                    {editData && (
+                      <span className="text-xs text-gray-400 font-normal">
+                        (Leave empty to keep current)
+                      </span>
+                    )}
                   </label>
                   <input
                     type="text"
@@ -303,7 +312,11 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess, editData }) => {
                       setFormData({ ...formData, password: e.target.value })
                     }
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
-                    placeholder="Enter password"
+                    placeholder={
+                      editData
+                        ? "Enter new password (optional)"
+                        : "Enter password"
+                    }
                   />
                 </div>
 
@@ -329,7 +342,11 @@ const SupervisorModal = ({ isOpen, onClose, onSuccess, editData }) => {
                         ? "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                         : "border-red-400 focus:ring-red-200 focus:border-red-500"
                     }`}
-                    placeholder="Confirm password"
+                    placeholder={
+                      editData
+                        ? "Confirm new password (optional)"
+                        : "Confirm password"
+                    }
                   />
                   {!passwordsMatch && (
                     <p className="text-xs text-red-500 mt-1">

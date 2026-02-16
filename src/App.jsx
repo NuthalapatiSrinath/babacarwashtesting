@@ -40,6 +40,57 @@ const PublicRoute = ({ children }) => {
   return children;
 };
 
+// --- Role-Based Index Route ---
+const RoleBasedIndex = () => {
+  const userString = localStorage.getItem("user");
+  const user = userString ? JSON.parse(userString) : {};
+  const userRole = user.role || "admin";
+
+  if (userRole === "supervisor") {
+    return <Navigate to="/supervisor/dashboard" replace />;
+  }
+
+  // Return admin dashboard for admins/managers
+  const dashboardRoute = routes.find((r) => r.path === "/");
+  return dashboardRoute?.component || <Navigate to="/login" replace />;
+};
+
+// --- Protected Route Content with Role Checks ---
+const ProtectedRouteContent = ({ route }) => {
+  const userString = localStorage.getItem("user");
+  const user = userString ? JSON.parse(userString) : {};
+  const userRole = user.role || "admin";
+
+  const isSupervisorRoute = route.path?.startsWith("/supervisor/");
+
+  // Routes that supervisors can access from admin panel
+  const supervisorAllowedAdminRoutes = [
+    "/work-records",
+    "/collection-sheet",
+    "/settlements",
+    "/privacy-policy",
+    "/terms-of-service",
+    "/notifications",
+  ];
+
+  // BLOCK: Admins/Managers accessing supervisor routes
+  if (isSupervisorRoute && userRole !== "supervisor") {
+    return <Navigate to="/" replace />;
+  }
+
+  // BLOCK: Supervisors accessing admin-only routes
+  if (
+    !isSupervisorRoute &&
+    userRole === "supervisor" &&
+    !supervisorAllowedAdminRoutes.includes(route.path)
+  ) {
+    return <Navigate to="/supervisor/dashboard" replace />;
+  }
+
+  // ALLOW: Route access granted
+  return route.component;
+};
+
 function App() {
   const [appReady, setAppReady] = useState(false);
 
@@ -96,24 +147,24 @@ function App() {
           <Route path="/" element={<MainLayout />}>
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
-            {/* Index Route (Default Dashboard) */}
+            {/* Index Route - Role-based redirect */}
             <Route
               index
               element={
                 <Suspense fallback={<LoadingScreen />}>
-                  {routes.find((r) => r.path === "/")?.component}
+                  <RoleBasedIndex />
                 </Suspense>
               }
             />
 
-            {/* Dynamic Routes mapped from routes.js */}
+            {/* Dynamic Routes with Protection */}
             {routes.map((route) => (
               <Route
                 key={route.path}
                 path={route.path}
                 element={
                   <Suspense fallback={<LoadingScreen />}>
-                    {route.component}
+                    <ProtectedRouteContent route={route} />
                   </Suspense>
                 }
               />

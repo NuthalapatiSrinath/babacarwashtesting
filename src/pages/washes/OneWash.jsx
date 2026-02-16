@@ -139,7 +139,7 @@ const OneWash = () => {
         page,
         limit,
         searchTerm,
-        apiFilters
+        apiFilters,
       );
 
       setData(res.data || []);
@@ -193,18 +193,30 @@ const OneWash = () => {
       }
 
       // 2. Prepare Detailed Data
-      const detailedData = exportData.map((item) => ({
-        ID: item.id,
-        Date: new Date(item.createdAt).toLocaleDateString(),
-        "Service Type": item.service_type,
-        "Mall/Building": item.mall?.name || item.building?.name || "-",
-        Vehicle: item.registration_no,
-        Parking: item.parking_no,
-        Amount: item.amount,
-        "Payment Mode": item.payment_mode,
-        Status: item.status,
-        Worker: item.worker?.name || "Unassigned",
-      }));
+      const detailedData = exportData.map((item) => {
+        let washType = "-";
+        if (item.wash_type === "outside") {
+          washType = "External Wash";
+        } else if (item.wash_type === "total") {
+          washType = "Internal + External";
+        } else if (item.wash_type === "inside") {
+          washType = "Internal Wash";
+        }
+
+        return {
+          ID: item.id,
+          Date: new Date(item.createdAt).toLocaleDateString(),
+          "Service Type": washType,
+          "Mall/Building": item.mall?.name || item.building?.name || "-",
+          Vehicle: item.registration_no,
+          Parking: item.parking_no,
+          Amount: item.amount,
+          "Tip Amount": item.tip_amount || 0,
+          "Payment Mode": item.payment_mode,
+          Status: item.status,
+          Worker: item.worker?.name || "Unassigned",
+        };
+      });
 
       // 3. Prepare Summary Data (Aggregated by Date & Location)
       const summaryMap = {}; // Key: "YYYY-MM-DD_LocationName"
@@ -233,7 +245,7 @@ const OneWash = () => {
       });
 
       const summaryArray = Object.values(summaryMap).sort(
-        (a, b) => new Date(a.date) - new Date(b.date)
+        (a, b) => new Date(a.date) - new Date(b.date),
       );
 
       const mallSummary = summaryArray.filter((i) => i.type === "Mall");
@@ -243,7 +255,7 @@ const OneWash = () => {
       if (mallSummary.length > 0) {
         summarySheetRows.push(["Day", "Mall", "Count"]);
         mallSummary.forEach((m) =>
-          summarySheetRows.push([m.date, m.location, m.count])
+          summarySheetRows.push([m.date, m.location, m.count]),
         );
         summarySheetRows.push([]);
         summarySheetRows.push([]);
@@ -252,7 +264,7 @@ const OneWash = () => {
       if (buildingSummary.length > 0) {
         summarySheetRows.push(["Day", "Building", "Count"]);
         buildingSummary.forEach((b) =>
-          summarySheetRows.push([b.date, b.location, b.count])
+          summarySheetRows.push([b.date, b.location, b.count]),
         );
       }
 
@@ -358,6 +370,34 @@ const OneWash = () => {
       ),
     },
     {
+      header: "Service Type",
+      accessor: "wash_type",
+      className: "text-center",
+      render: (row) => {
+        let displayText = "-";
+        let colorClass = "bg-slate-50 text-slate-600 border-slate-200";
+
+        if (row.wash_type === "outside") {
+          displayText = "External";
+          colorClass = "bg-blue-50 text-blue-700 border-blue-200";
+        } else if (row.wash_type === "total") {
+          displayText = "Internal + External";
+          colorClass = "bg-purple-50 text-purple-700 border-purple-200";
+        } else if (row.wash_type === "inside") {
+          displayText = "Internal";
+          colorClass = "bg-indigo-50 text-indigo-700 border-indigo-200";
+        }
+
+        return (
+          <span
+            className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${colorClass}`}
+          >
+            {displayText}
+          </span>
+        );
+      },
+    },
+    {
       header: "Amount",
       accessor: "amount",
       render: (row) => (
@@ -366,6 +406,16 @@ const OneWash = () => {
             {currency}
           </span>
           {row.amount}
+        </span>
+      ),
+    },
+    {
+      header: "Tip",
+      accessor: "tip_amount",
+      className: "text-right",
+      render: (row) => (
+        <span className="text-xs text-slate-600">
+          {row.tip_amount ? `${row.tip_amount}` : "-"}
         </span>
       ),
     },

@@ -378,6 +378,34 @@ const OneWashPayments = () => {
       ),
     },
     {
+      header: "Service Type",
+      accessor: "wash_type",
+      className: "text-center",
+      render: (row) => {
+        let displayText = "-";
+        let colorClass = "bg-slate-50 text-slate-600 border-slate-200";
+
+        if (row.wash_type === "outside") {
+          displayText = "External";
+          colorClass = "bg-blue-50 text-blue-700 border-blue-200";
+        } else if (row.wash_type === "total") {
+          displayText = "Internal + External";
+          colorClass = "bg-purple-50 text-purple-700 border-purple-200";
+        } else if (row.wash_type === "inside") {
+          displayText = "Internal";
+          colorClass = "bg-indigo-50 text-indigo-700 border-indigo-200";
+        }
+
+        return (
+          <span
+            className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${colorClass}`}
+          >
+            {displayText}
+          </span>
+        );
+      },
+    },
+    {
       header: "Amount",
       accessor: "amount",
       className: "text-right",

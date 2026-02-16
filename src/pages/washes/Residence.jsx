@@ -242,19 +242,31 @@ const Residence = () => {
       });
 
       // Detailed Sheet
-      const detailedData = exportData.map((item) => ({
-        ID: item.id,
-        Date: new Date(item.assignedDate).toLocaleDateString(),
-        "Customer Mobile": item.customer?.mobile || "-",
-        Building: item.building?.name || "-",
-        Vehicle: item.vehicle?.registration_no || "-",
-        Parking: item.vehicle?.parking_no || "-",
-        Status: item.status,
-        Worker: item.worker?.name || "Unassigned",
-        Completed: item.completedDate
-          ? new Date(item.completedDate).toLocaleDateString()
-          : "-",
-      }));
+      const detailedData = exportData.map((item) => {
+        let washType = "-";
+        if (item.vehicle?.wash_type === "outside") {
+          washType = "External Wash";
+        } else if (item.vehicle?.wash_type === "total") {
+          washType = "Internal + External";
+        } else if (item.vehicle?.wash_type === "inside") {
+          washType = "Internal Wash";
+        }
+
+        return {
+          ID: item.id,
+          Date: new Date(item.assignedDate).toLocaleDateString(),
+          "Customer Mobile": item.customer?.mobile || "-",
+          Building: item.building?.name || "-",
+          Vehicle: item.vehicle?.registration_no || "-",
+          Parking: item.vehicle?.parking_no || "-",
+          "Service Type": washType,
+          Status: item.status,
+          Worker: item.worker?.name || "Unassigned",
+          Completed: item.completedDate
+            ? new Date(item.completedDate).toLocaleDateString()
+            : "-",
+        };
+      });
 
       const workbook = XLSX.utils.book_new();
 
@@ -535,6 +547,34 @@ const Residence = () => {
           )}
         </div>
       ),
+    },
+    {
+      header: "Service Type",
+      accessor: "vehicle.wash_type",
+      className: "text-center",
+      render: (row) => {
+        let displayText = "-";
+        let colorClass = "bg-slate-50 text-slate-600 border-slate-200";
+
+        if (row.vehicle?.wash_type === "outside") {
+          displayText = "External";
+          colorClass = "bg-blue-50 text-blue-700 border-blue-200";
+        } else if (row.vehicle?.wash_type === "total") {
+          displayText = "Internal + External";
+          colorClass = "bg-purple-50 text-purple-700 border-purple-200";
+        } else if (row.vehicle?.wash_type === "inside") {
+          displayText = "Internal";
+          colorClass = "bg-indigo-50 text-indigo-700 border-indigo-200";
+        }
+
+        return (
+          <span
+            className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${colorClass}`}
+          >
+            {displayText}
+          </span>
+        );
+      },
     },
     {
       header: "Building",

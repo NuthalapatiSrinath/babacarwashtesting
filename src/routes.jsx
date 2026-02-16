@@ -16,6 +16,10 @@ import {
   ClipboardCheck,
   UserCheck,
   BarChart2,
+  Shield,
+  Award,
+  Activity,
+  Bell,
 } from "lucide-react";
 
 // Page Imports
@@ -55,6 +59,15 @@ import MonthlyRecords from "./pages/workers-management/MonthlyRecords";
 import YearlyRecords from "./pages/workers-management/YearlyRecords";
 import SalarySlip from "./pages/salary/SalarySlip";
 import PendingPayments from "./pages/pending-payments/PendingPayments";
+
+// Supervisor Pages
+import SupervisorDashboard from "./pages/supervisor/Dashboard";
+import SupervisorWashes from "./pages/supervisor/Washes";
+import SupervisorWorkers from "./pages/supervisor/Workers";
+import SupervisorReports from "./pages/supervisor/Reports";
+
+// Notifications
+import Notifications from "./pages/notifications/Notifications";
 
 export const routes = [
   // --- OVERVIEW ---
@@ -270,5 +283,39 @@ export const routes = [
     path: "/settings/salary",
     title: "Salary Configuration",
     component: <SalarySettings />,
+  },
+
+  // --- NOTIFICATIONS ---
+  {
+    path: "/notifications",
+    title: "All Notifications",
+    component: <Notifications />,
+    icon: Bell,
+  },
+
+  // --- SUPERVISOR SECTION ---
+  {
+    path: "/supervisor/dashboard",
+    title: "Supervisor Dashboard",
+    component: <SupervisorDashboard />,
+    icon: Shield,
+  },
+  {
+    path: "/supervisor/washes",
+    title: "Supervisor Washes",
+    component: <SupervisorWashes />,
+    icon: Droplets,
+  },
+  {
+    path: "/supervisor/workers",
+    title: "Supervisor Workers",
+    component: <SupervisorWorkers />,
+    icon: Users,
+  },
+  {
+    path: "/supervisor/reports",
+    title: "Supervisor Reports",
+    component: <SupervisorReports />,
+    icon: BarChart2,
   },
 ];

@@ -30,6 +30,11 @@ import {
 const Sidebar = ({ isOpen, isMobile, onClose }) => {
   const location = useLocation();
 
+  // Get user role from localStorage
+  const userString = localStorage.getItem("user");
+  const user = userString ? JSON.parse(userString) : {};
+  const userRole = user.role || "admin";
+
   const [openMenus, setOpenMenus] = useState({
     workers: false,
     washes: false,
@@ -130,272 +135,353 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
         {/* NAVIGATION */}
         <nav className="flex-1 px-2 py-6 overflow-y-auto no-scrollbar">
           <ul className="space-y-1">
-            {/* section label — only visible when expanded or mobile */}
-            <li
-              className={`
-              px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest
-              mb-2 mt-1
-              ${isMobile ? "block" : "hidden group-hover:block"}
-            `}
-            >
-              Overview
-            </li>
+            {/* ==================== SUPERVISOR MENU ==================== */}
+            {userRole === "supervisor" ? (
+              <>
+                {/* Supervisor Overview */}
+                <li
+                  className={`
+                  px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest
+                  mb-2 mt-1
+                  ${isMobile ? "block" : "hidden group-hover:block"}
+                `}
+                >
+                  Supervisor Panel
+                </li>
 
-            <NavItem
-              to="/"
-              icon={LayoutDashboard}
-              label="Dashboard"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-
-            {/* MANAGEMENT */}
-            <li
-              className={`
-              px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest
-              mb-2 mt-6
-              ${isMobile ? "block" : "hidden group-hover:block"}
-            `}
-            >
-              Management
-            </li>
-
-            <NavItem
-              to="/locations"
-              icon={MapPin}
-              label="Locations"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-            <NavItem
-              to="/buildings"
-              icon={Building2}
-              label="Buildings"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-            <NavItem
-              to="/malls"
-              icon={ShoppingBag}
-              label="Malls"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-            <NavItem
-              to="/sites"
-              icon={LocateFixed}
-              label="Sites"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-
-            {/* WORKERS */}
-            <li>
-              <MenuButton
-                label="Workers Management"
-                icon={Briefcase}
-                isOpen={openMenus.workers}
-                isActive={isActiveParent(["/workers"])}
-                onClick={() => toggleMenu("workers")}
-                isMobile={isMobile}
-              />
-
-              <SubMenu isOpen={openMenus.workers} isMobile={isMobile}>
-                <SubNavItem
-                  to="/workers/list"
-                  label="Workers"
+                <NavItem
+                  to="/supervisor/dashboard"
+                  icon={LayoutDashboard}
+                  label="Dashboard"
                   onClick={handleLinkClick}
+                  isMobile={isMobile}
                 />
-                {/* <SubNavItem
-                  to="/workers/staff"
-                  label="Staff"
+
+                <NavItem
+                  to="/supervisor/workers"
+                  icon={Users}
+                  label="My Team"
                   onClick={handleLinkClick}
-                /> */}
-                <SubNavItem
-                  to="/workers/attendance"
-                  label="Attendance"
-                  onClick={handleLinkClick}
+                  isMobile={isMobile}
                 />
-              </SubMenu>
-            </li>
 
-            <NavItem
-              to="/supervisors"
-              icon={UserCheck}
-              label="Supervisors"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-            <NavItem
-              to="/customers"
-              icon={Users}
-              label="Customers"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-
-            {/* WASHES */}
-            <li>
-              <MenuButton
-                label="Washes"
-                icon={Droplets}
-                isOpen={openMenus.washes}
-                isActive={isActiveParent(["/washes"])}
-                onClick={() => toggleMenu("washes")}
-                isMobile={isMobile}
-              />
-
-              <SubMenu isOpen={openMenus.washes} isMobile={isMobile}>
-                <SubNavItem
-                  to="/washes/onewash"
-                  label="One Wash"
+                <NavItem
+                  to="/supervisor/washes"
+                  icon={Droplets}
+                  label="Washes"
                   onClick={handleLinkClick}
+                  isMobile={isMobile}
                 />
-                <SubNavItem
-                  to="/washes/residence"
-                  label="Residence"
+
+                <NavItem
+                  to="/supervisor/reports"
+                  icon={BarChart2}
+                  label="Reports"
                   onClick={handleLinkClick}
+                  isMobile={isMobile}
                 />
-              </SubMenu>
-            </li>
 
-            {/* FINANCE */}
-            <li
-              className={`
-              px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest
-              mb-2 mt-6
-              ${isMobile ? "block" : "hidden group-hover:block"}
-            `}
-            >
-              Finance
-            </li>
+                {/* Work Records & Settlements */}
+                <li
+                  className={`
+                  px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest
+                  mb-2 mt-6
+                  ${isMobile ? "block" : "hidden group-hover:block"}
+                `}
+                >
+                  Finance
+                </li>
 
-            <li>
-              <MenuButton
-                label="Payments"
-                icon={DollarSign}
-                isOpen={openMenus.payments}
-                isActive={isActiveParent(["/payments"])}
-                onClick={() => toggleMenu("payments")}
-                isMobile={isMobile}
-              />
-
-              <SubMenu isOpen={openMenus.payments} isMobile={isMobile}>
-                <SubNavItem
-                  to="/payments/onewash"
-                  label="One Wash"
+                <NavItem
+                  to="/work-records"
+                  icon={FileText}
+                  label="Work Records"
                   onClick={handleLinkClick}
+                  isMobile={isMobile}
                 />
-                <SubNavItem
-                  to="/payments/residence"
-                  label="Residence"
+                <NavItem
+                  to="/collection-sheet"
+                  icon={Receipt}
+                  label="Collection Sheet"
                   onClick={handleLinkClick}
+                  isMobile={isMobile}
                 />
-              </SubMenu>
-            </li>
-            <NavItem
-              to="/workers/yearly" // ✅ Link to the new page
-              icon={BarChart2} // Import BarChart2 from lucide-react
-              label="Worker Yearly Records"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-            {/* ✅ NEW: PENDING PAYMENTS TAB */}
-            <NavItem
-              to="/pending-payments"
-              icon={Clock}
-              label="Due Lists"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-
-            <NavItem
-              to="/work-records"
-              icon={FileText}
-              label="Work Records"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-            <NavItem
-              to="/collection-sheet"
-              icon={Receipt}
-              label="Collection Sheet"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-            <NavItem
-              to="/settlements"
-              icon={Wallet}
-              label="Settlements"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-            <NavItem
-              to="/pricing"
-              icon={Tags}
-              label="Pricing"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-
-            {/* SUPPORT */}
-            <li
-              className={`
-              px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest
-              mb-2 mt-6
-              ${isMobile ? "block" : "hidden group-hover:block"}
-            `}
-            >
-              Support
-            </li>
-
-            <NavItem
-              to="/enquiry"
-              icon={HelpCircle}
-              label="Enquiry"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-            <NavItem
-              to="/bookings"
-              icon={ClipboardCheck}
-              label="Bookings"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-            <NavItem
-              to="/import-logs"
-              icon={FileText}
-              label="Import Logs"
-              onClick={handleLinkClick}
-              isMobile={isMobile}
-            />
-
-            {/* SETTINGS SUBMENU */}
-            <li>
-              <MenuButton
-                label="Settings"
-                icon={Settings}
-                isOpen={openMenus.settings}
-                isActive={isActiveParent(["/settings"])}
-                onClick={() => toggleMenu("settings")}
-                isMobile={isMobile}
-              />
-
-              <SubMenu isOpen={openMenus.settings} isMobile={isMobile}>
-                <SubNavItem
-                  to="/settings"
-                  label="General Settings"
+                <NavItem
+                  to="/settlements"
+                  icon={Wallet}
+                  label="Settlements"
                   onClick={handleLinkClick}
-                  end={true}
+                  isMobile={isMobile}
                 />
-                <SubNavItem
-                  to="/settings/salary"
-                  label="Salary Configuration"
+              </>
+            ) : (
+              <>
+                {/* ==================== ADMIN/MANAGER MENU ==================== */}
+                {/* section label — only visible when expanded or mobile */}
+                <li
+                  className={`
+                  px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest
+                  mb-2 mt-1
+                  ${isMobile ? "block" : "hidden group-hover:block"}
+                `}
+                >
+                  Overview
+                </li>
+
+                <NavItem
+                  to="/"
+                  icon={LayoutDashboard}
+                  label="Dashboard"
                   onClick={handleLinkClick}
+                  isMobile={isMobile}
                 />
-              </SubMenu>
-            </li>
+
+                {/* MANAGEMENT - Hide from supervisors */}
+                <li
+                  className={`
+                  px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest
+                  mb-2 mt-6
+                  ${isMobile ? "block" : "hidden group-hover:block"}
+                `}
+                >
+                  Management
+                </li>
+
+                <NavItem
+                  to="/locations"
+                  icon={MapPin}
+                  label="Locations"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+                <NavItem
+                  to="/buildings"
+                  icon={Building2}
+                  label="Buildings"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+                <NavItem
+                  to="/malls"
+                  icon={ShoppingBag}
+                  label="Malls"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+                <NavItem
+                  to="/sites"
+                  icon={LocateFixed}
+                  label="Sites"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+
+                {/* WORKERS */}
+                <li>
+                  <MenuButton
+                    label="Workers Management"
+                    icon={Briefcase}
+                    isOpen={openMenus.workers}
+                    isActive={isActiveParent(["/workers"])}
+                    onClick={() => toggleMenu("workers")}
+                    isMobile={isMobile}
+                  />
+
+                  <SubMenu isOpen={openMenus.workers} isMobile={isMobile}>
+                    <SubNavItem
+                      to="/workers/list"
+                      label="Workers"
+                      onClick={handleLinkClick}
+                    />
+                    <SubNavItem
+                      to="/workers/attendance"
+                      label="Attendance"
+                      onClick={handleLinkClick}
+                    />
+                  </SubMenu>
+                </li>
+
+                <NavItem
+                  to="/supervisors"
+                  icon={UserCheck}
+                  label="Supervisors"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+
+                <NavItem
+                  to="/customers"
+                  icon={Users}
+                  label="Customers"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+
+                {/* WASHES */}
+                <li>
+                  <MenuButton
+                    label="Washes"
+                    icon={Droplets}
+                    isOpen={openMenus.washes}
+                    isActive={isActiveParent(["/washes"])}
+                    onClick={() => toggleMenu("washes")}
+                    isMobile={isMobile}
+                  />
+
+                  <SubMenu isOpen={openMenus.washes} isMobile={isMobile}>
+                    <SubNavItem
+                      to="/washes/onewash"
+                      label="One Wash"
+                      onClick={handleLinkClick}
+                    />
+                    <SubNavItem
+                      to="/washes/residence"
+                      label="Residence"
+                      onClick={handleLinkClick}
+                    />
+                  </SubMenu>
+                </li>
+
+                {/* FINANCE */}
+                <li
+                  className={`
+                  px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest
+                  mb-2 mt-6
+                  ${isMobile ? "block" : "hidden group-hover:block"}
+                `}
+                >
+                  Finance
+                </li>
+
+                <li>
+                  <MenuButton
+                    label="Payments"
+                    icon={DollarSign}
+                    isOpen={openMenus.payments}
+                    isActive={isActiveParent(["/payments"])}
+                    onClick={() => toggleMenu("payments")}
+                    isMobile={isMobile}
+                  />
+
+                  <SubMenu isOpen={openMenus.payments} isMobile={isMobile}>
+                    <SubNavItem
+                      to="/payments/onewash"
+                      label="One Wash"
+                      onClick={handleLinkClick}
+                    />
+                    <SubNavItem
+                      to="/payments/residence"
+                      label="Residence"
+                      onClick={handleLinkClick}
+                    />
+                  </SubMenu>
+                </li>
+
+                <NavItem
+                  to="/workers/yearly"
+                  icon={BarChart2}
+                  label="Worker Yearly Records"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+
+                <NavItem
+                  to="/pending-payments"
+                  icon={Clock}
+                  label="Due Lists"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+
+                <NavItem
+                  to="/work-records"
+                  icon={FileText}
+                  label="Work Records"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+                <NavItem
+                  to="/collection-sheet"
+                  icon={Receipt}
+                  label="Collection Sheet"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+                <NavItem
+                  to="/settlements"
+                  icon={Wallet}
+                  label="Settlements"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+
+                <NavItem
+                  to="/pricing"
+                  icon={Tags}
+                  label="Pricing"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+
+                {/* SUPPORT */}
+                <li
+                  className={`
+                  px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest
+                  mb-2 mt-6
+                  ${isMobile ? "block" : "hidden group-hover:block"}
+                `}
+                >
+                  Support
+                </li>
+
+                <NavItem
+                  to="/enquiry"
+                  icon={HelpCircle}
+                  label="Enquiry"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+                <NavItem
+                  to="/bookings"
+                  icon={ClipboardCheck}
+                  label="Bookings"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+                <NavItem
+                  to="/import-logs"
+                  icon={FileText}
+                  label="Import Logs"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+
+                {/* SETTINGS SUBMENU */}
+                <li>
+                  <MenuButton
+                    label="Settings"
+                    icon={Settings}
+                    isOpen={openMenus.settings}
+                    isActive={isActiveParent(["/settings"])}
+                    onClick={() => toggleMenu("settings")}
+                    isMobile={isMobile}
+                  />
+
+                  <SubMenu isOpen={openMenus.settings} isMobile={isMobile}>
+                    <SubNavItem
+                      to="/settings"
+                      label="General Settings"
+                      onClick={handleLinkClick}
+                    />
+                    <SubNavItem
+                      to="/settings/salary"
+                      label="Salary Configuration"
+                      onClick={handleLinkClick}
+                    />
+                  </SubMenu>
+                </li>
+              </>
+            )}
           </ul>
         </nav>
 
@@ -521,11 +607,10 @@ const SubMenu = ({ isOpen, children, isMobile }) => (
   </AnimatePresence>
 );
 
-const SubNavItem = ({ to, label, onClick, end = false }) => (
+const SubNavItem = ({ to, label, onClick }) => (
   <li>
     <NavLink
       to={to}
-      end={end}
       onClick={onClick}
       className={({ isActive }) =>
         `block px-4 py-2.5 text-[13px] rounded-r-lg transition-all duration-200

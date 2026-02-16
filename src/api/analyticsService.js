@@ -76,4 +76,10 @@ export const analyticsService = {
     const response = await api.get("/analytics/comparative");
     return response.data;
   },
+
+  // ✅ Supervisor Analytics
+  getSupervisorStats: async (dateFilters = {}) => {
+    const response = await api.post("/analytics/supervisors", dateFilters);
+    return response.data;
+  },
 };

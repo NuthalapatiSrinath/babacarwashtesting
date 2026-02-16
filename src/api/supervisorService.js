@@ -59,10 +59,11 @@ export const supervisorService = {
   },
 
   // Get Team List (Specific to supervisors endpoint)
-  getTeam: async () => {
-    console.log("[SupervisorService] Fetching team list");
+  getTeam: async (params = {}) => {
+    console.log("[SupervisorService] Fetching team list", params);
     try {
-      const response = await api.get("/supervisors/team/list");
+      const response = await api.get("/supervisors/team/list", { params });
+      console.log("[SupervisorService] Team list success:", response.data);
       return response.data;
     } catch (error) {
       console.error("[SupervisorService] Get Team error:", error);

@@ -100,6 +100,19 @@ export const workerService = {
     }
   },
 
+  // Get Worker History
+  getHistory: async (workerId, params = {}) => {
+    console.log(`📜 [WorkerService] Fetching history for ${workerId}`, params);
+    try {
+      const response = await api.get(`/workers/${workerId}/history`, { params });
+      console.log("✅ [WorkerService] History success:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ [WorkerService] History error:", error);
+      throw error;
+    }
+  },
+
   // Deactivate
   deactivate: async (id, payload) => {
     console.log(`⏸️ [WorkerService] Deactivating worker ${id}:`, payload);

@@ -833,6 +833,34 @@ Are you sure you want to proceed?`;
       ),
     },
     {
+      header: "Service Type",
+      accessor: "vehicle.wash_type",
+      className: "text-center",
+      render: (row) => {
+        let displayText = "-";
+        let colorClass = "bg-slate-50 text-slate-600 border-slate-200";
+
+        if (row.vehicle?.wash_type === "outside") {
+          displayText = "External";
+          colorClass = "bg-blue-50 text-blue-700 border-blue-200";
+        } else if (row.vehicle?.wash_type === "total") {
+          displayText = "Internal + External";
+          colorClass = "bg-purple-50 text-purple-700 border-purple-200";
+        } else if (row.vehicle?.wash_type === "inside") {
+          displayText = "Internal";
+          colorClass = "bg-indigo-50 text-indigo-700 border-indigo-200";
+        }
+
+        return (
+          <span
+            className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${colorClass}`}
+          >
+            {displayText}
+          </span>
+        );
+      },
+    },
+    {
       header: "Building",
       accessor: "building.name",
       render: (row) => (

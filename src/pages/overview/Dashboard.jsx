@@ -91,7 +91,10 @@ const Dashboard = () => {
       const filters = dateRange.startDate && dateRange.endDate ? dateRange : {};
 
       // ✅ NEW: Single API call instead of 7 separate calls - SUPER FAST!
-      const response = await analyticsService.getDashboardAll({ ...filters, limit: 10 });
+      const response = await analyticsService.getDashboardAll({
+        ...filters,
+        limit: 10,
+      });
       const data = response.data;
 
       // Set all data from unified response
@@ -113,16 +116,24 @@ const Dashboard = () => {
       }
 
       if (data.serviceDistribution) {
-        console.log("📊 Service Distribution received:", data.serviceDistribution);
+        console.log(
+          "📊 Service Distribution received:",
+          data.serviceDistribution,
+        );
         setServiceDistribution(data.serviceDistribution);
       }
 
       if (data.buildingAnalytics) {
         console.log("✅ Building Analytics Data:", data.buildingAnalytics);
         // Normalize building data to ensure buildingName field exists
-        const normalizedBuildings = data.buildingAnalytics.map(building => ({
+        const normalizedBuildings = data.buildingAnalytics.map((building) => ({
           ...building,
-          buildingName: building.buildingName || building.building_name || building.name || building.buildingId || "Unknown Building"
+          buildingName:
+            building.buildingName ||
+            building.building_name ||
+            building.name ||
+            building.buildingId ||
+            "Unknown Building",
         }));
         setBuildingAnalytics(normalizedBuildings);
       }
@@ -134,10 +145,10 @@ const Dashboard = () => {
       // Calculate performance highlights from unified data
       if (data.adminStats) {
         const stats = data.adminStats;
-        
+
         console.log("📊 Admin Stats received:", stats);
         console.log("📊 Performance data:", stats.performance);
-        
+
         // Use new performance object from backend if available
         if (stats.performance) {
           setPerformanceHighlights({
@@ -145,8 +156,9 @@ const Dashboard = () => {
             completionRate: stats.performance.completionRate || 0,
             avgRevenuePerJob: stats.performance.avgRevenuePerJob,
             collectionRate: stats.performance.collectionRate || 0,
-            activeWorkersPercent: stats.performance.activeWorkersPercentage || 0,
-            totalCustomerVehicles: stats.performance.totalVehicles || 0
+            activeWorkersPercent:
+              stats.performance.activeWorkersPercentage || 0,
+            totalCustomerVehicles: stats.performance.totalVehicles || 0,
           });
           console.log("✅ Performance highlights set:", {
             avgJobsPerWorker: stats.performance.avgJobsPerWorker,
@@ -156,16 +168,25 @@ const Dashboard = () => {
           // Fallback to calculating from old structure
           const workers = data.topWorkers || [];
           setPerformanceHighlights({
-            avgJobsPerWorker: workers.length > 0 ? Math.round(stats.jobs.total / stats.workers.active) : 0,
-            completionRate: stats.jobs.total > 0 ? Math.round((stats.jobs.completed / stats.jobs.total) * 100) : 0,
+            avgJobsPerWorker:
+              workers.length > 0
+                ? Math.round(stats.jobs.total / stats.workers.active)
+                : 0,
+            completionRate:
+              stats.jobs.total > 0
+                ? Math.round((stats.jobs.completed / stats.jobs.total) * 100)
+                : 0,
             avgRevenuePerJob: stats.payments.averagePerJob || null,
             collectionRate: stats.payments.collectionRate || 0,
-            activeWorkersPercent: stats.workers.total > 0 ? Math.round((stats.workers.active / stats.workers.total) * 100) : 0,
-            totalCustomerVehicles: stats.customers.vehicles || 0
+            activeWorkersPercent:
+              stats.workers.total > 0
+                ? Math.round((stats.workers.active / stats.workers.total) * 100)
+                : 0,
+            totalCustomerVehicles: stats.customers.vehicles || 0,
           });
         }
       }
-      
+
       if (!showLoader) {
         toast.success("Dashboard refreshed successfully");
       }
@@ -183,7 +204,7 @@ const Dashboard = () => {
   }, []);
 
   const handleDateRangeChange = (field, value) => {
-    setDateRange(prev => ({ ...prev, [field]: value }));
+    setDateRange((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleApplyFilter = () => {
@@ -207,7 +228,7 @@ const Dashboard = () => {
   const handleQuickFilter = (period) => {
     const endDate = new Date();
     let startDate = new Date();
-    
+
     switch (period) {
       case "today":
         startDate.setHours(0, 0, 0, 0);
@@ -233,13 +254,13 @@ const Dashboard = () => {
         setSelectedPeriod("all");
         return;
     }
-    
+
     console.log(`📅 ${period} filter:`, {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
-      daysDiff: Math.round((endDate - startDate) / (24 * 60 * 60 * 1000))
+      daysDiff: Math.round((endDate - startDate) / (24 * 60 * 60 * 1000)),
     });
-    
+
     setDateRange({
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
@@ -250,9 +271,9 @@ const Dashboard = () => {
 
   // Format currency
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-AE", {
+    return new Intl.NumberFormat("en-IN", {
       style: "currency",
-      currency: "AED",
+      currency: "INR",
       maximumFractionDigits: 0,
     }).format(amount || 0);
   };
@@ -274,7 +295,16 @@ const Dashboard = () => {
     teal: "#14b8a6",
   };
 
-  const CHART_COLORS = ["#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#06b6d4", "#14b8a6", "#f43f5e"];
+  const CHART_COLORS = [
+    "#6366f1",
+    "#8b5cf6",
+    "#ec4899",
+    "#f59e0b",
+    "#10b981",
+    "#06b6d4",
+    "#14b8a6",
+    "#f43f5e",
+  ];
 
   // Service type icons
   const SERVICE_ICONS = {
@@ -285,7 +315,16 @@ const Dashboard = () => {
   };
 
   // Animated Stat Card Component
-  const StatCard = ({ title, value, subtitle, icon: Icon, trend, trendValue, color, delay = 0 }) => (
+  const StatCard = ({
+    title,
+    value,
+    subtitle,
+    icon: Icon,
+    trend,
+    trendValue,
+    color,
+    delay = 0,
+  }) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -294,11 +333,15 @@ const Dashboard = () => {
       className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-slate-200 overflow-hidden"
     >
       {/* Gradient Background */}
-      <div className={`absolute inset-0 bg-gradient-to-br ${color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
-      
+      <div
+        className={`absolute inset-0 bg-gradient-to-br ${color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}
+      ></div>
+
       <div className="relative p-6">
         <div className="flex items-center justify-between mb-4">
-          <div className={`p-3 rounded-xl bg-gradient-to-br ${color} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+          <div
+            className={`p-3 rounded-xl bg-gradient-to-br ${color} shadow-lg group-hover:scale-110 transition-transform duration-300`}
+          >
             <Icon className="w-6 h-6 text-white" />
           </div>
           {trend && (
@@ -307,24 +350,34 @@ const Dashboard = () => {
               animate={{ scale: 1 }}
               transition={{ delay: delay + 0.3, type: "spring" }}
               className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold shadow-md ${
-                trend === "up" 
-                  ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white" 
+                trend === "up"
+                  ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white"
                   : "bg-gradient-to-r from-red-500 to-rose-500 text-white"
               }`}
             >
-              {trend === "up" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+              {trend === "up" ? (
+                <ArrowUp className="w-3 h-3" />
+              ) : (
+                <ArrowDown className="w-3 h-3" />
+              )}
               {trendValue}%
             </motion.div>
           )}
         </div>
         <div>
-          <h3 className="text-slate-600 text-sm font-semibold mb-2 uppercase tracking-wide">{title}</h3>
+          <h3 className="text-slate-600 text-sm font-semibold mb-2 uppercase tracking-wide">
+            {title}
+          </h3>
           {loading ? (
             <div className="h-9 bg-slate-200 rounded-lg animate-pulse"></div>
           ) : (
             <>
-              <p className="text-3xl font-bold text-slate-900 mb-1 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text">{value}</p>
-              {subtitle && <p className="text-xs text-slate-500 font-medium">{subtitle}</p>}
+              <p className="text-3xl font-bold text-slate-900 mb-1 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text">
+                {value}
+              </p>
+              {subtitle && (
+                <p className="text-xs text-slate-500 font-medium">{subtitle}</p>
+              )}
             </>
           )}
         </div>
@@ -332,14 +385,24 @@ const Dashboard = () => {
     </motion.div>
   );
 
-  // Top Worker Row Component  
+  // Top Worker Row Component
   const TopWorkerRow = ({ worker, index }) => {
     const medals = ["🥇", "🥈", "🥉"];
-    
+
     // Extract worker name with fallbacks
-    const workerName = worker.name || worker.workerName || worker.worker?.name || worker.workerId || "Unknown Worker";
-    const workerPhone = worker.phone || worker.mobile || worker.phoneNumber || worker.worker?.phone || "N/A";
-    
+    const workerName =
+      worker.name ||
+      worker.workerName ||
+      worker.worker?.name ||
+      worker.workerId ||
+      "Unknown Worker";
+    const workerPhone =
+      worker.phone ||
+      worker.mobile ||
+      worker.phoneNumber ||
+      worker.worker?.phone ||
+      "N/A";
+
     return (
       <motion.div
         initial={{ opacity: 0, x: -20 }}
@@ -348,12 +411,17 @@ const Dashboard = () => {
         className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-white rounded-xl hover:from-indigo-50 hover:to-purple-50 transition-all duration-300 border border-slate-100 hover:border-indigo-200 group"
       >
         <div className="flex items-center gap-4 flex-1">
-          <div className={`flex items-center justify-center w-12 h-12 rounded-xl font-bold text-lg shadow-md transition-transform group-hover:scale-110 ${
-            index === 0 ? "bg-gradient-to-br from-yellow-400 to-yellow-500 text-white" :
-            index === 1 ? "bg-gradient-to-br from-slate-300 to-slate-400 text-white" :
-            index === 2 ? "bg-gradient-to-br from-orange-400 to-orange-500 text-white" :
-            "bg-gradient-to-br from-indigo-400 to-indigo-500 text-white"
-          }`}>
+          <div
+            className={`flex items-center justify-center w-12 h-12 rounded-xl font-bold text-lg shadow-md transition-transform group-hover:scale-110 ${
+              index === 0
+                ? "bg-gradient-to-br from-yellow-400 to-yellow-500 text-white"
+                : index === 1
+                  ? "bg-gradient-to-br from-slate-300 to-slate-400 text-white"
+                  : index === 2
+                    ? "bg-gradient-to-br from-orange-400 to-orange-500 text-white"
+                    : "bg-gradient-to-br from-indigo-400 to-indigo-500 text-white"
+            }`}
+          >
             {index < 3 ? medals[index] : index + 1}
           </div>
           <div className="flex-1">
@@ -366,11 +434,15 @@ const Dashboard = () => {
         <div className="flex items-center gap-6">
           <div className="text-right">
             <p className="text-sm text-slate-500 font-medium">Jobs</p>
-            <p className="text-xl font-bold text-slate-900">{formatNumber(worker.totalJobs)}</p>
+            <p className="text-xl font-bold text-slate-900">
+              {formatNumber(worker.totalJobs)}
+            </p>
           </div>
           <div className="text-right">
             <p className="text-sm text-slate-500 font-medium">Revenue</p>
-            <p className="text-xl font-bold text-emerald-600">{formatCurrency(worker.totalRevenue)}</p>
+            <p className="text-xl font-bold text-emerald-600">
+              {formatCurrency(worker.totalRevenue)}
+            </p>
           </div>
         </div>
       </motion.div>
@@ -419,24 +491,30 @@ const Dashboard = () => {
               <Sparkles className="w-10 h-10 text-indigo-600" />
               Dashboard
             </h1>
-            <p className="text-slate-600 font-medium text-lg">Complete analytics and insights for your business</p>
+            <p className="text-slate-600 font-medium text-lg">
+              Complete analytics and insights for your business
+            </p>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowAdvancedCharts(!showAdvancedCharts)}
               className={`px-4 py-2.5 rounded-xl font-semibold text-sm shadow-md transition-all flex items-center gap-2 ${
-                showAdvancedCharts 
-                  ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700" 
+                showAdvancedCharts
+                  ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700"
                   : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
               }`}
             >
-              {showAdvancedCharts ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              {showAdvancedCharts ? (
+                <Eye className="w-4 h-4" />
+              ) : (
+                <EyeOff className="w-4 h-4" />
+              )}
               {showAdvancedCharts ? "Hide" : "Show"} Charts
             </motion.button>
-            
+
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -444,7 +522,9 @@ const Dashboard = () => {
               disabled={refreshing}
               className="px-4 py-2.5 rounded-xl font-semibold text-sm bg-white text-slate-700 hover:bg-slate-50 shadow-md transition-all flex items-center gap-2 border border-slate-200 disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+              />
               Refresh
             </motion.button>
           </div>
@@ -459,9 +539,11 @@ const Dashboard = () => {
         >
           <div className="flex items-center gap-2 mb-4">
             <Filter className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-lg font-bold text-slate-900">Filters & Date Range</h2>
+            <h2 className="text-lg font-bold text-slate-900">
+              Filters & Date Range
+            </h2>
           </div>
-          
+
           {/* Quick Filters */}
           <div className="flex flex-wrap gap-2 mb-4">
             {[
@@ -527,7 +609,9 @@ const Dashboard = () => {
           >
             <div className="flex items-center gap-2 mb-4">
               <Activity className="w-6 h-6 text-indigo-600" />
-              <h2 className="text-2xl font-bold text-slate-900">Performance Comparison</h2>
+              <h2 className="text-2xl font-bold text-slate-900">
+                Performance Comparison
+              </h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Today vs Yesterday */}
@@ -545,24 +629,50 @@ const Dashboard = () => {
                     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
                       <p className="text-sm opacity-90 mb-1">Jobs</p>
                       <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold">{comparativeData.daily.today.jobs}</p>
-                        <span className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
-                          comparativeData.daily.change.jobs >= 0 ? "bg-green-500/30" : "bg-red-500/30"
-                        }`}>
-                          {comparativeData.daily.change.jobs >= 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                          {Math.abs(comparativeData.daily.change.jobsPercentage)}%
+                        <p className="text-2xl font-bold">
+                          {comparativeData.daily.today.jobs}
+                        </p>
+                        <span
+                          className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
+                            comparativeData.daily.change.jobs >= 0
+                              ? "bg-green-500/30"
+                              : "bg-red-500/30"
+                          }`}
+                        >
+                          {comparativeData.daily.change.jobs >= 0 ? (
+                            <ArrowUp className="w-4 h-4" />
+                          ) : (
+                            <ArrowDown className="w-4 h-4" />
+                          )}
+                          {Math.abs(
+                            comparativeData.daily.change.jobsPercentage,
+                          )}
+                          %
                         </span>
                       </div>
                     </div>
                     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
                       <p className="text-sm opacity-90 mb-1">Revenue</p>
                       <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold">{formatCurrency(comparativeData.daily.today.revenue)}</p>
-                        <span className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
-                          comparativeData.daily.change.revenue >= 0 ? "bg-green-500/30" : "bg-red-500/30"
-                        }`}>
-                          {comparativeData.daily.change.revenue >= 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                          {Math.abs(comparativeData.daily.change.revenuePercentage)}%
+                        <p className="text-2xl font-bold">
+                          {formatCurrency(comparativeData.daily.today.revenue)}
+                        </p>
+                        <span
+                          className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
+                            comparativeData.daily.change.revenue >= 0
+                              ? "bg-green-500/30"
+                              : "bg-red-500/30"
+                          }`}
+                        >
+                          {comparativeData.daily.change.revenue >= 0 ? (
+                            <ArrowUp className="w-4 h-4" />
+                          ) : (
+                            <ArrowDown className="w-4 h-4" />
+                          )}
+                          {Math.abs(
+                            comparativeData.daily.change.revenuePercentage,
+                          )}
+                          %
                         </span>
                       </div>
                     </div>
@@ -585,24 +695,52 @@ const Dashboard = () => {
                     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
                       <p className="text-sm opacity-90 mb-1">Jobs</p>
                       <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold">{comparativeData.weekly.thisWeek.jobs}</p>
-                        <span className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
-                          comparativeData.weekly.change.jobs >= 0 ? "bg-green-500/30" : "bg-red-500/30"
-                        }`}>
-                          {comparativeData.weekly.change.jobs >= 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                          {Math.abs(comparativeData.weekly.change.jobsPercentage)}%
+                        <p className="text-2xl font-bold">
+                          {comparativeData.weekly.thisWeek.jobs}
+                        </p>
+                        <span
+                          className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
+                            comparativeData.weekly.change.jobs >= 0
+                              ? "bg-green-500/30"
+                              : "bg-red-500/30"
+                          }`}
+                        >
+                          {comparativeData.weekly.change.jobs >= 0 ? (
+                            <ArrowUp className="w-4 h-4" />
+                          ) : (
+                            <ArrowDown className="w-4 h-4" />
+                          )}
+                          {Math.abs(
+                            comparativeData.weekly.change.jobsPercentage,
+                          )}
+                          %
                         </span>
                       </div>
                     </div>
                     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
                       <p className="text-sm opacity-90 mb-1">Revenue</p>
                       <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold">{formatCurrency(comparativeData.weekly.thisWeek.revenue)}</p>
-                        <span className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
-                          comparativeData.weekly.change.revenue >= 0 ? "bg-green-500/30" : "bg-red-500/30"
-                        }`}>
-                          {comparativeData.weekly.change.revenue >= 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                          {Math.abs(comparativeData.weekly.change.revenuePercentage)}%
+                        <p className="text-2xl font-bold">
+                          {formatCurrency(
+                            comparativeData.weekly.thisWeek.revenue,
+                          )}
+                        </p>
+                        <span
+                          className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
+                            comparativeData.weekly.change.revenue >= 0
+                              ? "bg-green-500/30"
+                              : "bg-red-500/30"
+                          }`}
+                        >
+                          {comparativeData.weekly.change.revenue >= 0 ? (
+                            <ArrowUp className="w-4 h-4" />
+                          ) : (
+                            <ArrowDown className="w-4 h-4" />
+                          )}
+                          {Math.abs(
+                            comparativeData.weekly.change.revenuePercentage,
+                          )}
+                          %
                         </span>
                       </div>
                     </div>
@@ -625,24 +763,52 @@ const Dashboard = () => {
                     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
                       <p className="text-sm opacity-90 mb-1">Jobs</p>
                       <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold">{comparativeData.monthly.thisMonth.jobs}</p>
-                        <span className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
-                          comparativeData.monthly.change.jobs >= 0 ? "bg-green-500/30" : "bg-red-500/30"
-                        }`}>
-                          {comparativeData.monthly.change.jobs >= 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                          {Math.abs(comparativeData.monthly.change.jobsPercentage)}%
+                        <p className="text-2xl font-bold">
+                          {comparativeData.monthly.thisMonth.jobs}
+                        </p>
+                        <span
+                          className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
+                            comparativeData.monthly.change.jobs >= 0
+                              ? "bg-green-500/30"
+                              : "bg-red-500/30"
+                          }`}
+                        >
+                          {comparativeData.monthly.change.jobs >= 0 ? (
+                            <ArrowUp className="w-4 h-4" />
+                          ) : (
+                            <ArrowDown className="w-4 h-4" />
+                          )}
+                          {Math.abs(
+                            comparativeData.monthly.change.jobsPercentage,
+                          )}
+                          %
                         </span>
                       </div>
                     </div>
                     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
                       <p className="text-sm opacity-90 mb-1">Revenue</p>
                       <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold">{formatCurrency(comparativeData.monthly.thisMonth.revenue)}</p>
-                        <span className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
-                          comparativeData.monthly.change.revenue >= 0 ? "bg-green-500/30" : "bg-red-500/30"
-                        }`}>
-                          {comparativeData.monthly.change.revenue >= 0 ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-                          {Math.abs(comparativeData.monthly.change.revenuePercentage)}%
+                        <p className="text-2xl font-bold">
+                          {formatCurrency(
+                            comparativeData.monthly.thisMonth.revenue,
+                          )}
+                        </p>
+                        <span
+                          className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
+                            comparativeData.monthly.change.revenue >= 0
+                              ? "bg-green-500/30"
+                              : "bg-red-500/30"
+                          }`}
+                        >
+                          {comparativeData.monthly.change.revenue >= 0 ? (
+                            <ArrowUp className="w-4 h-4" />
+                          ) : (
+                            <ArrowDown className="w-4 h-4" />
+                          )}
+                          {Math.abs(
+                            comparativeData.monthly.change.revenuePercentage,
+                          )}
+                          %
                         </span>
                       </div>
                     </div>
@@ -664,7 +830,9 @@ const Dashboard = () => {
             >
               <div className="flex items-center gap-2 mb-4">
                 <DollarSign className="w-6 h-6 text-green-600" />
-                <h2 className="text-2xl font-bold text-slate-900">Financial Overview</h2>
+                <h2 className="text-2xl font-bold text-slate-900">
+                  Financial Overview
+                </h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
@@ -712,7 +880,9 @@ const Dashboard = () => {
             >
               <div className="flex items-center gap-2 mb-4">
                 <Briefcase className="w-6 h-6 text-indigo-600" />
-                <h2 className="text-2xl font-bold text-slate-900">Jobs & Services</h2>
+                <h2 className="text-2xl font-bold text-slate-900">
+                  Jobs & Services
+                </h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
@@ -760,7 +930,9 @@ const Dashboard = () => {
             >
               <div className="flex items-center gap-2 mb-4">
                 <Users className="w-6 h-6 text-purple-600" />
-                <h2 className="text-2xl font-bold text-slate-900">Customers & Resources</h2>
+                <h2 className="text-2xl font-bold text-slate-900">
+                  Customers & Resources
+                </h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
@@ -829,9 +1001,23 @@ const Dashboard = () => {
                   <ResponsiveContainer width="100%" height={320}>
                     <AreaChart data={revenueTrends}>
                       <defs>
-                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={COLORS.primary} stopOpacity={0.8} />
-                          <stop offset="95%" stopColor={COLORS.primary} stopOpacity={0.1} />
+                        <linearGradient
+                          id="colorRevenue"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor={COLORS.primary}
+                            stopOpacity={0.8}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor={COLORS.primary}
+                            stopOpacity={0.1}
+                          />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -879,13 +1065,18 @@ const Dashboard = () => {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={(entry) => `${entry.serviceType}: ${entry.count}`}
+                        label={(entry) =>
+                          `${entry.serviceType}: ${entry.count}`
+                        }
                         outerRadius={100}
                         fill="#8884d8"
                         dataKey="count"
                       >
                         {serviceDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={CHART_COLORS[index % CHART_COLORS.length]}
+                          />
                         ))}
                       </Pie>
                       <Tooltip
@@ -915,7 +1106,7 @@ const Dashboard = () => {
                       Monthly Jobs Overview
                     </h3>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Residence Jobs */}
                     <div>
@@ -925,15 +1116,26 @@ const Dashboard = () => {
                       </h4>
                       <ResponsiveContainer width="100%" height={300}>
                         <ComposedChart
-                          data={charts.residence.jobs.labels.map((label, index) => ({
-                            month: label,
-                            completed: charts.residence.jobs.completed[index],
-                            pending: charts.residence.jobs.pending[index],
-                            total: charts.residence.jobs.completed[index] + charts.residence.jobs.pending[index],
-                          }))}
+                          data={charts.residence.jobs.labels.map(
+                            (label, index) => ({
+                              month: label,
+                              completed: charts.residence.jobs.completed[index],
+                              pending: charts.residence.jobs.pending[index],
+                              total:
+                                charts.residence.jobs.completed[index] +
+                                charts.residence.jobs.pending[index],
+                            }),
+                          )}
                         >
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                          <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} />
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="#f0f0f0"
+                          />
+                          <XAxis
+                            dataKey="month"
+                            stroke="#94a3b8"
+                            fontSize={11}
+                          />
                           <YAxis stroke="#94a3b8" fontSize={11} />
                           <Tooltip
                             contentStyle={{
@@ -944,9 +1146,22 @@ const Dashboard = () => {
                             }}
                           />
                           <Legend />
-                          <Bar dataKey="completed" fill={COLORS.success} radius={[8, 8, 0, 0]} />
-                          <Bar dataKey="pending" fill={COLORS.warning} radius={[8, 8, 0, 0]} />
-                          <Line type="monotone" dataKey="total" stroke={COLORS.primary} strokeWidth={2} />
+                          <Bar
+                            dataKey="completed"
+                            fill={COLORS.success}
+                            radius={[8, 8, 0, 0]}
+                          />
+                          <Bar
+                            dataKey="pending"
+                            fill={COLORS.warning}
+                            radius={[8, 8, 0, 0]}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="total"
+                            stroke={COLORS.primary}
+                            strokeWidth={2}
+                          />
                         </ComposedChart>
                       </ResponsiveContainer>
                     </div>
@@ -960,15 +1175,26 @@ const Dashboard = () => {
                         </h4>
                         <ResponsiveContainer width="100%" height={300}>
                           <ComposedChart
-                            data={charts.onewash.jobs.labels.map((label, index) => ({
-                              month: label,
-                              completed: charts.onewash.jobs.completed[index],
-                              pending: charts.onewash.jobs.pending[index],
-                              total: charts.onewash.jobs.completed[index] + charts.onewash.jobs.pending[index],
-                            }))}
+                            data={charts.onewash.jobs.labels.map(
+                              (label, index) => ({
+                                month: label,
+                                completed: charts.onewash.jobs.completed[index],
+                                pending: charts.onewash.jobs.pending[index],
+                                total:
+                                  charts.onewash.jobs.completed[index] +
+                                  charts.onewash.jobs.pending[index],
+                              }),
+                            )}
                           >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                            <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} />
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="#f0f0f0"
+                            />
+                            <XAxis
+                              dataKey="month"
+                              stroke="#94a3b8"
+                              fontSize={11}
+                            />
                             <YAxis stroke="#94a3b8" fontSize={11} />
                             <Tooltip
                               contentStyle={{
@@ -979,9 +1205,22 @@ const Dashboard = () => {
                               }}
                             />
                             <Legend />
-                            <Bar dataKey="completed" fill="#10b981" radius={[8, 8, 0, 0]} />
-                            <Bar dataKey="pending" fill="#f59e0b" radius={[8, 8, 0, 0]} />
-                            <Line type="monotone" dataKey="total" stroke="#8b5cf6" strokeWidth={2} />
+                            <Bar
+                              dataKey="completed"
+                              fill="#10b981"
+                              radius={[8, 8, 0, 0]}
+                            />
+                            <Bar
+                              dataKey="pending"
+                              fill="#f59e0b"
+                              radius={[8, 8, 0, 0]}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="total"
+                              stroke="#8b5cf6"
+                              strokeWidth={2}
+                            />
                           </ComposedChart>
                         </ResponsiveContainer>
                       </div>
@@ -1025,8 +1264,18 @@ const Dashboard = () => {
                         }}
                       />
                       <Legend />
-                      <Bar dataKey="totalJobs" fill={COLORS.primary} radius={[8, 8, 0, 0]} name="Total Jobs" />
-                      <Bar dataKey="completedJobs" fill={COLORS.success} radius={[8, 8, 0, 0]} name="Completed" />
+                      <Bar
+                        dataKey="totalJobs"
+                        fill={COLORS.primary}
+                        radius={[8, 8, 0, 0]}
+                        name="Total Jobs"
+                      />
+                      <Bar
+                        dataKey="completedJobs"
+                        fill={COLORS.success}
+                        radius={[8, 8, 0, 0]}
+                        name="Completed"
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </motion.div>
@@ -1055,7 +1304,11 @@ const Dashboard = () => {
             </div>
             <div className="space-y-3">
               {topWorkers.map((worker, index) => (
-                <TopWorkerRow key={worker.workerId} worker={worker} index={index} />
+                <TopWorkerRow
+                  key={worker.workerId}
+                  worker={worker}
+                  index={index}
+                />
               ))}
             </div>
           </motion.div>
@@ -1073,7 +1326,7 @@ const Dashboard = () => {
               <Sparkles className="w-7 h-7" />
               <h3 className="text-2xl font-bold">Performance Highlights</h3>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* Completion Rate */}
               <motion.div
@@ -1086,10 +1339,14 @@ const Dashboard = () => {
                   </div>
                   <div>
                     <p className="text-sm opacity-90">Completion Rate</p>
-                    <p className="text-3xl font-bold">{performanceHighlights.completionRate}%</p>
+                    <p className="text-3xl font-bold">
+                      {performanceHighlights.completionRate}%
+                    </p>
                   </div>
                 </div>
-                <p className="text-sm opacity-75">Jobs successfully completed</p>
+                <p className="text-sm opacity-75">
+                  Jobs successfully completed
+                </p>
               </motion.div>
 
               {/* Jobs per Worker */}
@@ -1104,13 +1361,15 @@ const Dashboard = () => {
                   <div>
                     <p className="text-sm opacity-90">Jobs per Worker</p>
                     <p className="text-3xl font-bold">
-                      {performanceHighlights.avgJobsPerWorker 
-                        ? Math.round(performanceHighlights.avgJobsPerWorker) 
+                      {performanceHighlights.avgJobsPerWorker
+                        ? Math.round(performanceHighlights.avgJobsPerWorker)
                         : 0}
                     </p>
                   </div>
                 </div>
-                <p className="text-sm opacity-75">Average workload distribution</p>
+                <p className="text-sm opacity-75">
+                  Average workload distribution
+                </p>
               </motion.div>
 
               {/* Active Workers */}
@@ -1124,7 +1383,9 @@ const Dashboard = () => {
                   </div>
                   <div>
                     <p className="text-sm opacity-90">Active Workers</p>
-                    <p className="text-3xl font-bold">{performanceHighlights.activeWorkersPercent}%</p>
+                    <p className="text-3xl font-bold">
+                      {performanceHighlights.activeWorkersPercent}%
+                    </p>
                   </div>
                 </div>
                 <p className="text-sm opacity-75">Currently active workforce</p>
@@ -1141,10 +1402,16 @@ const Dashboard = () => {
                   </div>
                   <div>
                     <p className="text-sm opacity-90">Total Vehicles</p>
-                    <p className="text-3xl font-bold">{formatNumber(performanceHighlights.totalCustomerVehicles)}</p>
+                    <p className="text-3xl font-bold">
+                      {formatNumber(
+                        performanceHighlights.totalCustomerVehicles,
+                      )}
+                    </p>
                   </div>
                 </div>
-                <p className="text-sm opacity-75">Registered customer vehicles</p>
+                <p className="text-sm opacity-75">
+                  Registered customer vehicles
+                </p>
               </motion.div>
             </div>
           </motion.div>
