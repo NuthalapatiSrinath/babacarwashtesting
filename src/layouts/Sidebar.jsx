@@ -387,6 +387,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                   to="/settings"
                   label="General Settings"
                   onClick={handleLinkClick}
+                  end={true}
                 />
                 <SubNavItem
                   to="/settings/salary"
@@ -520,10 +521,11 @@ const SubMenu = ({ isOpen, children, isMobile }) => (
   </AnimatePresence>
 );
 
-const SubNavItem = ({ to, label, onClick }) => (
+const SubNavItem = ({ to, label, onClick, end = false }) => (
   <li>
     <NavLink
       to={to}
+      end={end}
       onClick={onClick}
       className={({ isActive }) =>
         `block px-4 py-2.5 text-[13px] rounded-r-lg transition-all duration-200
