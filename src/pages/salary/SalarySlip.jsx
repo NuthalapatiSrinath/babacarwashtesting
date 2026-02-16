@@ -42,6 +42,40 @@ const SalarySlip = () => {
     try {
       const res = await salaryService.getSlip(workerId, year, month);
       setData(res);
+      
+      // ==================== FRONTEND DEBUGGING ====================
+      console.log("\n");
+      console.log("═══════════════════════════════════════════════════════════");
+      console.log("📄 SALARY SLIP DATA RECEIVED IN FRONTEND");
+      console.log("═══════════════════════════════════════════════════════════");
+      console.log("👤 Employee Name:", res.employeeName);
+      console.log("🆔 Employee Code:", res.employeeCode);
+      console.log("🏷️ Role:", res.role);
+      console.log("📅 Period:", `${Number(month) + 1}/${year}`);
+      console.log("\n--- EARNINGS ---");
+      console.log("💰 Basic Salary:", res.basicSalary);
+      console.log("🎁 Incentive:", res.extraPaymentIncentive);
+      console.log("💵 Allowance:", res.allowanceAmount);
+      console.log("⏰ Overtime:", res.overtimeAmount);
+      console.log("➕ Total Earnings:", res.totalEarnings);
+      console.log("\n--- DEDUCTIONS ---");
+      console.log("📱 SIM Bill Amount:", res.simBillAmount);
+      console.log("📱 SIM Deduction:", res.simDeduction);
+      console.log("💸 Advance:", res.advanceDeduction);
+      console.log("💸 Other Deduction:", res.otherDeduction);
+      console.log("📊 Last Month Balance:", res.lastMonthBalance);
+      console.log("➖ Total Deductions:", res.totalDeductions);
+      console.log("\n--- ATTENDANCE ---");
+      console.log("✅ Present Days:", res.presentDays);
+      console.log("❌ Absent Days:", res.absentDays);
+      console.log("🏥 Sick Leave Days:", res.sickLeaveDays);
+      console.log("⏱️ OT Hours:", res.otHours);
+      console.log("\n--- CALCULATION METHOD ---");
+      console.log("📊 Method Used:", res.calculationBreakdown?.method);
+      console.log("📋 Breakdown:", JSON.stringify(res.calculationBreakdown, null, 2));
+      console.log("\n💰 FINAL NET SALARY:", res.closingBalance);
+      console.log("═══════════════════════════════════════════════════════════\n");
+      
       setInputs({
         simBillAmount: res.simBillAmount || 0,
         lastMonthBalance: res.lastMonthBalance || 0,
