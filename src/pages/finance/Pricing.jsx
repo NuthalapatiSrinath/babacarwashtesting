@@ -157,6 +157,7 @@ const Pricing = () => {
       render: (row) => {
         const sedan = row.sedan || {};
         const suv = row["4x4"] || {};
+        const isMall = row.service_type === "mall";
 
         return (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -169,11 +170,42 @@ const Pricing = () => {
                 </span>
               </div>
               <div className="p-3 grid grid-cols-2 gap-x-4 gap-y-1">
-                <PriceItem label="Onetime" value={sedan.onetime} />
-                <PriceItem label="Once/Wk" value={sedan.once} />
-                <PriceItem label="Twice/Wk" value={sedan.twice} />
-                <PriceItem label="Thrice/Wk" value={sedan.thrice} />
-                <PriceItem label="Daily" value={sedan.daily} />
+                {isMall ? (
+                  // Mall: Show wash types OR onetime based on what's configured
+                  sedan.wash_types &&
+                  (sedan.wash_types.inside || sedan.wash_types.outside) ? (
+                    <>
+                      <PriceItem
+                        label="Inside"
+                        value={sedan.wash_types.inside}
+                      />
+                      <PriceItem
+                        label="Outside"
+                        value={sedan.wash_types.outside}
+                      />
+                      <PriceItem label="Total" value={sedan.wash_types.total} />
+                    </>
+                  ) : sedan.onetime ? (
+                    <PriceItem label="Onetime" value={sedan.onetime} />
+                  ) : (
+                    <div className="col-span-2 text-xs text-slate-400 text-center py-2">
+                      No pricing configured
+                    </div>
+                  )
+                ) : (
+                  // Residence/Mobile: Show regular pricing
+                  <>
+                    <PriceItem label="Onetime" value={sedan.onetime} />
+                    {row.service_type === "residence" && (
+                      <>
+                        <PriceItem label="Once/Wk" value={sedan.once} />
+                        <PriceItem label="Twice/Wk" value={sedan.twice} />
+                        <PriceItem label="Thrice/Wk" value={sedan.thrice} />
+                        <PriceItem label="Daily" value={sedan.daily} />
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             </div>
 
@@ -186,11 +218,39 @@ const Pricing = () => {
                 </span>
               </div>
               <div className="p-3 grid grid-cols-2 gap-x-4 gap-y-1">
-                <PriceItem label="Onetime" value={suv.onetime} />
-                <PriceItem label="Once/Wk" value={suv.once} />
-                <PriceItem label="Twice/Wk" value={suv.twice} />
-                <PriceItem label="Thrice/Wk" value={suv.thrice} />
-                <PriceItem label="Daily" value={suv.daily} />
+                {isMall ? (
+                  // Mall: Show wash types OR onetime based on what's configured
+                  suv.wash_types &&
+                  (suv.wash_types.inside || suv.wash_types.outside) ? (
+                    <>
+                      <PriceItem label="Inside" value={suv.wash_types.inside} />
+                      <PriceItem
+                        label="Outside"
+                        value={suv.wash_types.outside}
+                      />
+                      <PriceItem label="Total" value={suv.wash_types.total} />
+                    </>
+                  ) : suv.onetime ? (
+                    <PriceItem label="Onetime" value={suv.onetime} />
+                  ) : (
+                    <div className="col-span-2 text-xs text-slate-400 text-center py-2">
+                      No pricing configured
+                    </div>
+                  )
+                ) : (
+                  // Residence/Mobile: Show regular pricing
+                  <>
+                    <PriceItem label="Onetime" value={suv.onetime} />
+                    {row.service_type === "residence" && (
+                      <>
+                        <PriceItem label="Once/Wk" value={suv.once} />
+                        <PriceItem label="Twice/Wk" value={suv.twice} />
+                        <PriceItem label="Thrice/Wk" value={suv.thrice} />
+                        <PriceItem label="Daily" value={suv.daily} />
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>

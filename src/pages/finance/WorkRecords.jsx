@@ -48,7 +48,7 @@ const WorkRecords = () => {
   const currentYear = today.getFullYear();
   const maxValidYear = currentMonth === 1 ? currentYear - 1 : currentYear;
   const initialYear = maxValidYear;
-  const initialMonth = maxValidYear < currentYear ? 12 : currentMonth - 1;
+  const initialMonth = maxValidYear < currentYear ? 12 : currentMonth;
 
   const [filters, setFilters] = useState({
     serviceType: "residence",
@@ -59,7 +59,6 @@ const WorkRecords = () => {
 
   const serviceTypeOptions = [
     { value: "residence", label: "Residence", icon: Layers },
-    { value: "onewash", label: "Onewash", icon: Filter },
   ];
 
   const yearOptions = useMemo(() => {
@@ -151,13 +150,13 @@ const WorkRecords = () => {
   }, [filters.serviceType, filters.year, filters.month, availableMonths]);
 
   const workersOptions = useMemo(() => {
-    // Use availableWorkers (workers with data) if available, otherwise fallback to all workers
-    if (availableWorkers && availableWorkers.length > 0) {
-      return availableWorkers;
-    }
+    // Always show all residence workers, not just those with data
     if (!workersList || workersList.length === 0) return [];
-    return workersList.map((w) => ({ value: w._id, label: w.name }));
-  }, [workersList, availableWorkers]);
+    // Filter to show only residence workers
+    return workersList
+      .filter((w) => w.service_type === "residence")
+      .map((w) => ({ value: w._id, label: w.name }));
+  }, [workersList]);
 
   const pageSizeOptions = [
     { value: "a4-landscape", label: "A4 Landscape" },
