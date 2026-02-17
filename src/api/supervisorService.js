@@ -4,7 +4,7 @@ export const supervisorService = {
   // List
   list: async (page = 1, limit = 10, search = "") => {
     console.log(
-      `[SupervisorService] Fetching list: page=${page}, limit=${limit}, search="${search}"`
+      `[SupervisorService] Fetching list: page=${page}, limit=${limit}, search="${search}"`,
     );
     try {
       const response = await api.get("/supervisors", {

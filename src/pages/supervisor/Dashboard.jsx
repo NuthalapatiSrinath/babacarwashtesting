@@ -77,7 +77,7 @@ const SupervisorDashboard = () => {
       const body = {
         startDate: new Date(dateRange.startDate).toISOString(),
         endDate: new Date(
-          new Date(dateRange.endDate).setHours(23, 59, 59)
+          new Date(dateRange.endDate).setHours(23, 59, 59),
         ).toISOString(),
       };
 
@@ -85,21 +85,23 @@ const SupervisorDashboard = () => {
       const response = await analyticsService.getSupervisorStats(body);
       console.log("✅ [Dashboard] Analytics received:", response.data);
 
-      setAnalytics(response.data || {
-        counts: {
-          totalJobs: 0,
-          totalAmount: 0,
-          totalCash: 0,
-          totalCard: 0,
-          totalBank: 0,
-          todaysJobs: 0,
-          todaysAmount: 0,
-          todaysCash: 0,
-          todaysCard: 0,
-          todaysBank: 0,
+      setAnalytics(
+        response.data || {
+          counts: {
+            totalJobs: 0,
+            totalAmount: 0,
+            totalCash: 0,
+            totalCard: 0,
+            totalBank: 0,
+            todaysJobs: 0,
+            todaysAmount: 0,
+            todaysCash: 0,
+            todaysCard: 0,
+            todaysBank: 0,
+          },
+          charts: {},
         },
-        charts: {},
-      });
+      );
     } catch (error) {
       console.error("❌ Failed to fetch analytics:", error);
       toast.error("Failed to load analytics data");
@@ -148,16 +150,26 @@ const SupervisorDashboard = () => {
     const csvContent = [
       ["Metric", "Total", "Today"],
       ["Jobs", analytics.counts.totalJobs, analytics.counts.todaysJobs],
-      ["Amount (₹)", analytics.counts.totalAmount, analytics.counts.todaysAmount],
+      [
+        "Amount (₹)",
+        analytics.counts.totalAmount,
+        analytics.counts.todaysAmount,
+      ],
       ["Cash (₹)", analytics.counts.totalCash, analytics.counts.todaysCash],
       ["Card (₹)", analytics.counts.totalCard, analytics.counts.todaysCard],
-      ["Bank Transfer (₹)", analytics.counts.totalBank, analytics.counts.todaysBank],
+      [
+        "Bank Transfer (₹)",
+        analytics.counts.totalBank,
+        analytics.counts.todaysBank,
+      ],
       ["", "", ""],
       ["Team Statistics", "", ""],
       ["Total Workers", teamData.total, ""],
       ["Active Workers", teamData.active, ""],
       ["Inactive Workers", teamData.inactive, ""],
-    ].map((row) => row.join(",")).join("\n");
+    ]
+      .map((row) => row.join(","))
+      .join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -203,7 +215,9 @@ const SupervisorDashboard = () => {
                   refreshing ? "opacity-50 cursor-not-allowed" : ""
                 }`}
               >
-                <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+                />
                 Refresh
               </button>
               <button
@@ -251,7 +265,7 @@ const SupervisorDashboard = () => {
                 color="blue"
                 trend={getPercentageChange(
                   analytics.counts.totalJobs,
-                  analytics.counts.todaysJobs
+                  analytics.counts.todaysJobs,
                 )}
               />
               <StatCard
@@ -262,7 +276,7 @@ const SupervisorDashboard = () => {
                 color="green"
                 trend={getPercentageChange(
                   analytics.counts.totalAmount,
-                  analytics.counts.todaysAmount
+                  analytics.counts.todaysAmount,
                 )}
               />
               <StatCard
@@ -273,7 +287,7 @@ const SupervisorDashboard = () => {
                 color="emerald"
                 trend={getPercentageChange(
                   analytics.counts.totalCash,
-                  analytics.counts.todaysCash
+                  analytics.counts.todaysCash,
                 )}
               />
               <StatCard
@@ -284,7 +298,7 @@ const SupervisorDashboard = () => {
                 color="purple"
                 trend={getPercentageChange(
                   analytics.counts.totalCard,
-                  analytics.counts.todaysCard
+                  analytics.counts.todaysCard,
                 )}
               />
               <StatCard
@@ -295,7 +309,7 @@ const SupervisorDashboard = () => {
                 color="indigo"
                 trend={getPercentageChange(
                   analytics.counts.totalBank,
-                  analytics.counts.todaysBank
+                  analytics.counts.todaysBank,
                 )}
               />
             </div>
@@ -405,8 +419,14 @@ const SupervisorDashboard = () => {
                   />
                   <ComparisonMetric
                     label="Digital Payments"
-                    today={analytics.counts.todaysCard + analytics.counts.todaysBank}
-                    average={Math.round((analytics.counts.totalCard + analytics.counts.totalBank) / 7)}
+                    today={
+                      analytics.counts.todaysCard + analytics.counts.todaysBank
+                    }
+                    average={Math.round(
+                      (analytics.counts.totalCard +
+                        analytics.counts.totalBank) /
+                        7,
+                    )}
                     icon={CreditCard}
                     isCurrency
                   />
@@ -456,7 +476,11 @@ const SupervisorDashboard = () => {
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {teamData.workers.slice(0, 6).map((worker, index) => (
-                      <WorkerCard key={worker._id} worker={worker} rank={index + 1} />
+                      <WorkerCard
+                        key={worker._id}
+                        worker={worker}
+                        rank={index + 1}
+                      />
                     ))}
                   </div>
                 </div>
@@ -490,7 +514,13 @@ const SupervisorDashboard = () => {
                 />
                 <InsightCard
                   title="Jobs/Worker"
-                  value={teamData.active > 0 ? Math.round(analytics.counts.todaysJobs / teamData.active) : 0}
+                  value={
+                    teamData.active > 0
+                      ? Math.round(
+                          analytics.counts.todaysJobs / teamData.active,
+                        )
+                      : 0
+                  }
                   icon={Users}
                   color="purple"
                 />
@@ -552,11 +582,31 @@ const SupervisorDashboard = () => {
 /* Stat Card Component */
 const StatCard = ({ title, value, subtitle, icon: Icon, color, trend }) => {
   const colorClasses = {
-    blue: { bg: "bg-blue-50 dark:bg-blue-900/20", text: "text-blue-600", border: "border-blue-200" },
-    green: { bg: "bg-green-50 dark:bg-green-900/20", text: "text-green-600", border: "border-green-200" },
-    purple: { bg: "bg-purple-50 dark:bg-purple-900/20", text: "text-purple-600", border: "border-purple-200" },
-    emerald: { bg: "bg-emerald-50 dark:bg-emerald-900/20", text: "text-emerald-600", border: "border-emerald-200" },
-    indigo: { bg: "bg-indigo-50 dark:bg-indigo-900/20", text: "text-indigo-600", border: "border-indigo-200" },
+    blue: {
+      bg: "bg-blue-50 dark:bg-blue-900/20",
+      text: "text-blue-600",
+      border: "border-blue-200",
+    },
+    green: {
+      bg: "bg-green-50 dark:bg-green-900/20",
+      text: "text-green-600",
+      border: "border-green-200",
+    },
+    purple: {
+      bg: "bg-purple-50 dark:bg-purple-900/20",
+      text: "text-purple-600",
+      border: "border-purple-200",
+    },
+    emerald: {
+      bg: "bg-emerald-50 dark:bg-emerald-900/20",
+      text: "text-emerald-600",
+      border: "border-emerald-200",
+    },
+    indigo: {
+      bg: "bg-indigo-50 dark:bg-indigo-900/20",
+      text: "text-indigo-600",
+      border: "border-indigo-200",
+    },
   };
 
   const styles = colorClasses[color] || colorClasses.blue;
@@ -578,7 +628,11 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color, trend }) => {
                 : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
             }`}
           >
-            {trend > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+            {trend > 0 ? (
+              <ArrowUp className="w-3 h-3" />
+            ) : (
+              <ArrowDown className="w-3 h-3" />
+            )}
             {Math.abs(Math.round(trend))}%
           </span>
         )}
@@ -586,7 +640,9 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color, trend }) => {
       <h3 className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">
         {title}
       </h3>
-      <p className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{value}</p>
+      <p className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
+        {value}
+      </p>
       {subtitle && (
         <p className="text-xs text-slate-500 dark:text-slate-500">{subtitle}</p>
       )}
@@ -635,7 +691,13 @@ const PaymentBar = ({ label, amount, total, color, icon: Icon }) => {
 };
 
 /* Comparison Metric Component */
-const ComparisonMetric = ({ label, today, average, icon: Icon, isCurrency }) => {
+const ComparisonMetric = ({
+  label,
+  today,
+  average,
+  icon: Icon,
+  isCurrency,
+}) => {
   const difference = today - average;
   const percentageChange = average > 0 ? (difference / average) * 100 : 0;
 
@@ -651,11 +713,13 @@ const ComparisonMetric = ({ label, today, average, icon: Icon, isCurrency }) => 
           </p>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-xs text-slate-500 dark:text-slate-500">
-              Today: {isCurrency ? "₹" : ""}{today.toLocaleString()}
+              Today: {isCurrency ? "₹" : ""}
+              {today.toLocaleString()}
             </span>
             <span className="text-xs text-slate-400">|</span>
             <span className="text-xs text-slate-500 dark:text-slate-500">
-              Avg: {isCurrency ? "₹" : ""}{average.toLocaleString()}
+              Avg: {isCurrency ? "₹" : ""}
+              {average.toLocaleString()}
             </span>
           </div>
         </div>
@@ -668,7 +732,11 @@ const ComparisonMetric = ({ label, today, average, icon: Icon, isCurrency }) => 
               : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
           }`}
         >
-          {difference > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+          {difference > 0 ? (
+            <TrendingUp className="w-3 h-3" />
+          ) : (
+            <TrendingDown className="w-3 h-3" />
+          )}
           {Math.abs(Math.round(percentageChange))}%
         </span>
       )}
@@ -679,9 +747,18 @@ const ComparisonMetric = ({ label, today, average, icon: Icon, isCurrency }) => 
 /* Team Stat Card Component */
 const TeamStatCard = ({ label, value, icon: Icon, color }) => {
   const colorClasses = {
-    blue: { bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-600 dark:text-blue-400" },
-    green: { bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-600 dark:text-green-400" },
-    red: { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-600 dark:text-red-400" },
+    blue: {
+      bg: "bg-blue-100 dark:bg-blue-900/30",
+      text: "text-blue-600 dark:text-blue-400",
+    },
+    green: {
+      bg: "bg-green-100 dark:bg-green-900/30",
+      text: "text-green-600 dark:text-green-400",
+    },
+    red: {
+      bg: "bg-red-100 dark:bg-red-900/30",
+      text: "text-red-600 dark:text-red-400",
+    },
   };
 
   const styles = colorClasses[color] || colorClasses.blue;
@@ -723,11 +800,13 @@ const WorkerCard = ({ worker, rank }) => {
             {worker.mobile}
           </p>
           <div className="flex items-center gap-2 mt-2">
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-              worker.service_type === "residence"
-                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-            }`}>
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                worker.service_type === "residence"
+                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+              }`}
+            >
               {worker.service_type}
             </span>
             {worker.buildings?.length > 0 && (
@@ -756,7 +835,9 @@ const InsightCard = ({ title, value, icon: Icon, color }) => {
     <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
       <Icon className={`w-6 h-6 ${colorClasses[color]} mb-2`} />
       <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">{title}</p>
-      <p className="text-xl font-bold text-slate-900 dark:text-white">{value}</p>
+      <p className="text-xl font-bold text-slate-900 dark:text-white">
+        {value}
+      </p>
     </div>
   );
 };

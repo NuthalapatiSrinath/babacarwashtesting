@@ -42,6 +42,7 @@ const OneWashModal = ({ isOpen, onClose, job, onSuccess }) => {
     amount: "",
     payment_mode: "cash",
     status: "pending",
+    wash_type: "inside", // Added wash_type field
   });
 
   // Load Currency
@@ -81,6 +82,7 @@ const OneWashModal = ({ isOpen, onClose, job, onSuccess }) => {
           amount: job.amount || "",
           payment_mode: job.payment_mode || "cash",
           status: job.status || "pending",
+          wash_type: job.wash_type || "inside", // Preserve wash_type
         });
       } else {
         // Reset
@@ -94,6 +96,7 @@ const OneWashModal = ({ isOpen, onClose, job, onSuccess }) => {
           amount: "",
           payment_mode: "cash",
           status: "pending",
+          wash_type: "inside", // Default wash_type
         });
       }
     }
@@ -181,19 +184,25 @@ const OneWashModal = ({ isOpen, onClose, job, onSuccess }) => {
     { value: "completed", label: "Completed", icon: CheckCircle },
   ];
 
+  const washTypeOptions = [
+    { value: "inside", label: "Internal" },
+    { value: "outside", label: "External" },
+    { value: "total", label: "Internal + External" },
+  ];
+
   const mallOptions = useMemo(
     () => malls.map((m) => ({ value: m._id, label: m.name })),
-    [malls]
+    [malls],
   );
 
   const buildingOptions = useMemo(
     () => buildings.map((b) => ({ value: b._id, label: b.name })),
-    [buildings]
+    [buildings],
   );
 
   const workerOptions = useMemo(
     () => workers.map((w) => ({ value: w._id, label: w.name })),
-    [workers]
+    [workers],
   );
 
   // Styles
@@ -369,6 +378,18 @@ const OneWashModal = ({ isOpen, onClose, job, onSuccess }) => {
                       placeholder="Pending"
                     />
                   </div>
+                  {formData.service_type === "mall" && (
+                    <div className="md:col-span-2">
+                      <CustomDropdown
+                        label="Wash Type (For Malls Only)"
+                        value={formData.wash_type}
+                        onChange={(val) => handleFieldChange("wash_type", val)}
+                        options={washTypeOptions}
+                        icon={Car}
+                        placeholder="Select Wash Type"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </form>

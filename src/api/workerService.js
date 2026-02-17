@@ -104,7 +104,9 @@ export const workerService = {
   getHistory: async (workerId, params = {}) => {
     console.log(`📜 [WorkerService] Fetching history for ${workerId}`, params);
     try {
-      const response = await api.get(`/workers/${workerId}/history`, { params });
+      const response = await api.get(`/workers/${workerId}/history`, {
+        params,
+      });
       console.log("✅ [WorkerService] History success:", response.data);
       return response.data;
     } catch (error) {

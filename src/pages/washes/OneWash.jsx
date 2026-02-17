@@ -195,7 +195,11 @@ const OneWash = () => {
       // 2. Prepare Detailed Data
       const detailedData = exportData.map((item) => {
         let washType = "-";
-        if (item.wash_type === "outside") {
+
+        // Check if it's residential
+        if (item.service_type === "residence") {
+          washType = "Residence";
+        } else if (item.wash_type === "outside") {
           washType = "External Wash";
         } else if (item.wash_type === "total") {
           washType = "Internal + External";
@@ -211,7 +215,8 @@ const OneWash = () => {
           Vehicle: item.registration_no,
           Parking: item.parking_no,
           Amount: item.amount,
-          "Tip Amount": item.tip_amount || 0,
+          "Tip Amount":
+            item.service_type === "residence" ? "-" : item.tip_amount || 0,
           "Payment Mode": item.payment_mode,
           Status: item.status,
           Worker: item.worker?.name || "Unassigned",
@@ -377,7 +382,11 @@ const OneWash = () => {
         let displayText = "-";
         let colorClass = "bg-slate-50 text-slate-600 border-slate-200";
 
-        if (row.wash_type === "outside") {
+        // Check if it's a residential job
+        if (row.service_type === "residence") {
+          displayText = "Residence";
+          colorClass = "bg-green-50 text-green-700 border-green-200";
+        } else if (row.wash_type === "outside") {
           displayText = "External";
           colorClass = "bg-blue-50 text-blue-700 border-blue-200";
         } else if (row.wash_type === "total") {
@@ -413,11 +422,17 @@ const OneWash = () => {
       header: "Tip",
       accessor: "tip_amount",
       className: "text-right",
-      render: (row) => (
-        <span className="text-xs text-slate-600">
-          {row.tip_amount ? `${row.tip_amount}` : "-"}
-        </span>
-      ),
+      render: (row) => {
+        // For residential jobs, don't show tip amount
+        if (row.service_type === "residence") {
+          return <span className="text-xs text-slate-400">-</span>;
+        }
+        return (
+          <span className="text-xs text-slate-600">
+            {row.tip_amount ? `${row.tip_amount}` : "-"}
+          </span>
+        );
+      },
     },
     {
       header: "Payment Mode",
