@@ -319,6 +319,12 @@ const OneWashPayments = () => {
     { value: "cancelled", label: "Cancelled" },
   ];
 
+  const serviceTypeOptions = [
+    { value: "", label: "All Services" },
+    { value: "mall", label: "Mall" },
+    { value: "residence", label: "Residence" },
+  ];
+
   const workerOptions = useMemo(() => {
     const options = [{ value: "", label: "All Workers" }];
     if (workers && workers.length > 0) {
@@ -645,7 +651,7 @@ const OneWashPayments = () => {
       {/* --- FILTERS & ACTIONS --- */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
-          <div className="lg:col-span-4">
+          <div className="lg:col-span-3">
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">
               Date Range
             </label>
@@ -663,6 +669,16 @@ const OneWashPayments = () => {
               options={statusOptions}
               icon={Filter}
               placeholder="All Status"
+            />
+          </div>
+          <div className="lg:col-span-2">
+            <CustomDropdown
+              label="Service Type"
+              value={filters.service_type}
+              onChange={(val) => setFilters({ ...filters, service_type: val })}
+              options={serviceTypeOptions}
+              icon={Filter}
+              placeholder="All Services"
             />
           </div>
           <div className="lg:col-span-2">
@@ -692,7 +708,7 @@ const OneWashPayments = () => {
               <Search className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" />
             </div>
           </div>
-          <div className="lg:col-span-2 flex gap-2">
+          <div className="lg:col-span-1 flex gap-2">
             <button
               onClick={handleAddNew}
               className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-1"
