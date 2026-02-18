@@ -32,4 +32,10 @@ export const pricingService = {
     const response = await api.get(`/pricing/${id}`);
     return response.data;
   },
+
+  // Get Pricing by Mall ID
+  getByMall: async (mallId) => {
+    const response = await api.get(`/pricing/mall/${mallId}`);
+    return response.data;
+  },
 };

@@ -19,6 +19,7 @@ import { oneWashService } from "../../api/oneWashService";
 import { workerService } from "../../api/workerService";
 import { mallService } from "../../api/mallService";
 import { buildingService } from "../../api/buildingService";
+import { pricingService } from "../../api/pricingService";
 
 // Custom Components
 import CustomDropdown from "../ui/CustomDropdown";
@@ -26,6 +27,7 @@ import CustomDropdown from "../ui/CustomDropdown";
 const OneWashModal = ({ isOpen, onClose, job, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [currency, setCurrency] = useState("AED"); // Default currency
+  const [hasWashTypes, setHasWashTypes] = useState(false); // Track if mall has wash_types configured
 
   // Dropdown Data
   const [workers, setWorkers] = useState([]);
@@ -72,8 +74,9 @@ const OneWashModal = ({ isOpen, onClose, job, onSuccess }) => {
 
       // Pre-fill if editing
       if (job) {
+        const serviceType = job.service_type || "mall";
         setFormData({
-          service_type: job.service_type || "mall",
+          service_type: serviceType,
           worker: job.worker?._id || job.worker || "",
           mall: job.mall?._id || job.mall || "",
           building: job.building?._id || job.building || "",
@@ -82,8 +85,14 @@ const OneWashModal = ({ isOpen, onClose, job, onSuccess }) => {
           amount: job.amount || "",
           payment_mode: job.payment_mode || "cash",
           status: job.status || "pending",
-          wash_type: job.wash_type || "inside", // Preserve wash_type
+          // Only preserve wash_type for mall jobs
+          wash_type: serviceType === "mall" ? job.wash_type || "inside" : "",
         });
+
+        // Check pricing for mall jobs
+        if (serviceType === "mall" && (job.mall?._id || job.mall)) {
+          checkMallPricing(job.mall?._id || job.mall);
+        }
       } else {
         // Reset
         setFormData({
@@ -96,11 +105,45 @@ const OneWashModal = ({ isOpen, onClose, job, onSuccess }) => {
           amount: "",
           payment_mode: "cash",
           status: "pending",
-          wash_type: "inside", // Default wash_type
+          wash_type: "inside", // Default wash_type for new mall jobs
         });
       }
     }
   }, [isOpen, job]);
+
+  // Check if mall has wash_types configured in pricing
+  const checkMallPricing = async (mallId) => {
+    if (!mallId) {
+      setHasWashTypes(false);
+      return;
+    }
+
+    try {
+      const response = await pricingService.getByMall(mallId);
+      const pricing = response?.data;
+
+      // Check if pricing exists and has wash_types configured for sedan
+      const hasWashTypesConfig = !!(
+        pricing &&
+        pricing.sedan &&
+        pricing.sedan.wash_types
+      );
+
+      setHasWashTypes(hasWashTypesConfig);
+    } catch (error) {
+      console.error("Error fetching mall pricing:", error);
+      setHasWashTypes(false);
+    }
+  };
+
+  // Watch for mall changes to check pricing
+  useEffect(() => {
+    if (formData.service_type === "mall" && formData.mall) {
+      checkMallPricing(formData.mall);
+    } else {
+      setHasWashTypes(false);
+    }
+  }, [formData.mall, formData.service_type]);
 
   // --- Handlers ---
 
@@ -108,7 +151,15 @@ const OneWashModal = ({ isOpen, onClose, job, onSuccess }) => {
     setFormData((prev) => {
       // Clear conflicting fields if service type changes
       if (name === "service_type") {
-        return { ...prev, [name]: value, mall: "", building: "" };
+        // When switching to residence, clear wash_type and mall
+        // When switching to mall, clear building
+        return {
+          ...prev,
+          [name]: value,
+          mall: value === "mall" ? prev.mall : "",
+          building: value === "residence" ? prev.building : "",
+          wash_type: value === "mall" ? prev.wash_type || "inside" : "",
+        };
       }
       return { ...prev, [name]: value };
     });
@@ -146,11 +197,28 @@ const OneWashModal = ({ isOpen, onClose, job, onSuccess }) => {
 
     setLoading(true);
     try {
+      // Prepare payload - exclude wash_type for residence jobs or malls without wash_types
+      const payload = { ...formData };
+      if (formData.service_type === "residence") {
+        delete payload.wash_type;
+        delete payload.mall; // Ensure mall is not sent for residence
+      } else if (formData.service_type === "mall") {
+        delete payload.building; // Ensure building is not sent for mall
+
+        // Only include wash_type if mall has wash_types configured
+        if (!hasWashTypes) {
+          delete payload.wash_type;
+        } else if (!payload.wash_type) {
+          // Ensure wash_type has a default value for malls with wash_types
+          payload.wash_type = "inside";
+        }
+      }
+
       if (job) {
-        await oneWashService.update(job._id, formData);
+        await oneWashService.update(job._id, payload);
         toast.success("Job updated successfully");
       } else {
-        await oneWashService.create(formData);
+        await oneWashService.create(payload);
         toast.success("Job created successfully");
       }
       onSuccess();
@@ -378,7 +446,7 @@ const OneWashModal = ({ isOpen, onClose, job, onSuccess }) => {
                       placeholder="Pending"
                     />
                   </div>
-                  {formData.service_type === "mall" && (
+                  {formData.service_type === "mall" && hasWashTypes && (
                     <div className="md:col-span-2">
                       <CustomDropdown
                         label="Wash Type (For Malls Only)"

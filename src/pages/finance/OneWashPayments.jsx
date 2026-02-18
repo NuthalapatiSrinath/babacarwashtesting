@@ -379,21 +379,24 @@ const OneWashPayments = () => {
     },
     {
       header: "Service Type",
-      accessor: "wash_type",
+      accessor: "display_service_type",
       className: "text-center",
       render: (row) => {
-        let displayText = "-";
+        const displayText = row.display_service_type || "-";
         let colorClass = "bg-slate-50 text-slate-600 border-slate-200";
 
-        if (row.wash_type === "outside") {
-          displayText = "External";
+        const serviceType = (displayText || "").toLowerCase();
+
+        if (serviceType === "residence") {
+          colorClass = "bg-green-50 text-green-700 border-green-200";
+        } else if (serviceType === "external" || serviceType === "outside") {
           colorClass = "bg-blue-50 text-blue-700 border-blue-200";
-        } else if (row.wash_type === "total") {
-          displayText = "Internal + External";
+        } else if (serviceType === "total") {
           colorClass = "bg-purple-50 text-purple-700 border-purple-200";
-        } else if (row.wash_type === "inside") {
-          displayText = "Internal";
+        } else if (serviceType === "internal" || serviceType === "inside") {
           colorClass = "bg-indigo-50 text-indigo-700 border-indigo-200";
+        } else if (serviceType === "mall") {
+          colorClass = "bg-amber-50 text-amber-700 border-amber-200";
         }
 
         return (

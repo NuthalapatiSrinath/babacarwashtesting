@@ -113,7 +113,7 @@ const JobModal = ({
             ? new Date(job.assignedDate).toISOString().split("T")[0]
             : "",
           status: job.status || "pending",
-          rejectionReason: job.rejectionReason || "",
+          rejectionReason: job.rejectionReason || job.rejectReason || "", // Handle both field names
           service_type: job.service_type || serviceType || "", // Use existing or auto-detect
         });
       } else {

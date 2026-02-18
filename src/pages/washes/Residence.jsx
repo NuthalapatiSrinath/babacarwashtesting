@@ -17,6 +17,7 @@ import {
   Building2,
   Loader2,
   Play,
+  Info,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
@@ -482,12 +483,28 @@ const Residence = () => {
         };
 
         const Icon = config.icon;
+        const rejectionReason = row.rejectionReason || row.rejectReason || "";
+
         return (
-          <div
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-wide ${config.classes}`}
-          >
-            <Icon className="w-3 h-3" />
-            {config.text}
+          <div className="flex items-center justify-center gap-1.5">
+            <div
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-wide ${config.classes}`}
+            >
+              <Icon className="w-3 h-3" />
+              {config.text}
+            </div>
+            {status === "rejected" && rejectionReason && (
+              <div
+                className="relative group cursor-help"
+                title={rejectionReason}
+              >
+                <Info className="w-4 h-4 text-red-500 hover:text-red-600" />
+                <div className="absolute hidden group-hover:block bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded-lg shadow-lg z-10">
+                  <div className="text-center">{rejectionReason}</div>
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
+                </div>
+              </div>
+            )}
           </div>
         );
       },
