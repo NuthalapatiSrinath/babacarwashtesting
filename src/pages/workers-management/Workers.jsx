@@ -25,6 +25,9 @@ import {
   Building,
   Map,
   FileText, // ✅ Added FileText Icon
+  Car, // ✅ Driver icon
+  UserCheck, // ✅ Office Staff icon
+  Shield, // ✅ Supervisor icon
 } from "lucide-react";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
@@ -456,7 +459,13 @@ const Workers = () => {
                       ? "bg-purple-100 text-purple-700"
                       : r.service_type === "site"
                         ? "bg-orange-100 text-orange-700"
-                        : "bg-blue-100 text-blue-700"
+                        : r.service_type === "driver"
+                          ? "bg-cyan-100 text-cyan-700"
+                          : r.service_type === "officestaff"
+                            ? "bg-pink-100 text-pink-700"
+                            : r.service_type === "supervisor"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-blue-100 text-blue-700"
                 }`}
               >
                 {r.service_type === "mobile" ? (
@@ -465,6 +474,12 @@ const Workers = () => {
                   <ShoppingBag className="w-3 h-3" />
                 ) : r.service_type === "site" ? (
                   <Map className="w-3 h-3" />
+                ) : r.service_type === "driver" ? (
+                  <Car className="w-3 h-3" />
+                ) : r.service_type === "officestaff" ? (
+                  <UserCheck className="w-3 h-3" />
+                ) : r.service_type === "supervisor" ? (
+                  <Shield className="w-3 h-3" />
                 ) : (
                   <Building className="w-3 h-3" />
                 )}
@@ -740,13 +755,16 @@ const Workers = () => {
             <span className="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1 tracking-widest">
               Service Type
             </span>
-            <div className="flex p-1 bg-slate-100 rounded-lg">
+            <div className="flex p-1 bg-slate-100 rounded-lg gap-0.5 overflow-x-auto">
               {[
                 { id: "all", icon: Briefcase, label: "All" },
                 { id: "mall", icon: ShoppingBag, label: "Mall" },
                 { id: "residence", icon: Building, label: "Res" },
                 { id: "site", icon: Map, label: "Site" },
                 { id: "mobile", icon: Truck, label: "Mob" },
+                { id: "driver", icon: Car, label: "Drv" },
+                { id: "officestaff", icon: UserCheck, label: "Ofc" },
+                { id: "supervisor", icon: Shield, label: "Sup" },
               ].map((type) => (
                 <button
                   key={type.id}
@@ -754,16 +772,18 @@ const Workers = () => {
                     setFilterServiceType(type.id);
                     setFilterLocation("");
                   }}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-bold transition-all ${filterServiceType === type.id ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                  className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-bold transition-all whitespace-nowrap ${filterServiceType === type.id ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
                 >
-                  <type.icon className="w-3.5 h-3.5" /> {type.label}
+                  <type.icon className="w-3 h-3" /> {type.label}
                 </button>
               ))}
             </div>
           </div>
           <div
             className={
-              filterServiceType === "mobile"
+              ["mobile", "driver", "officestaff", "supervisor"].includes(
+                filterServiceType,
+              )
                 ? "opacity-30 pointer-events-none grayscale"
                 : ""
             }

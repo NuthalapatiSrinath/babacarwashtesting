@@ -16,6 +16,9 @@ import {
   Calendar,
   Truck,
   Map, // ✅ Added Map
+  Car, // ✅ Driver icon
+  UserCheck, // ✅ Office Staff icon
+  Shield, // ✅ Supervisor icon
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
@@ -85,6 +88,9 @@ const WorkerModal = ({ isOpen, onClose, onSuccess, editData }) => {
     { value: "mall", label: "Mall", icon: ShoppingBag },
     { value: "site", label: "Site", icon: Map },
     { value: "mobile", label: "Mobile", icon: Truck },
+    { value: "driver", label: "Driver", icon: Car },
+    { value: "officestaff", label: "Office Staff", icon: UserCheck },
+    { value: "supervisor", label: "Supervisor", icon: Shield },
   ];
 
   // ✅ PREDEFINED COMPANY LIST

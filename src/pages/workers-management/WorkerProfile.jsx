@@ -20,6 +20,9 @@ import {
   Truck, // ✅ Added Truck for Mobile
   Map, // ✅ Added Map for Site
   Building, // ✅ FIXED: Added Building for Residence
+  Car, // ✅ Driver icon
+  UserCheck, // ✅ Office Staff icon
+  Shield, // ✅ Supervisor icon
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { workerService } from "../../api/workerService";
@@ -111,8 +114,7 @@ const WorkerProfile = () => {
 
   // ✅ Updated Location Display Logic
   const getLocationDisplay = () => {
-    if (worker.service_type === "mobile") return "Mobile - No Fixed Location";
-
+    // Check for assignments first
     if (worker.service_type === "mall" && worker.malls?.length > 0) {
       return worker.malls
         .map((m) => (typeof m === "object" ? m.name : "Mall Assigned"))
@@ -128,6 +130,21 @@ const WorkerProfile = () => {
         .map((s) => (typeof s === "object" ? s.name : "Site Assigned"))
         .join(", ");
     }
+
+    // If no assignments, show service type formatted nicely
+    if (worker.service_type) {
+      const serviceTypeLabels = {
+        mobile: "Mobile Service",
+        driver: "Driver",
+        officestaff: "Office Staff",
+        supervisor: "Supervisor",
+        mall: "Mall Service",
+        residence: "Residence Service",
+        site: "Site Service",
+      };
+      return serviceTypeLabels[worker.service_type] || worker.service_type;
+    }
+
     return "Unassigned";
   };
 
@@ -283,6 +300,12 @@ const WorkerProfile = () => {
                           <Map className="w-4 h-4" />
                         ) : worker.service_type === "mall" ? (
                           <ShoppingBag className="w-4 h-4" />
+                        ) : worker.service_type === "driver" ? (
+                          <Car className="w-4 h-4" />
+                        ) : worker.service_type === "officestaff" ? (
+                          <UserCheck className="w-4 h-4" />
+                        ) : worker.service_type === "supervisor" ? (
+                          <Shield className="w-4 h-4" />
                         ) : (
                           <Building className="w-4 h-4" /> // Default for Residence/Unassigned
                         )}
@@ -296,7 +319,13 @@ const WorkerProfile = () => {
                               ? "Assigned Sites"
                               : worker.service_type === "mall"
                                 ? "Assigned Malls"
-                                : "Assigned Buildings"}
+                                : [
+                                      "driver",
+                                      "officestaff",
+                                      "supervisor",
+                                    ].includes(worker.service_type)
+                                  ? "Service Type"
+                                  : "Assigned Buildings"}
                         </span>
                         <span className="text-sm font-medium text-white truncate block whitespace-normal">
                           {getLocationDisplay()}

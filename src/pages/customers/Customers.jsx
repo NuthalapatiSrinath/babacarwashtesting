@@ -280,10 +280,30 @@ const Customers = () => {
 
   // ⚡ Filter counts are now loaded from backend, no expensive calculations needed!
   // Just use the state values directly
-  const workerCounts = workerCountsState;
   const buildingCounts = buildingCountsState;
   const totalCustomersWithWorkers = totalWorkersCount;
   const totalCustomersWithBuildings = totalBuildingsCount;
+
+  // ✅ Calculate VEHICLE counts per worker (not customer counts)
+  const workerVehicleCounts = useMemo(() => {
+    const counts = {};
+    let totalVehicles = 0;
+
+    serverData.forEach((customer) => {
+      customer.vehicles?.forEach((vehicle) => {
+        if (vehicle.worker) {
+          const workerId =
+            typeof vehicle.worker === "object"
+              ? vehicle.worker._id
+              : vehicle.worker;
+          counts[workerId] = (counts[workerId] || 0) + 1;
+          totalVehicles++;
+        }
+      });
+    });
+
+    return { counts, totalVehicles };
+  }, [serverData]);
 
   // --- Flatten Data & Search Logic ---
   const flattenedData = useMemo(() => {
@@ -829,9 +849,13 @@ const Customers = () => {
             vehicles.map((vehicle, idx) => {
               const workerName = vehicle.worker?.name || "UNASSIGNED";
               const schedule =
-                vehicle.schedule_days?.map((d) => d.day).join(", ") ||
-                vehicle.schedule_type ||
-                "-";
+                vehicle.schedule_days && vehicle.schedule_days.length > 0
+                  ? vehicle.schedule_days
+                      .map((d) => (typeof d === "object" ? d.day : d))
+                      .join(", ")
+                  : vehicle.schedule_type === "weekly"
+                    ? "Weekly"
+                    : vehicle.schedule_type || "-";
 
               return (
                 <div
@@ -1430,195 +1454,149 @@ const Customers = () => {
       />
 
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6 relative z-20 overflow-visible">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          <div className="flex-1">
-            {/* <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
-                <Users className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  Customer Management
-                </h1>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  Manage customers, vehicles and subscriptions
-                </p>
-              </div>
-            </div> */}
-
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-              {/* Instant Search */}
-              <div className="relative w-full max-w-md">
-                <input
-                  type="text"
-                  placeholder="Search Name, Mobile, Vehicle, Building..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-11 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-xl pl-11 pr-4 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all"
-                />
-                <Search className="absolute left-4 top-3 w-5 h-5 text-gray-400" />
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                {/* Customer Status Filter */}
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide px-1">
-                    Customer Status
-                  </span>
-                  <div className="flex p-1 bg-gray-100 rounded-xl">
-                    <button
-                      onClick={() => handleTabChange(1)}
-                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
-                        activeTab === 1
-                          ? "bg-white text-blue-600 shadow"
-                          : "bg-transparent text-gray-500 hover:text-gray-700"
-                      }`}
-                    >
-                      Active
-                    </button>
-                    <button
-                      onClick={() => handleTabChange(2)}
-                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
-                        activeTab === 2
-                          ? "bg-white text-red-600 shadow"
-                          : "bg-transparent text-gray-500 hover:text-gray-700"
-                      }`}
-                    >
-                      Inactive
-                    </button>
-                  </div>
-                </div>
-
-                {/* Vehicle Status Filter */}
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide px-1">
-                    Vehicle Status
-                  </span>
-                  <div className="flex p-1 bg-gray-100 rounded-xl">
-                    <button
-                      onClick={() => setVehicleStatusFilter("all")}
-                      className={`px-3 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
-                        vehicleStatusFilter === "all"
-                          ? "bg-white text-indigo-600 shadow"
-                          : "bg-transparent text-gray-500 hover:text-gray-700"
-                      }`}
-                    >
-                      All
-                    </button>
-                    <button
-                      onClick={() => setVehicleStatusFilter("active")}
-                      className={`px-3 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
-                        vehicleStatusFilter === "active"
-                          ? "bg-white text-emerald-600 shadow"
-                          : "bg-transparent text-gray-500 hover:text-gray-700"
-                      }`}
-                    >
-                      Active
-                    </button>
-                    <button
-                      onClick={() => setVehicleStatusFilter("inactive")}
-                      className={`px-3 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
-                        vehicleStatusFilter === "inactive"
-                          ? "bg-white text-red-600 shadow"
-                          : "bg-transparent text-gray-500 hover:text-gray-700"
-                      }`}
-                    >
-                      Inactive
-                    </button>
-                  </div>
-                </div>
+        {/* ✅ ALL FILTERS IN ONE ROW */}
+        <div className="flex flex-col lg:flex-row lg:items-end gap-3 lg:gap-4">
+          {/* LEFT SIDE: All Filters */}
+          <div className="flex flex-wrap gap-3 items-end flex-1">
+            {/* Customer Status Filter */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide px-1">
+                Customer Status
+              </span>
+              <div className="flex p-1 bg-gray-100 rounded-xl">
+                <button
+                  onClick={() => handleTabChange(1)}
+                  className={`px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
+                    activeTab === 1
+                      ? "bg-white text-blue-600 shadow"
+                      : "bg-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Active
+                </button>
+                <button
+                  onClick={() => handleTabChange(2)}
+                  className={`px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
+                    activeTab === 2
+                      ? "bg-white text-red-600 shadow"
+                      : "bg-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Inactive
+                </button>
               </div>
             </div>
 
-            {/* Additional Filters Row */}
-            <div className="flex flex-wrap gap-3 items-end mt-4 relative z-50 overflow-visible">
-              {/* Worker Filter */}
-              <div className="w-64 relative z-50">
-                <CustomDropdown
-                  key={`worker-${totalCustomersWithWorkers}-${selectedBuilding}`}
-                  label={`Filter by Worker (${workers.length})`}
-                  value={selectedWorker}
-                  onChange={(value) => {
-                    console.log("🔄 Worker filter changed:", value);
-                    setSelectedWorker(value);
-                    setPagination((prev) => ({ ...prev, page: 1 }));
-                  }}
-                  options={[
-                    {
-                      value: "__ANY_WORKER__",
-                      label: `All Workers (${totalCustomersWithWorkers})`,
-                    },
-                    ...workers.map((worker) => {
-                      const count = workerCounts[worker._id] || 0;
-                      const name =
-                        worker.name ||
-                        `${worker.firstName || ""} ${worker.lastName || ""}`.trim() ||
-                        "Unknown Worker";
-                      return {
-                        value: worker._id,
-                        label: `${name} (${count})`,
-                      };
-                    }),
-                  ]}
-                  placeholder="All Workers"
-                  icon={Users}
-                  searchable={true}
-                  disabled={loadingFilters}
-                />
-              </div>
-
-              {/* Building Filter */}
-              <div className="w-64 relative z-50">
-                <CustomDropdown
-                  key={`building-${totalCustomersWithBuildings}-${selectedWorker}`}
-                  label={`Filter by Building (${buildings.length})`}
-                  value={selectedBuilding}
-                  onChange={(value) => {
-                    console.log("🔄 Building filter changed:", value);
-                    setSelectedBuilding(value);
-                    setPagination((prev) => ({ ...prev, page: 1 }));
-                  }}
-                  options={[
-                    {
-                      value: "",
-                      label: `All Buildings (${totalCustomersWithBuildings})`,
-                    },
-                    ...buildings.map((building) => {
-                      const count = buildingCounts[building._id] || 0;
-                      const name = building.name || "Unknown Building";
-                      return {
-                        value: building._id,
-                        label: `${name} (${count})`,
-                      };
-                    }),
-                  ]}
-                  placeholder="All Buildings"
-                  icon={Building}
-                  searchable={true}
-                  disabled={loadingFilters}
-                />
-              </div>
-
-              {/* Clear Filters Button */}
-              {((selectedWorker && selectedWorker !== "__ANY_WORKER__") ||
-                selectedBuilding) && (
+            {/* Vehicle Status Filter */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide px-1">
+                Vehicle Status
+              </span>
+              <div className="flex p-1 bg-gray-100 rounded-xl">
                 <button
-                  onClick={() => {
-                    setSelectedWorker("__ANY_WORKER__");
-                    setSelectedBuilding("");
-                    setPagination((prev) => ({ ...prev, page: 1 }));
-                  }}
-                  className="h-10 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold flex items-center gap-2 transition-all"
-                  title="Clear all filters"
+                  onClick={() => setVehicleStatusFilter("all")}
+                  className={`px-3 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
+                    vehicleStatusFilter === "all"
+                      ? "bg-white text-indigo-600 shadow"
+                      : "bg-transparent text-gray-500 hover:text-gray-700"
+                  }`}
                 >
-                  <X className="w-4 h-4" />
-                  Clear Filters
+                  All
                 </button>
-              )}
+                <button
+                  onClick={() => setVehicleStatusFilter("active")}
+                  className={`px-3 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
+                    vehicleStatusFilter === "active"
+                      ? "bg-white text-emerald-600 shadow"
+                      : "bg-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Active
+                </button>
+                <button
+                  onClick={() => setVehicleStatusFilter("inactive")}
+                  className={`px-3 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${
+                    vehicleStatusFilter === "inactive"
+                      ? "bg-white text-red-600 shadow"
+                      : "bg-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Inactive
+                </button>
+              </div>
+            </div>
+
+            {/* Worker Filter */}
+            <div className="w-48 relative z-50">
+              <CustomDropdown
+                key={`worker-${workerVehicleCounts.totalVehicles}-${selectedBuilding}`}
+                label={`Filter by Worker (${workers.length})`}
+                value={selectedWorker}
+                onChange={(value) => {
+                  console.log("🔄 Worker filter changed:", value);
+                  setSelectedWorker(value);
+                  setPagination((prev) => ({ ...prev, page: 1 }));
+                }}
+                options={[
+                  {
+                    value: "__ANY_WORKER__",
+                    label: `All Workers (${workerVehicleCounts.totalVehicles})`,
+                  },
+                  ...workers.map((worker) => {
+                    const vehicleCount =
+                      workerVehicleCounts.counts[worker._id] || 0;
+                    const name =
+                      worker.name ||
+                      `${worker.firstName || ""} ${worker.lastName || ""}`.trim() ||
+                      "Unknown Worker";
+                    return {
+                      value: worker._id,
+                      label: `${name} (${vehicleCount})`,
+                    };
+                  }),
+                ]}
+                placeholder="All Workers"
+                icon={Users}
+                searchable={true}
+                disabled={loadingFilters}
+              />
+            </div>
+
+            {/* Building Filter */}
+            <div className="w-48 relative z-50">
+              <CustomDropdown
+                key={`building-${totalCustomersWithBuildings}-${selectedWorker}`}
+                label={`Filter by Building (${buildings.length})`}
+                value={selectedBuilding}
+                onChange={(value) => {
+                  console.log("🔄 Building filter changed:", value);
+                  setSelectedBuilding(value);
+                  setPagination((prev) => ({ ...prev, page: 1 }));
+                }}
+                options={[
+                  {
+                    value: "",
+                    label: `All Buildings (${totalCustomersWithBuildings})`,
+                  },
+                  ...buildings.map((building) => {
+                    const count = buildingCounts[building._id] || 0;
+                    const name = building.name || "Unknown Building";
+                    return {
+                      value: building._id,
+                      label: `${name} (${count})`,
+                    };
+                  }),
+                ]}
+                placeholder="All Buildings"
+                icon={Building}
+                searchable={true}
+                disabled={loadingFilters}
+              />
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 justify-end">
+          {/* RIGHT SIDE: Action Buttons */}
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleDownloadTemplate}
               className="h-10 px-4 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-sm"
@@ -1718,7 +1696,7 @@ const Customers = () => {
             )
           }
           renderExpandedRow={renderExpandedRow}
-          hideSearch={true}
+          onSearch={(value) => setSearchTerm(value)}
         />
       </div>
 

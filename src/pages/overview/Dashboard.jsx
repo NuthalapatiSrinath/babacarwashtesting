@@ -16,11 +16,6 @@ import {
   ResponsiveContainer,
   Area,
   AreaChart,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
   ComposedChart,
 } from "recharts";
 import {
@@ -34,7 +29,6 @@ import {
   Clock,
   XCircle,
   Building,
-  Activity,
   Calendar,
   ArrowUp,
   ArrowDown,
@@ -45,28 +39,22 @@ import {
   PieChart as PieChartIcon,
   Download,
   RefreshCw,
-  Filter,
-  Eye,
-  EyeOff,
   Sparkles,
-  Package,
   Home,
   ShoppingBag,
   Loader2,
+  FileDown,
+  Clock as ClockIcon,
+  Package,
+  Activity,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import RichDateRangePicker from "../../components/inputs/RichDateRangePicker";
-import CustomDropdown from "../../components/ui/CustomDropdown";
 import DataTable from "../../components/DataTable";
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [dateRange, setDateRange] = useState({
-    startDate: "",
-    endDate: "",
-  });
 
   // State for all analytics data
   const [adminStats, setAdminStats] = useState(null);
@@ -77,9 +65,9 @@ const Dashboard = () => {
   const [serviceDistribution, setServiceDistribution] = useState([]);
   const [buildingAnalytics, setBuildingAnalytics] = useState([]);
   const [comparativeData, setComparativeData] = useState(null);
+  const [cacheInfo, setCacheInfo] = useState(null);
 
   // UI State
-  const [selectedPeriod, setSelectedPeriod] = useState("all");
   const [showAdvancedCharts, setShowAdvancedCharts] = useState(true);
 
   // Fetch all dashboard data
@@ -88,11 +76,8 @@ const Dashboard = () => {
     else setRefreshing(true);
 
     try {
-      const filters = dateRange.startDate && dateRange.endDate ? dateRange : {};
-
-      // ✅ NEW: Single API call instead of 7 separate calls - SUPER FAST!
+      // ✅ Single API call instead of 7 separate calls - SUPER FAST!
       const response = await analyticsService.getDashboardAll({
-        ...filters,
         limit: 10,
       });
       const data = response.data;
@@ -140,6 +125,11 @@ const Dashboard = () => {
 
       if (data.comparativeData) {
         setComparativeData(data.comparativeData);
+      }
+
+      // Store cache metadata
+      if (data._meta) {
+        setCacheInfo(data._meta);
       }
 
       // Calculate performance highlights from unified data
@@ -203,79 +193,56 @@ const Dashboard = () => {
     fetchDashboardData();
   }, []);
 
-  const handleDateRangeChange = (field, value) => {
-    setDateRange((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleApplyFilter = () => {
-    if (dateRange.startDate && dateRange.endDate) {
-      fetchDashboardData();
-    } else {
-      toast.error("Please select both start and end dates");
-    }
-  };
-
-  const handleClearFilter = () => {
-    setDateRange({ startDate: "", endDate: "" });
-    setTimeout(() => fetchDashboardData(), 100);
-  };
-
   const handleRefresh = () => {
     fetchDashboardData(false);
   };
 
-  // Quick date filters
-  const handleQuickFilter = (period) => {
-    const endDate = new Date();
-    let startDate = new Date();
+  // Export dashboard data to JSON
+  const handleExportData = () => {
+    try {
+      const exportData = {
+        adminStats,
+        comparativeData,
+        topWorkers,
+        buildingAnalytics: buildingAnalytics.slice(0, 10),
+        exportedAt: new Date().toISOString(),
+      };
 
-    switch (period) {
-      case "today":
-        startDate.setHours(0, 0, 0, 0);
-        break;
-      case "week":
-        // Exactly 7 days ago
-        startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case "month":
-        // Exactly 30 days ago (not 1 calendar month)
-        startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      case "quarter":
-        // Exactly 90 days ago (not 3 calendar months)
-        startDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-        break;
-      case "year":
-        // Exactly 365 days ago
-        startDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-        break;
-      default:
-        handleClearFilter();
-        setSelectedPeriod("all");
-        return;
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `dashboard-export-${new Date().toISOString().split("T")[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success("Dashboard data exported successfully!");
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export data");
     }
-
-    console.log(`📅 ${period} filter:`, {
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      daysDiff: Math.round((endDate - startDate) / (24 * 60 * 60 * 1000)),
-    });
-
-    setDateRange({
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-    });
-    setSelectedPeriod(period);
-    setTimeout(() => fetchDashboardData(), 100);
   };
 
-  // Format currency
+  // Format currency using global currency from settings
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
+    const currencySymbol = localStorage.getItem("app_currency") || "AED";
+
+    // Handle symbol-based currencies (like $, €, £, ₹)
+    if (currencySymbol.length === 1 || currencySymbol === "₹") {
+      return `${currencySymbol} ${new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(amount || 0)}`;
+    }
+
+    // Handle code-based currencies (like AED, SAR, QAR, etc.)
+    return `${new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount || 0);
+    }).format(amount || 0)} ${currencySymbol}`;
   };
 
   // Format number with commas
@@ -314,7 +281,7 @@ const Dashboard = () => {
     onewash: Package,
   };
 
-  // Animated Stat Card Component
+  // Animated Stat Card Component with Consistent Styling
   const StatCard = ({
     title,
     value,
@@ -324,66 +291,84 @@ const Dashboard = () => {
     trendValue,
     color,
     delay = 0,
-  }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay }}
-      whileHover={{ y: -5, scale: 1.02 }}
-      className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 border border-slate-200 overflow-hidden"
-    >
-      {/* Gradient Background */}
-      <div
-        className={`absolute inset-0 bg-gradient-to-br ${color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}
-      ></div>
+  }) => {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay }}
+        whileHover={{ y: -5, scale: 1.02 }}
+        className="group relative bg-white/80 backdrop-blur-xl rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden border border-slate-200/50"
+      >
+        {/* Background gradient on hover */}
+        <div
+          className={`absolute inset-0 bg-gradient-to-br ${color} opacity-0 group-hover:opacity-10 transition-opacity duration-500`}
+        ></div>
 
-      <div className="relative p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div
-            className={`p-3 rounded-xl bg-gradient-to-br ${color} shadow-lg group-hover:scale-110 transition-transform duration-300`}
-          >
-            <Icon className="w-6 h-6 text-white" />
+        <div className="relative p-6">
+          {/* Icon and Title Row */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <motion.div
+                whileHover={{ rotate: 360 }}
+                transition={{ duration: 0.6 }}
+                className={`p-3 rounded-xl bg-gradient-to-br ${color} shadow-lg`}
+              >
+                <Icon className="w-5 h-5 text-white" />
+              </motion.div>
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+                {title}
+              </h3>
+            </div>
           </div>
-          {trend && (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: delay + 0.3, type: "spring" }}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold shadow-md ${
-                trend === "up"
-                  ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white"
-                  : "bg-gradient-to-r from-red-500 to-rose-500 text-white"
-              }`}
-            >
-              {trend === "up" ? (
-                <ArrowUp className="w-3 h-3" />
-              ) : (
-                <ArrowDown className="w-3 h-3" />
-              )}
-              {trendValue}%
-            </motion.div>
-          )}
-        </div>
-        <div>
-          <h3 className="text-slate-600 text-sm font-semibold mb-2 uppercase tracking-wide">
-            {title}
-          </h3>
-          {loading ? (
-            <div className="h-9 bg-slate-200 rounded-lg animate-pulse"></div>
-          ) : (
-            <>
-              <p className="text-3xl font-bold text-slate-900 mb-1 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text">
+
+          {/* Count and Percentage Badge Row */}
+          <div className="flex items-center justify-between mb-2">
+            {loading ? (
+              <div className="h-10 w-24 bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 rounded-lg animate-pulse"></div>
+            ) : (
+              <motion.p
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                className="text-3xl font-black text-slate-900"
+              >
                 {value}
-              </p>
-              {subtitle && (
-                <p className="text-xs text-slate-500 font-medium">{subtitle}</p>
-              )}
-            </>
+              </motion.p>
+            )}
+            {trend && trendValue && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: delay + 0.2, type: "spring" }}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold shadow-md ${
+                  trend === "up"
+                    ? "bg-gradient-to-r from-green-400 to-emerald-500 text-white"
+                    : "bg-gradient-to-r from-red-400 to-rose-500 text-white"
+                }`}
+              >
+                {trend === "up" ? (
+                  <ArrowUp className="w-3 h-3" />
+                ) : (
+                  <ArrowDown className="w-3 h-3" />
+                )}
+                {trendValue}%
+              </motion.div>
+            )}
+          </div>
+
+          {/* Description */}
+          {subtitle && (
+            <p className="text-sm font-medium text-slate-500">{subtitle}</p>
           )}
         </div>
-      </div>
-    </motion.div>
-  );
+
+        {/* Bottom accent bar */}
+        <div
+          className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${color} opacity-50 group-hover:opacity-100 transition-opacity`}
+        ></div>
+      </motion.div>
+    );
+  };
 
   // Top Worker Row Component
   const TopWorkerRow = ({ worker, index }) => {
@@ -408,39 +393,48 @@ const Dashboard = () => {
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: index * 0.1 }}
-        className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-white rounded-xl hover:from-indigo-50 hover:to-purple-50 transition-all duration-300 border border-slate-100 hover:border-indigo-200 group"
+        whileHover={{ scale: 1.02, x: 8 }}
+        className="flex items-center justify-between p-6 bg-gradient-to-r from-white via-slate-50 to-white rounded-2xl hover:from-indigo-50 hover:via-purple-50 hover:to-pink-50 transition-all duration-300 border-2 border-slate-100 hover:border-indigo-200 group shadow-md hover:shadow-xl"
       >
         <div className="flex items-center gap-4 flex-1">
-          <div
-            className={`flex items-center justify-center w-12 h-12 rounded-xl font-bold text-lg shadow-md transition-transform group-hover:scale-110 ${
+          <motion.div
+            whileHover={{ rotate: 360, scale: 1.1 }}
+            transition={{ duration: 0.5 }}
+            className={`flex items-center justify-center w-14 h-14 rounded-2xl font-black text-2xl shadow-xl transition-all ${
               index === 0
-                ? "bg-gradient-to-br from-yellow-400 to-yellow-500 text-white"
+                ? "bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-600 text-white animate-pulse"
                 : index === 1
-                  ? "bg-gradient-to-br from-slate-300 to-slate-400 text-white"
+                  ? "bg-gradient-to-br from-slate-300 via-slate-400 to-slate-500 text-white"
                   : index === 2
-                    ? "bg-gradient-to-br from-orange-400 to-orange-500 text-white"
-                    : "bg-gradient-to-br from-indigo-400 to-indigo-500 text-white"
+                    ? "bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 text-white"
+                    : "bg-gradient-to-br from-indigo-400 via-indigo-500 to-indigo-600 text-white"
             }`}
           >
             {index < 3 ? medals[index] : index + 1}
-          </div>
+          </motion.div>
           <div className="flex-1">
-            <h4 className="font-bold text-slate-900 text-lg group-hover:text-indigo-600 transition-colors">
+            <h4 className="font-black text-slate-900 text-xl group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-indigo-600 group-hover:to-purple-600 transition-all">
               {workerName}
             </h4>
-            <p className="text-sm text-slate-500 font-medium">{workerPhone}</p>
+            <p className="text-sm text-slate-500 font-semibold flex items-center gap-1">
+              <span>📞</span> {workerPhone}
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-8">
           <div className="text-right">
-            <p className="text-sm text-slate-500 font-medium">Jobs</p>
-            <p className="text-xl font-bold text-slate-900">
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">
+              Jobs
+            </p>
+            <p className="text-2xl font-black bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
               {formatNumber(worker.totalJobs)}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-slate-500 font-medium">Revenue</p>
-            <p className="text-xl font-bold text-emerald-600">
+            <p className="text-xs text-emerald-600 font-bold uppercase tracking-wider mb-1">
+              Revenue
+            </p>
+            <p className="text-2xl font-black bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
               {formatCurrency(worker.totalRevenue)}
             </p>
           </div>
@@ -478,128 +472,76 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50 p-6">
-      <div className="max-w-[1920px] mx-auto space-y-6">
-        {/* Header with Actions */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 p-6 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-indigo-400/20 to-purple-400/20 rounded-full blur-3xl animate-pulse"></div>
+        <div
+          className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse"
+          style={{ animationDelay: "1s" }}
+        ></div>
+        <div
+          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full blur-3xl animate-pulse"
+          style={{ animationDelay: "2s" }}
+        ></div>
+      </div>
+
+      <div className="max-w-[1920px] mx-auto space-y-8 relative z-10">
+        {/* Quick Action Bar */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
+          className="flex items-center justify-between bg-white/60 backdrop-blur-xl rounded-2xl px-6 py-3 shadow-lg border border-white/50"
         >
-          <div>
-            <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2 flex items-center gap-3">
-              <Sparkles className="w-10 h-10 text-indigo-600" />
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-black bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
               Dashboard
             </h1>
-            <p className="text-slate-600 font-medium text-lg">
-              Complete analytics and insights for your business
-            </p>
+            {cacheInfo && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg text-xs">
+                <ClockIcon className="w-3 h-3 text-slate-500" />
+                <span className="text-slate-600 font-semibold">
+                  {cacheInfo.cached
+                    ? `Cached ${cacheInfo.cacheAge}s ago`
+                    : `Loaded in ${cacheInfo.loadTime}`}
+                </span>
+              </div>
+            )}
           </div>
-
           <div className="flex items-center gap-3">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => setShowAdvancedCharts(!showAdvancedCharts)}
-              className={`px-4 py-2.5 rounded-xl font-semibold text-sm shadow-md transition-all flex items-center gap-2 ${
-                showAdvancedCharts
-                  ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700"
-                  : "bg-white text-slate-700 hover:bg-slate-50 border border-slate-200"
-              }`}
+              onClick={handleExportData}
+              disabled={!adminStats}
+              className="px-4 py-2 rounded-xl font-bold text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {showAdvancedCharts ? (
-                <Eye className="w-4 h-4" />
-              ) : (
-                <EyeOff className="w-4 h-4" />
-              )}
-              {showAdvancedCharts ? "Hide" : "Show"} Charts
+              <FileDown className="w-4 h-4" />
+              Export
             </motion.button>
-
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleRefresh}
               disabled={refreshing}
-              className="px-4 py-2.5 rounded-xl font-semibold text-sm bg-white text-slate-700 hover:bg-slate-50 shadow-md transition-all flex items-center gap-2 border border-slate-200 disabled:opacity-50"
+              className="px-4 py-2 rounded-xl font-bold text-sm bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
             >
               <RefreshCw
                 className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
               />
               Refresh
             </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowAdvancedCharts(!showAdvancedCharts)}
+              className="px-4 py-2 rounded-xl font-bold text-sm bg-white border-2 border-slate-300 text-slate-700 hover:bg-slate-50 transition-all flex items-center gap-2"
+            >
+              <BarChart3 className="w-4 h-4" />
+              {showAdvancedCharts ? "Hide" : "Show"} Charts
+            </motion.button>
           </div>
         </motion.div>
-
-        {/* Filters Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl shadow-xl p-6 border border-slate-200"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <Filter className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-lg font-bold text-slate-900">
-              Filters & Date Range
-            </h2>
-          </div>
-
-          {/* Quick Filters */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {[
-              { label: "All Time", value: "all" },
-              { label: "Today", value: "today" },
-              { label: "Last 7 Days", value: "week" },
-              { label: "Last 30 Days", value: "month" },
-              { label: "Last Quarter", value: "quarter" },
-              { label: "Last Year", value: "year" },
-            ].map((period) => (
-              <motion.button
-                key={period.value}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => handleQuickFilter(period.value)}
-                className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
-                  selectedPeriod === period.value
-                    ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
-              >
-                {period.label}
-              </motion.button>
-            ))}
-          </div>
-
-          {/* Custom Date Range */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            <div className="lg:col-span-3">
-              <RichDateRangePicker
-                startDate={dateRange.startDate}
-                endDate={dateRange.endDate}
-                onChange={(field, value) => handleDateRangeChange(field, value)}
-              />
-            </div>
-            <div className="flex gap-2">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleApplyFilter}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all font-semibold shadow-lg hover:shadow-xl"
-              >
-                Apply
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleClearFilter}
-                className="px-6 py-3 bg-slate-200 text-slate-700 rounded-xl hover:bg-slate-300 transition-all font-semibold"
-              >
-                Clear
-              </motion.button>
-            </div>
-          </div>
-        </motion.div>
-
         {/* Comparative Stats - Period Over Period */}
         {comparativeData && (
           <motion.div
@@ -607,22 +549,36 @@ const Dashboard = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <div className="flex items-center gap-2 mb-4">
-              <Activity className="w-6 h-6 text-indigo-600" />
-              <h2 className="text-2xl font-bold text-slate-900">
-                Performance Comparison
-              </h2>
+            <div className="flex items-center gap-3 mb-6 group">
+              <motion.div
+                whileHover={{ rotate: 360 }}
+                transition={{ duration: 0.6 }}
+                className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-xl"
+              >
+                <Activity className="w-7 h-7 text-white" />
+              </motion.div>
+              <div>
+                <h2 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2">
+                  Performance Comparison
+                  <Sparkles className="w-5 h-5 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </h2>
+                <p className="text-sm text-slate-500 font-medium mt-1">
+                  Period over period analysis
+                </p>
+              </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Today vs Yesterday */}
               <motion.div
-                whileHover={{ scale: 1.02, y: -5 }}
-                className="relative bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-xl p-6 text-white overflow-hidden"
+                whileHover={{ scale: 1.03, y: -8 }}
+                transition={{ duration: 0.3 }}
+                className="relative bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-3xl shadow-2xl p-8 text-white overflow-hidden group"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+                <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 group-hover:scale-150 transition-transform duration-500"></div>
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full -ml-16 -mb-16 group-hover:scale-150 transition-transform duration-500"></div>
                 <div className="relative">
-                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                    <Calendar className="w-5 h-5" />
+                  <h3 className="text-xl font-black mb-6 flex items-center gap-2">
+                    <Calendar className="w-6 h-6" />
                     Today vs Yesterday
                   </h3>
                   <div className="space-y-4">
@@ -682,13 +638,15 @@ const Dashboard = () => {
 
               {/* This Week vs Last Week */}
               <motion.div
-                whileHover={{ scale: 1.02, y: -5 }}
-                className="relative bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-xl p-6 text-white overflow-hidden"
+                whileHover={{ scale: 1.03, y: -8 }}
+                transition={{ duration: 0.3 }}
+                className="relative bg-gradient-to-br from-purple-500 via-purple-600 to-fuchsia-600 rounded-3xl shadow-2xl p-8 text-white overflow-hidden group"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+                <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 group-hover:scale-150 transition-transform duration-500"></div>
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full -ml-16 -mb-16 group-hover:scale-150 transition-transform duration-500"></div>
                 <div className="relative">
-                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                    <Calendar className="w-5 h-5" />
+                  <h3 className="text-xl font-black mb-6 flex items-center gap-2">
+                    <Calendar className="w-6 h-6" />
                     This Week vs Last Week
                   </h3>
                   <div className="space-y-4">
@@ -747,74 +705,6 @@ const Dashboard = () => {
                   </div>
                 </div>
               </motion.div>
-
-              {/* This Month vs Last Month */}
-              <motion.div
-                whileHover={{ scale: 1.02, y: -5 }}
-                className="relative bg-gradient-to-br from-pink-500 to-pink-600 rounded-2xl shadow-xl p-6 text-white overflow-hidden"
-              >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-                <div className="relative">
-                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                    <Calendar className="w-5 h-5" />
-                    This Month vs Last Month
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                      <p className="text-sm opacity-90 mb-1">Jobs</p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold">
-                          {comparativeData.monthly.thisMonth.jobs}
-                        </p>
-                        <span
-                          className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
-                            comparativeData.monthly.change.jobs >= 0
-                              ? "bg-green-500/30"
-                              : "bg-red-500/30"
-                          }`}
-                        >
-                          {comparativeData.monthly.change.jobs >= 0 ? (
-                            <ArrowUp className="w-4 h-4" />
-                          ) : (
-                            <ArrowDown className="w-4 h-4" />
-                          )}
-                          {Math.abs(
-                            comparativeData.monthly.change.jobsPercentage,
-                          )}
-                          %
-                        </span>
-                      </div>
-                    </div>
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                      <p className="text-sm opacity-90 mb-1">Revenue</p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold">
-                          {formatCurrency(
-                            comparativeData.monthly.thisMonth.revenue,
-                          )}
-                        </p>
-                        <span
-                          className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
-                            comparativeData.monthly.change.revenue >= 0
-                              ? "bg-green-500/30"
-                              : "bg-red-500/30"
-                          }`}
-                        >
-                          {comparativeData.monthly.change.revenue >= 0 ? (
-                            <ArrowUp className="w-4 h-4" />
-                          ) : (
-                            <ArrowDown className="w-4 h-4" />
-                          )}
-                          {Math.abs(
-                            comparativeData.monthly.change.revenuePercentage,
-                          )}
-                          %
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
             </div>
           </motion.div>
         )}
@@ -828,11 +718,23 @@ const Dashboard = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <div className="flex items-center gap-2 mb-4">
-                <DollarSign className="w-6 h-6 text-green-600" />
-                <h2 className="text-2xl font-bold text-slate-900">
-                  Financial Overview
-                </h2>
+              <div className="flex items-center gap-3 mb-6 group">
+                <motion.div
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.6 }}
+                  className="p-3 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 shadow-xl"
+                >
+                  <DollarSign className="w-7 h-7 text-white" />
+                </motion.div>
+                <div>
+                  <h2 className="text-3xl font-extrabold bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
+                    Financial Overview
+                    <Sparkles className="w-5 h-5 text-green-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </h2>
+                  <p className="text-sm text-slate-500 font-medium mt-1">
+                    Revenue and payment metrics
+                  </p>
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
@@ -878,11 +780,23 @@ const Dashboard = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
             >
-              <div className="flex items-center gap-2 mb-4">
-                <Briefcase className="w-6 h-6 text-indigo-600" />
-                <h2 className="text-2xl font-bold text-slate-900">
-                  Jobs & Services
-                </h2>
+              <div className="flex items-center gap-3 mb-6 group">
+                <motion.div
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.6 }}
+                  className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-xl"
+                >
+                  <Briefcase className="w-7 h-7 text-white" />
+                </motion.div>
+                <div>
+                  <h2 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2">
+                    Jobs & Services
+                    <Sparkles className="w-5 h-5 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </h2>
+                  <p className="text-sm text-slate-500 font-medium mt-1">
+                    Task completion and service status
+                  </p>
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
@@ -912,12 +826,28 @@ const Dashboard = () => {
                   delay={0.2}
                 />
                 <StatCard
-                  title="Cancelled"
+                  title="Rejected"
                   value={formatNumber(adminStats.jobs.cancelled)}
                   subtitle="Not completed"
                   icon={XCircle}
                   color="from-red-500 to-rose-600"
                   delay={0.3}
+                />
+                <StatCard
+                  title="Mall Services"
+                  value={formatNumber(adminStats.serviceTypes.mall)}
+                  subtitle="Commercial malls"
+                  icon={ShoppingBag}
+                  color="from-blue-500 to-cyan-600"
+                  delay={0.4}
+                />
+                <StatCard
+                  title="Residence Services"
+                  value={formatNumber(adminStats.serviceTypes.residence)}
+                  subtitle="Residential areas"
+                  icon={Home}
+                  color="from-teal-500 to-green-600"
+                  delay={0.5}
                 />
               </div>
             </motion.div>
@@ -928,11 +858,23 @@ const Dashboard = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
             >
-              <div className="flex items-center gap-2 mb-4">
-                <Users className="w-6 h-6 text-purple-600" />
-                <h2 className="text-2xl font-bold text-slate-900">
-                  Customers & Resources
-                </h2>
+              <div className="flex items-center gap-3 mb-6 group">
+                <motion.div
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.6 }}
+                  className="p-3 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-xl"
+                >
+                  <Users className="w-7 h-7 text-white" />
+                </motion.div>
+                <div>
+                  <h2 className="text-3xl font-extrabold bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 bg-clip-text text-transparent flex items-center gap-2">
+                    Customers & Resources
+                    <Sparkles className="w-5 h-5 text-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </h2>
+                  <p className="text-sm text-slate-500 font-medium mt-1">
+                    Customer base and resource allocation
+                  </p>
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
@@ -982,129 +924,31 @@ const Dashboard = () => {
               transition={{ duration: 0.3 }}
               className="space-y-6"
             >
-              {/* Revenue & Service Distribution Row */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Revenue Trends */}
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.6 }}
-                  className="bg-white rounded-2xl shadow-xl p-6 border border-slate-200"
-                >
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-green-600" />
-                      Revenue Trends
-                    </h3>
-                    <Zap className="w-5 h-5 text-yellow-500" />
-                  </div>
-                  <ResponsiveContainer width="100%" height={320}>
-                    <AreaChart data={revenueTrends}>
-                      <defs>
-                        <linearGradient
-                          id="colorRevenue"
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <stop
-                            offset="5%"
-                            stopColor={COLORS.primary}
-                            stopOpacity={0.8}
-                          />
-                          <stop
-                            offset="95%"
-                            stopColor={COLORS.primary}
-                            stopOpacity={0.1}
-                          />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} />
-                      <YAxis stroke="#94a3b8" fontSize={12} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#fff",
-                          border: "1px solid #e2e8f0",
-                          borderRadius: "12px",
-                          boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
-                        }}
-                        formatter={(value) => formatCurrency(value)}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="revenue"
-                        stroke={COLORS.primary}
-                        strokeWidth={3}
-                        fillOpacity={1}
-                        fill="url(#colorRevenue)"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </motion.div>
-
-                {/* Service Distribution */}
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.7 }}
-                  className="bg-white rounded-2xl shadow-xl p-6 border border-slate-200"
-                >
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                      <PieChartIcon className="w-5 h-5 text-purple-600" />
-                      Service Distribution
-                    </h3>
-                    <Target className="w-5 h-5 text-pink-500" />
-                  </div>
-                  <ResponsiveContainer width="100%" height={320}>
-                    <PieChart>
-                      <Pie
-                        data={serviceDistribution}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={(entry) =>
-                          `${entry.serviceType}: ${entry.count}`
-                        }
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="count"
-                      >
-                        {serviceDistribution.map((entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={CHART_COLORS[index % CHART_COLORS.length]}
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#fff",
-                          border: "1px solid #e2e8f0",
-                          borderRadius: "12px",
-                          boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </motion.div>
-              </div>
-
               {/* Monthly Jobs Overview - Residence & OneWash */}
               {charts && charts.residence && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.8 }}
-                  className="bg-white rounded-2xl shadow-xl p-6 border border-slate-200 col-span-2"
+                  className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/50 col-span-2 hover:shadow-3xl transition-all duration-500"
                 >
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                      <BarChart3 className="w-5 h-5 text-indigo-600" />
-                      Monthly Jobs Overview
-                    </h3>
+                  <div className="flex items-center gap-3 mb-8">
+                    <motion.div
+                      whileHover={{ rotate: 360 }}
+                      transition={{ duration: 0.6 }}
+                      className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-xl"
+                    >
+                      <BarChart3 className="w-7 h-7 text-white" />
+                    </motion.div>
+                    <div>
+                      <h3 className="text-2xl font-black bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
+                        Monthly Jobs Overview
+                        <Sparkles className="w-5 h-5 text-indigo-500\" />
+                      </h3>
+                      <p className="text-sm text-slate-500 font-medium mt-1">
+                        Yearly job trends and statistics
+                      </p>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1290,16 +1134,28 @@ const Dashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.0 }}
-            className="bg-white rounded-2xl shadow-xl p-6 border border-slate-200"
+            className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/50 hover:shadow-3xl transition-all duration-500"
           >
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <Award className="w-5 h-5 text-yellow-500" />
-                Top Performing Workers
-              </h3>
-              <div className="flex items-center gap-2 text-sm text-slate-500">
-                <Trophy className="w-4 h-4" />
-                <span className="font-semibold">Top 10</span>
+            <div className="flex items-center gap-3 mb-8">
+              <motion.div
+                whileHover={{ rotate: 360 }}
+                transition={{ duration: 0.6 }}
+                className="p-3 rounded-2xl bg-gradient-to-br from-yellow-500 to-amber-600 shadow-xl"
+              >
+                <Award className="w-7 h-7 text-white" />
+              </motion.div>
+              <div className="flex-1">
+                <h3 className="text-2xl font-black bg-gradient-to-r from-yellow-600 via-amber-600 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
+                  Top Performing Workers
+                  <Sparkles className="w-5 h-5 text-yellow-500" />
+                </h3>
+                <p className="text-sm text-slate-500 font-medium mt-1">
+                  Highest achievers of the month
+                </p>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-400 to-amber-500 rounded-xl text-white font-bold shadow-lg">
+                <Trophy className="w-5 h-5" />
+                <span>Top 10</span>
               </div>
             </div>
             <div className="space-y-3">
