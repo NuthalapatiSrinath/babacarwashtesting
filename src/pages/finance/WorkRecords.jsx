@@ -721,66 +721,10 @@ const WorkRecords = () => {
                     {currentItems.map((car, index) => {
                       const globalIndex = indexOfFirstItem + index;
 
-                      // Calculate total SCHEDULED days for this car
-                      let totalScheduledDays = 0;
-                      for (
-                        let dayIndex = 0;
-                        dayIndex < daysInMonth;
-                        dayIndex++
-                      ) {
-                        const date = new Date(
-                          filters.year,
-                          filters.month - 1,
-                          dayIndex + 1,
-                        );
-
-                        // Check if date is within the assignment period
-                        const currentDate = new Date(date);
-                        const startDate = car.startDate
-                          ? new Date(car.startDate)
-                          : null;
-                        const endDate = car.endDate
-                          ? new Date(car.endDate)
-                          : null;
-
-                        let isInDateRange = true;
-                        if (startDate && currentDate < startDate) {
-                          isInDateRange = false;
-                        }
-                        if (endDate && currentDate > endDate) {
-                          isInDateRange = false;
-                        }
-
-                        let isScheduled = false;
-                        if (isInDateRange) {
-                          if (car.scheduleType === "daily") {
-                            isScheduled = true;
-                          } else if (
-                            car.scheduleType === "weekly" &&
-                            car.scheduleDays &&
-                            car.scheduleDays.length > 0
-                          ) {
-                            const dayNames = [
-                              "sunday",
-                              "monday",
-                              "tuesday",
-                              "wednesday",
-                              "thursday",
-                              "friday",
-                              "saturday",
-                            ];
-                            const currentDayName = dayNames[date.getDay()];
-                            isScheduled = car.scheduleDays.some(
-                              (d) =>
-                                d && String(d).toLowerCase() === currentDayName,
-                            );
-                          }
-                        }
-
-                        if (isScheduled) {
-                          totalScheduledDays++;
-                        }
-                      }
+                      // Calculate total SCHEDULED days from dailyMarks
+                      const totalScheduledDays = car.dailyMarks
+                        ? car.dailyMarks.reduce((sum, mark) => sum + (mark || 0), 0)
+                        : 0;
 
                       // Check if vehicle is deactivated (ended before this month)
                       const monthStart = new Date(
@@ -852,60 +796,16 @@ const WorkRecords = () => {
                                   dayIndex + 1,
                                 );
 
-                                // Check if date is within the assignment period
-                                const currentDate = new Date(date);
-                                const startDate = car.startDate
-                                  ? new Date(car.startDate)
-                                  : null;
-                                const endDate = car.endDate
-                                  ? new Date(car.endDate)
-                                  : null;
-
-                                let isInDateRange = true;
-                                if (startDate && currentDate < startDate) {
-                                  isInDateRange = false;
-                                }
-                                if (endDate && currentDate > endDate) {
-                                  isInDateRange = false;
-                                }
-
-                                // Check if this day is SCHEDULED for this car
-                                let isScheduled = false;
-                                if (isInDateRange) {
-                                  if (car.scheduleType === "daily") {
-                                    // Daily = all days except Sunday (0 = Sunday)
-                                    isScheduled = date.getDay() !== 0;
-                                  } else if (
-                                    car.scheduleType === "weekly" &&
-                                    car.scheduleDays &&
-                                    car.scheduleDays.length > 0
-                                  ) {
-                                    const dayNames = [
-                                      "sunday",
-                                      "monday",
-                                      "tuesday",
-                                      "wednesday",
-                                      "thursday",
-                                      "friday",
-                                      "saturday",
-                                    ];
-                                    const currentDayName =
-                                      dayNames[date.getDay()];
-                                    isScheduled = car.scheduleDays.some(
-                                      (d) =>
-                                        d &&
-                                        String(d).toLowerCase() ===
-                                          currentDayName,
-                                    );
-                                  }
-                                }
+                                // Use the dailyMarks from backend instead of recalculating
+                                const mark = car.dailyMarks && car.dailyMarks[dayIndex] ? car.dailyMarks[dayIndex] : 0;
+                                const isScheduled = mark > 0;
 
                                 return (
                                   <td
                                     key={dayIndex}
                                     className={`border border-slate-300 p-1 text-center ${date.getDay() === 0 ? "bg-yellow-100" : ""} ${isScheduled ? "font-bold text-green-600" : ""}`}
                                   >
-                                    {isScheduled ? "1" : ""}
+                                    {mark > 0 ? mark : ""}
                                   </td>
                                 );
                               },
