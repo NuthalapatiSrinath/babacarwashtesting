@@ -235,47 +235,15 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                   onClick={handleLinkClick}
                   isMobile={isMobile}
                 />
-
-                {/* MANAGEMENT - Hide from supervisors */}
-                <li
-                  className={`
-                  px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest
-                  mb-2 mt-6
-                  ${isMobile ? "block" : "hidden group-hover:block"}
-                `}
-                >
-                  Management
-                </li>
-
                 <NavItem
-                  to="/locations"
-                  icon={MapPin}
-                  label="Locations"
+                  to="/customers"
+                  icon={Users}
+                  label="Customers"
                   onClick={handleLinkClick}
                   isMobile={isMobile}
                 />
-                <NavItem
-                  to="/buildings"
-                  icon={Building2}
-                  label="Buildings"
-                  onClick={handleLinkClick}
-                  isMobile={isMobile}
-                />
-                <NavItem
-                  to="/malls"
-                  icon={ShoppingBag}
-                  label="Malls"
-                  onClick={handleLinkClick}
-                  isMobile={isMobile}
-                />
-                <NavItem
-                  to="/sites"
-                  icon={LocateFixed}
-                  label="Sites"
-                  onClick={handleLinkClick}
-                  isMobile={isMobile}
-                />
-
+                
+            
                 {/* WORKERS */}
                 <li>
                   <MenuButton
@@ -298,24 +266,14 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                       label="Attendance"
                       onClick={handleLinkClick}
                     />
+                     <SubNavItem
+                      to="/supervisors"
+                      label="Supervisors"
+                      onClick={handleLinkClick}
+                    />
                   </SubMenu>
                 </li>
 
-                <NavItem
-                  to="/supervisors"
-                  icon={UserCheck}
-                  label="Supervisors"
-                  onClick={handleLinkClick}
-                  isMobile={isMobile}
-                />
-
-                <NavItem
-                  to="/customers"
-                  icon={Users}
-                  label="Customers"
-                  onClick={handleLinkClick}
-                  isMobile={isMobile}
-                />
 
                 {/* WASHES */}
                 <li>
@@ -343,7 +301,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                 </li>
 
                 {/* FINANCE */}
-                <li
+                {/* <li
                   className={`
                   px-4 text-[11px] font-extrabold text-text-muted uppercase tracking-widest
                   mb-2 mt-6
@@ -351,7 +309,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                 `}
                 >
                   Finance
-                </li>
+                </li> */}
 
                 <li>
                   <MenuButton
@@ -422,6 +380,39 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                   onClick={handleLinkClick}
                   isMobile={isMobile}
                 />
+    {/* MANAGEMENT - Hide from supervisors */}
+                <li>
+                  <MenuButton
+                    label="Management"
+                    icon={Briefcase}
+                    isOpen={openMenus.management}
+                    isActive={isActiveParent(["/locations", "/buildings", "/malls", "/sites"])}
+                    onClick={() => toggleMenu("management")}
+                    isMobile={isMobile}
+                  />
+                  <SubMenu isOpen={openMenus.management} isMobile={isMobile}>
+                    <SubNavItem
+                      to="/locations"
+                      label="Locations"
+                      onClick={handleLinkClick}
+                    />
+                    <SubNavItem
+                      to="/buildings"
+                      label="Buildings"
+                      onClick={handleLinkClick}
+                    />
+                    <SubNavItem
+                      to="/malls"
+                      label="Malls"
+                      onClick={handleLinkClick}
+                    />
+                    <SubNavItem
+                      to="/sites"
+                      label="Sites"
+                      onClick={handleLinkClick}
+                    />
+                  </SubMenu>
+                </li>
 
                 {/* SUPPORT */}
                 <li
