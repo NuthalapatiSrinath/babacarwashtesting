@@ -22,6 +22,10 @@ import {
   Building2,
   StickyNote,
   X,
+  Play,
+  Loader2,
+  Zap,
+  Calculator,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -147,6 +151,15 @@ const ResidencePayments = () => {
     notes: "",
   });
   const [savingNotes, setSavingNotes] = useState(false);
+
+  // Invoice Generation Modal States
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [invoiceMode, setInvoiceMode] = useState("full_subscription"); // "full_subscription" or "per_wash"
+  const [invoiceMonth, setInvoiceMonth] = useState(new Date().getMonth()); // 0-11
+  const [invoiceYear, setInvoiceYear] = useState(new Date().getFullYear());
+  const [runningInvoice, setRunningInvoice] = useState(false);
+  const [invoiceCheckResult, setInvoiceCheckResult] = useState(null);
+  const [checkingInvoice, setCheckingInvoice] = useState(false);
 
   // Load Currency & Initial Data
   useEffect(() => {
@@ -550,6 +563,94 @@ Are you sure you want to proceed?`;
     } catch (e) {
       console.error("PDF export error:", e);
       toast.error("Failed to generate PDF: " + e.message, { id: toastId });
+    }
+  };
+
+  // --- INVOICE GENERATION HANDLERS ---
+  const handleOpenInvoiceModal = async () => {
+    if (runningInvoice) return; // Don't open modal while generating
+    // Default to current month/year
+    const now = new Date();
+    setInvoiceMonth(now.getMonth());
+    setInvoiceYear(now.getFullYear());
+    setInvoiceMode("full_subscription");
+    setInvoiceCheckResult(null);
+    setIsInvoiceModalOpen(true);
+
+    // Check if invoices already exist for this month
+    await checkInvoiceExists(now.getMonth(), now.getFullYear());
+  };
+
+  const checkInvoiceExists = async (month, year) => {
+    setCheckingInvoice(true);
+    try {
+      const result = await paymentService.checkInvoice(month, year);
+      setInvoiceCheckResult(result);
+    } catch (error) {
+      console.error("Failed to check invoice status:", error);
+      setInvoiceCheckResult(null);
+    } finally {
+      setCheckingInvoice(false);
+    }
+  };
+
+  const handleInvoiceMonthChange = async (month, year) => {
+    setInvoiceMonth(month);
+    setInvoiceYear(year);
+    setInvoiceCheckResult(null);
+    await checkInvoiceExists(month, year);
+  };
+
+  const handleConfirmInvoice = async () => {
+    if (runningInvoice) return; // Prevent double-click
+    setRunningInvoice(true);
+    // Close modal immediately so user can't click again
+    setIsInvoiceModalOpen(false);
+
+    const billingMonth = invoiceMonth;
+    const billingYear = invoiceYear;
+    const billingMode = invoiceMode;
+
+    const monthName = new Date(billingYear, billingMonth, 1).toLocaleDateString(
+      "en-US",
+      {
+        month: "long",
+        year: "numeric",
+      },
+    );
+    const toastId = toast.loading(`Generating invoices for ${monthName}...`);
+
+    try {
+      const result = await paymentService.runInvoice(
+        billingMonth,
+        billingYear,
+        billingMode,
+      );
+      toast.success(
+        `${result.invoicesCreated} invoices created for ${monthName} (${billingMode === "full_subscription" ? "Full Subscription" : "Per Wash"})`,
+        { id: toastId, duration: 5000 },
+      );
+
+      // Switch date filter to show the generated invoices
+      // Invoices for e.g. February are dated March 1st (1st of next month)
+      const invoiceDate = new Date(billingYear, billingMonth + 1, 1);
+      const filterStart = new Date(invoiceDate);
+      filterStart.setHours(0, 0, 0, 0);
+      const filterEnd = new Date(invoiceDate);
+      filterEnd.setHours(23, 59, 59, 999);
+
+      setActiveTab("custom");
+      setFilters((prev) => ({
+        ...prev,
+        startDate: filterStart.toISOString(),
+        endDate: filterEnd.toISOString(),
+      }));
+    } catch (error) {
+      const errorMsg =
+        error.response?.data?.message || "Failed to generate invoices";
+      toast.error(errorMsg, { id: toastId, duration: 5000 });
+    } finally {
+      setRunningInvoice(false);
     }
   };
 
@@ -1091,6 +1192,15 @@ Are you sure you want to proceed?`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 font-sans flex flex-col">
+      {/* INVOICE GENERATION LOADING BANNER */}
+      {runningInvoice && (
+        <div className="sticky top-0 z-50 bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-4 py-3 flex items-center justify-center gap-3 shadow-lg animate-pulse">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span className="font-bold text-sm">
+            Generating invoices... Please wait, this may take a moment
+          </span>
+        </div>
+      )}
       {/* Use flex-1 to fill height, and padding on THIS container */}
       <div className="w-full flex-1 p-2 md:p-5">
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
@@ -1133,6 +1243,27 @@ Are you sure you want to proceed?`;
                   {thisMonth}
                 </button>
               </div>
+
+              {/* GENERATE INVOICES BUTTON */}
+              <button
+                onClick={handleOpenInvoiceModal}
+                disabled={runningInvoice}
+                className={`h-10 px-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all ${
+                  runningInvoice ? "opacity-80 cursor-wait animate-pulse" : ""
+                }`}
+              >
+                {runningInvoice ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4" />
+                    Generate Invoices
+                  </>
+                )}
+              </button>
 
               {/* MARK ALL PAID BUTTON */}
               <button
@@ -1633,6 +1764,218 @@ Are you sure you want to proceed?`;
               >
                 {savingNotes && <Clock className="w-4 h-4 animate-spin" />}
                 Save Notes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* INVOICE GENERATION MODAL */}
+      {isInvoiceModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5">
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-cyan-600" />
+                Generate Monthly Invoices
+              </h3>
+              <p className="text-sm text-slate-500 mt-1">
+                Create payment invoices for all active residence vehicles
+              </p>
+            </div>
+
+            {/* MODE TOGGLE */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">
+                Invoice Mode
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setInvoiceMode("full_subscription")}
+                  className={`p-3 rounded-xl border-2 text-left transition-all ${
+                    invoiceMode === "full_subscription"
+                      ? "border-indigo-500 bg-indigo-50 shadow-md"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Wallet
+                      className={`w-4 h-4 ${invoiceMode === "full_subscription" ? "text-indigo-600" : "text-slate-400"}`}
+                    />
+                    <span
+                      className={`text-sm font-bold ${invoiceMode === "full_subscription" ? "text-indigo-700" : "text-slate-600"}`}
+                    >
+                      Full Subscription
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Charge full monthly amount for all active vehicles
+                  </p>
+                </button>
+                <button
+                  onClick={() => setInvoiceMode("per_wash")}
+                  className={`p-3 rounded-xl border-2 text-left transition-all ${
+                    invoiceMode === "per_wash"
+                      ? "border-emerald-500 bg-emerald-50 shadow-md"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Calculator
+                      className={`w-4 h-4 ${invoiceMode === "per_wash" ? "text-emerald-600" : "text-slate-400"}`}
+                    />
+                    <span
+                      className={`text-sm font-bold ${invoiceMode === "per_wash" ? "text-emerald-700" : "text-slate-600"}`}
+                    >
+                      Per Completed Wash
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Charge only for washes actually completed
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {/* MONTH/YEAR SELECTOR */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">
+                  Month
+                </label>
+                <select
+                  value={invoiceMonth}
+                  onChange={(e) =>
+                    handleInvoiceMonthChange(
+                      parseInt(e.target.value),
+                      invoiceYear,
+                    )
+                  }
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none text-sm"
+                >
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i} value={i}>
+                      {new Date(2024, i, 1).toLocaleString("default", {
+                        month: "long",
+                      })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">
+                  Year
+                </label>
+                <select
+                  value={invoiceYear}
+                  onChange={(e) =>
+                    handleInvoiceMonthChange(
+                      invoiceMonth,
+                      parseInt(e.target.value),
+                    )
+                  }
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none text-sm"
+                >
+                  {Array.from({ length: 5 }, (_, i) => {
+                    const y = new Date().getFullYear() - 1 + i;
+                    return (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+
+            {/* STATUS CHECK */}
+            {checkingInvoice ? (
+              <div className="flex items-center gap-2 text-slate-500 text-sm p-3 bg-slate-50 rounded-lg">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Checking existing invoices...
+              </div>
+            ) : invoiceCheckResult?.exists ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-800 font-bold flex items-center gap-2">
+                  <X className="w-4 h-4" />
+                  Invoices Already Generated
+                </p>
+                <p className="text-xs text-red-600 mt-1">
+                  {invoiceCheckResult.count} invoices already exist for{" "}
+                  {invoiceCheckResult.month}. Cannot generate duplicates.
+                </p>
+              </div>
+            ) : invoiceCheckResult && !invoiceCheckResult.exists ? (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                <p className="text-sm text-emerald-800 font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Ready to Generate
+                </p>
+                <p className="text-xs text-emerald-600 mt-1">
+                  No invoices exist for {invoiceCheckResult.month}. You can
+                  proceed.
+                </p>
+              </div>
+            ) : null}
+
+            {/* WARNING */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-xs text-amber-800">
+                <strong>⚠️ Important:</strong> Once invoices are generated for a
+                month, they <strong>cannot be generated again</strong> — not
+                through this button, not through cron. Make sure you select the
+                correct mode and month before proceeding.
+              </p>
+              <p className="text-xs text-amber-700 mt-1">
+                <strong>📅 Invoice Date:</strong> Invoices for{" "}
+                {new Date(invoiceYear, invoiceMonth, 1).toLocaleString(
+                  "default",
+                  { month: "long", year: "numeric" },
+                )}{" "}
+                will be dated{" "}
+                <strong>
+                  {new Date(invoiceYear, invoiceMonth + 1, 1).toLocaleString(
+                    "default",
+                    { month: "long", day: "numeric", year: "numeric" },
+                  )}
+                </strong>{" "}
+                (1st of next month).
+              </p>
+            </div>
+
+            {/* BUTTONS */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsInvoiceModalOpen(false)}
+                disabled={runningInvoice}
+                className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-sm transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmInvoice}
+                disabled={
+                  runningInvoice ||
+                  checkingInvoice ||
+                  invoiceCheckResult?.exists
+                }
+                className={`flex-1 px-4 py-2.5 ${
+                  invoiceMode === "full_subscription"
+                    ? "bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700"
+                    : "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700"
+                } text-white rounded-lg font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50`}
+              >
+                {runningInvoice ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4" />
+                    Generate Invoices
+                  </>
+                )}
               </button>
             </div>
           </div>

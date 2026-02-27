@@ -151,4 +151,22 @@ export const paymentService = {
     });
     return response.data;
   },
+
+  // Run invoice generation manually
+  runInvoice: async (month, year, mode) => {
+    const response = await api.post("/payments/run-invoice", {
+      month,
+      year,
+      mode,
+    });
+    return response.data;
+  },
+
+  // Check if invoices already exist for a month
+  checkInvoice: async (month, year) => {
+    const response = await api.get("/payments/check-invoice", {
+      params: { month, year },
+    });
+    return response.data;
+  },
 };

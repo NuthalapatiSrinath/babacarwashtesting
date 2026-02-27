@@ -6,7 +6,7 @@ export const fetchResidencePayments = createAsyncThunk(
   "residencePayment/fetchResidencePayments",
   async (
     { page = 1, limit = 10, search = "", filters = {} },
-    { rejectWithValue }
+    { rejectWithValue },
   ) => {
     try {
       // Add onewash: false to filter for residence payments only
@@ -15,13 +15,13 @@ export const fetchResidencePayments = createAsyncThunk(
         page,
         limit,
         search,
-        residenceFilters
+        residenceFilters,
       );
       return { ...response, currentPage: page };
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 // Async thunk for deleting residence payment
@@ -29,12 +29,12 @@ export const deleteResidencePayment = createAsyncThunk(
   "residencePayment/deleteResidencePayment",
   async (id, { rejectWithValue }) => {
     try {
-      await paymentService.delete(id);
+      await paymentService.deletePayment(id);
       return id;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
     }
-  }
+  },
 );
 
 const residencePaymentSlice = createSlice({
@@ -78,7 +78,7 @@ const residencePaymentSlice = createSlice({
       // Delete Payment - remove from list immediately
       .addCase(deleteResidencePayment.fulfilled, (state, action) => {
         state.payments = state.payments.filter(
-          (payment) => payment._id !== action.payload
+          (payment) => payment._id !== action.payload,
         );
         state.total = Math.max(0, state.total - 1);
       })

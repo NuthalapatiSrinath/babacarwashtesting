@@ -38,6 +38,7 @@ const Residence = () => {
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [data, setData] = useState([]);
+  const [allJobsForFilters, setAllJobsForFilters] = useState([]); // ⚡ All jobs for filter counts
   const [workers, setWorkers] = useState([]);
   const [buildings, setBuildings] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -111,6 +112,7 @@ const Residence = () => {
   // --- AUTOMATIC FETCH ---
   useEffect(() => {
     fetchData(1, pagination.limit);
+    fetchAllJobsForFilters(); // ⚡ Fetch all jobs for accurate filter counts
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
@@ -121,6 +123,39 @@ const Residence = () => {
     return () => clearTimeout(delayDebounceFn);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
+
+  // ⚡ NEW: Fetch ALL jobs (not paginated) for filter counts
+  const fetchAllJobsForFilters = async () => {
+    if (!filters.startDate || !filters.endDate) return;
+
+    const start = new Date(filters.startDate);
+    const end = new Date(filters.endDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
+
+    try {
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+
+      // ⚡ IMPORTANT: Don't include building/worker filters here
+      // We want to show ALL buildings/workers in dropdown, not just filtered ones
+      const apiFilters = {
+        status: filters.status, // Include status filter
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+        // ❌ DON'T include: building, worker (so dropdown shows all options)
+      };
+
+      // Fetch with large limit to get all jobs (for filter counts only)
+      const res = await jobService.list(1, 10000, "", apiFilters);
+      setAllJobsForFilters(res.data || []);
+      
+      console.log('⚡ [FILTERS] Loaded', res.data?.length || 0, 'total jobs for filter counts');
+    } catch (e) {
+      console.error('Failed to fetch all jobs for filters:', e);
+      setAllJobsForFilters([]); // Fallback to empty
+    }
+  };
 
   const fetchData = async (page = 1, limit = 50) => {
     if (!filters.startDate || !filters.endDate) return;
@@ -351,10 +386,10 @@ const Residence = () => {
     { value: "rejected", label: "Rejected" },
   ];
 
-  // Extract unique buildings from current job data
+  // ⚡ Extract unique buildings from ALL jobs (not just current page)
   const buildingOptions = useMemo(() => {
     const uniqueBuildings = new Map();
-    data.forEach((job) => {
+    allJobsForFilters.forEach((job) => {
       if (job.building && job.building._id) {
         uniqueBuildings.set(job.building._id, job.building.name);
       }
@@ -371,16 +406,16 @@ const Residence = () => {
       "🏢 Building Options:",
       options.length - 1,
       "buildings from",
-      data.length,
-      "jobs",
+      allJobsForFilters.length,
+      "total jobs",
     );
     return options;
-  }, [data]);
+  }, [allJobsForFilters]);
 
-  // Extract unique workers from current job data
+  // ⚡ Extract unique workers from ALL jobs (not just current page)
   const workerOptions = useMemo(() => {
     const uniqueWorkers = new Map();
-    data.forEach((job) => {
+    allJobsForFilters.forEach((job) => {
       if (job.worker && job.worker._id) {
         uniqueWorkers.set(job.worker._id, job.worker.name);
       }
@@ -397,11 +432,11 @@ const Residence = () => {
       "👷 Worker Options:",
       options.length - 1,
       "workers from",
-      data.length,
-      "jobs",
+      allJobsForFilters.length,
+      "total jobs",
     );
     return options;
-  }, [data]);
+  }, [allJobsForFilters]);
 
   // ✅ HELPER: Format Date (Shows the actual date without timezone conversion)
   const formatUtcDate = (isoString) => {

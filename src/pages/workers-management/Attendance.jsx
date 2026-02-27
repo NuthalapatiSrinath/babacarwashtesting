@@ -8,6 +8,8 @@ import {
   Building,
   ShoppingBag,
   CheckCircle,
+  X,
+  AlertTriangle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -69,6 +71,14 @@ const Attendance = () => {
   const [malls, setMalls] = useState([]);
   const [sites, setSites] = useState([]);
   const [buildings, setBuildings] = useState([]);
+
+  // Absent Reason Modal
+  const [absentModal, setAbsentModal] = useState({
+    isOpen: false,
+    row: null,
+    reason: "AB",
+    notes: "",
+  });
 
   // --- 1. INITIAL LOAD ---
   useEffect(() => {
@@ -211,9 +221,21 @@ const Attendance = () => {
     const isPresent = statusType === "P";
     if (row.present === isPresent) return;
 
+    if (!isPresent) {
+      // Marking ABSENT → open reason modal
+      setAbsentModal({
+        isOpen: true,
+        row: row,
+        reason: "AB",
+        notes: "",
+      });
+      return;
+    }
+
+    // Marking PRESENT → update immediately
     const updatedList = allData.map((item) =>
       item._id === row._id
-        ? { ...item, present: isPresent, type: isPresent ? "" : "AB" }
+        ? { ...item, present: true, type: "", notes: " " }
         : item,
     );
     setAllData(updatedList);
@@ -221,14 +243,42 @@ const Attendance = () => {
     try {
       await attendanceService.update({
         ids: [row._id],
-        present: isPresent,
-        type: isPresent ? "" : "AB",
-        notes: row.notes,
+        present: true,
+        type: "",
+        notes: " ",
       });
-      toast.success(isPresent ? "Marked Present" : "Marked Absent");
+      toast.success("Marked Present");
     } catch (error) {
       toast.error("Update failed");
-      fetchRecords(); // Revert
+      fetchRecords();
+    }
+  };
+
+  const handleConfirmAbsent = async () => {
+    const { row, reason, notes } = absentModal;
+    if (!row) return;
+
+    const noteValue = notes.trim() || reason;
+
+    const updatedList = allData.map((item) =>
+      item._id === row._id
+        ? { ...item, present: false, type: reason, notes: noteValue }
+        : item,
+    );
+    setAllData(updatedList);
+    setAbsentModal({ isOpen: false, row: null, reason: "AB", notes: "" });
+
+    try {
+      await attendanceService.update({
+        ids: [row._id],
+        present: false,
+        type: reason,
+        notes: noteValue,
+      });
+      toast.success("Marked Absent");
+    } catch (error) {
+      toast.error("Update failed");
+      fetchRecords();
     }
   };
 
@@ -564,6 +614,105 @@ const Attendance = () => {
           searchPlaceholder="Search Name or ID..."
         />
       </div>
+
+      {/* --- ABSENT REASON MODAL --- */}
+      {absentModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-white" />
+                <h3 className="text-white font-bold text-lg">Mark Absent</h3>
+              </div>
+              <button
+                onClick={() =>
+                  setAbsentModal({ isOpen: false, row: null, reason: "AB", notes: "" })
+                }
+                className="text-white/80 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-600">
+                You are marking{" "}
+                <strong className="text-slate-800">
+                  {(absentModal.row?.worker?.name || absentModal.row?.staff?.name || "Unknown")}
+                </strong>{" "}
+                as absent. Please select a reason:
+              </p>
+
+              {/* Reason Options */}
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-slate-700">
+                  Reason
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "AB", label: "Absent", active: "border-red-500 bg-red-50 text-red-700" },
+                    { value: "SL", label: "Sick Leave", active: "border-orange-500 bg-orange-50 text-orange-700" },
+                    { value: "ND", label: "No Duty", active: "border-slate-500 bg-slate-100 text-slate-700" },
+                    { value: "EL", label: "Emergency Leave", active: "border-amber-500 bg-amber-50 text-amber-700" },
+                    { value: "PL", label: "Paid Leave", active: "border-blue-500 bg-blue-50 text-blue-700" },
+                    { value: "UL", label: "Unpaid Leave", active: "border-purple-500 bg-purple-50 text-purple-700" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() =>
+                        setAbsentModal((prev) => ({ ...prev, reason: opt.value }))
+                      }
+                      className={`px-3 py-2.5 rounded-lg border-2 text-sm font-bold transition-all ${
+                        absentModal.reason === opt.value
+                          ? `${opt.active} shadow-md`
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                      }`}
+                    >
+                      {opt.label} ({opt.value})
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Optional Notes */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">
+                  Additional Notes <span className="font-normal text-slate-400">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={absentModal.notes}
+                  onChange={(e) =>
+                    setAbsentModal((prev) => ({ ...prev, notes: e.target.value }))
+                  }
+                  placeholder="E.g. Called in sick, family emergency..."
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-3">
+              <button
+                onClick={() =>
+                  setAbsentModal({ isOpen: false, row: null, reason: "AB", notes: "" })
+                }
+                className="flex-1 px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg font-bold text-sm transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmAbsent}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white rounded-lg font-bold text-sm shadow-lg transition-all"
+              >
+                Confirm Absent
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
