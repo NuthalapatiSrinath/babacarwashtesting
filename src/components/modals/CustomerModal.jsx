@@ -310,6 +310,22 @@ const CustomerModal = ({ isOpen, onClose, customer, onSuccess }) => {
     e.preventDefault();
     setLoading(true);
     try {
+      // ✅ Validate for duplicate vehicle+parking combinations within this customer
+      const vehicleParkingCombos = new Map();
+      for (const vehicle of formData.vehicles) {
+        if (vehicle.registration_no) {
+          const key = `${vehicle.registration_no.toLowerCase()}|${(vehicle.parking_no || "").toLowerCase()}`;
+          if (vehicleParkingCombos.has(key)) {
+            toast.error(
+              `Duplicate vehicle+parking combination: ${vehicle.registration_no} with parking ${vehicle.parking_no || "N/A"}`,
+            );
+            setLoading(false);
+            return;
+          }
+          vehicleParkingCombos.set(key, true);
+        }
+      }
+
       if (customer) {
         // For updates, remove onboard_date from existing vehicles (backend will preserve it)
         const updatePayload = {

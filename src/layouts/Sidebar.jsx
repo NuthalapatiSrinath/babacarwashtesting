@@ -25,6 +25,7 @@ import {
   Settings,
   BarChart2,
   Clock,
+  Car,
 } from "lucide-react";
 
 const Sidebar = ({ isOpen, isMobile, onClose }) => {
@@ -37,6 +38,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
 
   const [openMenus, setOpenMenus] = useState({
     workers: false,
+    customers: false,
     washes: false,
     payments: false,
     settings: false,
@@ -46,6 +48,9 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
   useEffect(() => {
     if (location.pathname.startsWith("/workers")) {
       setOpenMenus((p) => ({ ...p, workers: true }));
+    }
+    if (location.pathname.startsWith("/customers")) {
+      setOpenMenus((p) => ({ ...p, customers: true }));
     }
     if (location.pathname.startsWith("/washes")) {
       setOpenMenus((p) => ({ ...p, washes: true }));
@@ -266,14 +271,40 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                       label="Attendance"
                       onClick={handleLinkClick}
                     />
-                     <SubNavItem
-                      to="/supervisors"
-                      label="Supervisors"
+                  </SubMenu>
+                </li>
+
+                <NavItem
+                  to="/supervisors"
+                  icon={UserCheck}
+                  label="Supervisors"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+
+                <li>
+                  <MenuButton
+                    label="Customers"
+                    icon={Users}
+                    isOpen={openMenus.customers}
+                    isActive={isActiveParent(["/customers"])}
+                    onClick={() => toggleMenu("customers")}
+                    isMobile={isMobile}
+                  />
+
+                  <SubMenu isOpen={openMenus.customers} isMobile={isMobile}>
+                    <SubNavItem
+                      to="/customers"
+                      label="All Customers"
+                      onClick={handleLinkClick}
+                    />
+                    <SubNavItem
+                      to="/customers/vehicle-management"
+                      label="Vehicle Management"
                       onClick={handleLinkClick}
                     />
                   </SubMenu>
                 </li>
-
 
                 {/* WASHES */}
                 <li>

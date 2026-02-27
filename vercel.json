@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "http://localhost:3001/api/:path*"
+      "destination": "https://api.babacarwash.com/api/:path*"
     },
     {
       "source": "/(.*)",

@@ -41,6 +41,7 @@ import Enquiry from "./pages/support/Enquiry";
 import Pricing from "./pages/finance/Pricing";
 import Customers from "./pages/customers/Customers";
 import CustomerHistory from "./pages/customers/CustomerHistory";
+import VehicleManagement from "./pages/customers/VehicleManagement";
 import OneWash from "./pages/washes/OneWash";
 import Residence from "./pages/washes/Residence";
 
@@ -194,6 +195,11 @@ export const routes = [
     path: "/customers/:id/history",
     title: "Customer History",
     component: <CustomerHistory />,
+  },
+  {
+    path: "/customers/vehicle-management",
+    title: "Vehicle Management",
+    component: <VehicleManagement />,
   },
 
   // --- WASHES ---
