@@ -263,6 +263,10 @@ const Customers = () => {
 
   // --- Unified Effect for Fetching ---
   useEffect(() => {
+    // Only debounce for search term, fetch immediately for other filters
+    const shouldDebounce = searchTerm.length > 0;
+    const delay = shouldDebounce ? 300 : 0; // Reduced from 500ms to 300ms
+
     const delayDebounceFn = setTimeout(() => {
       fetchData(
         1,
@@ -272,7 +276,7 @@ const Customers = () => {
         selectedWorker,
         selectedBuilding,
       );
-    }, 500);
+    }, delay);
 
     return () => clearTimeout(delayDebounceFn);
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -240,15 +240,33 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                   onClick={handleLinkClick}
                   isMobile={isMobile}
                 />
-                <NavItem
-                  to="/customers"
-                  icon={Users}
-                  label="Customers"
-                  onClick={handleLinkClick}
-                  isMobile={isMobile}
-                />
-                
-            
+
+                {/* CUSTOMERS */}
+                <li>
+                  <MenuButton
+                    label="Customers"
+                    icon={Users}
+                    isOpen={openMenus.customers}
+                    isActive={isActiveParent(["/customers"])}
+                    onClick={() => toggleMenu("customers")}
+                    isMobile={isMobile}
+                  />
+
+                  <SubMenu isOpen={openMenus.customers} isMobile={isMobile}>
+                    <SubNavItem
+                      to="/customers"
+                      label="All Customers"
+                      onClick={handleLinkClick}
+                      end={true}
+                    />
+                    <SubNavItem
+                      to="/customers/vehicle-management"
+                      label="Vehicle Management"
+                      onClick={handleLinkClick}
+                    />
+                  </SubMenu>
+                </li>
+
                 {/* WORKERS */}
                 <li>
                   <MenuButton
@@ -281,30 +299,6 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                   onClick={handleLinkClick}
                   isMobile={isMobile}
                 />
-
-                <li>
-                  <MenuButton
-                    label="Customers"
-                    icon={Users}
-                    isOpen={openMenus.customers}
-                    isActive={isActiveParent(["/customers"])}
-                    onClick={() => toggleMenu("customers")}
-                    isMobile={isMobile}
-                  />
-
-                  <SubMenu isOpen={openMenus.customers} isMobile={isMobile}>
-                    <SubNavItem
-                      to="/customers"
-                      label="All Customers"
-                      onClick={handleLinkClick}
-                    />
-                    <SubNavItem
-                      to="/customers/vehicle-management"
-                      label="Vehicle Management"
-                      onClick={handleLinkClick}
-                    />
-                  </SubMenu>
-                </li>
 
                 {/* WASHES */}
                 <li>
@@ -411,13 +405,18 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                   onClick={handleLinkClick}
                   isMobile={isMobile}
                 />
-    {/* MANAGEMENT - Hide from supervisors */}
+                {/* MANAGEMENT - Hide from supervisors */}
                 <li>
                   <MenuButton
                     label="Management"
                     icon={Briefcase}
                     isOpen={openMenus.management}
-                    isActive={isActiveParent(["/locations", "/buildings", "/malls", "/sites"])}
+                    isActive={isActiveParent([
+                      "/locations",
+                      "/buildings",
+                      "/malls",
+                      "/sites",
+                    ])}
                     onClick={() => toggleMenu("management")}
                     isMobile={isMobile}
                   />
@@ -629,10 +628,11 @@ const SubMenu = ({ isOpen, children, isMobile }) => (
   </AnimatePresence>
 );
 
-const SubNavItem = ({ to, label, onClick }) => (
+const SubNavItem = ({ to, label, onClick, end = false }) => (
   <li>
     <NavLink
       to={to}
+      end={end}
       onClick={onClick}
       className={({ isActive }) =>
         `block px-4 py-2.5 text-[13px] rounded-r-lg transition-all duration-200
