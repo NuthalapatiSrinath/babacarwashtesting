@@ -16,6 +16,7 @@ import {
   Home,
   Phone,
   X,
+  History,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
@@ -1610,6 +1611,14 @@ const Customers = () => {
             </button>
 
             <button
+              onClick={() => navigate("/customers/import-history")}
+              className="h-10 px-4 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all"
+            >
+              <History className="w-4 h-4" />
+              <span className="hidden sm:inline">Import History</span>
+            </button>
+
+            <button
               onClick={handleExport}
               disabled={exporting}
               className="h-10 px-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all disabled:opacity-70"
@@ -1810,7 +1819,17 @@ const Customers = () => {
               )}
             </div>
 
-            <div className="border-t border-gray-200 p-4 bg-gray-50 flex justify-end">
+            <div className="border-t border-gray-200 p-4 bg-gray-50 flex justify-between">
+              <button
+                onClick={() => {
+                  setShowImportResults(false);
+                  navigate("/customers/import-history");
+                }}
+                className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg font-bold text-sm transition-all flex items-center gap-2"
+              >
+                <History className="w-4 h-4" />
+                View Full History
+              </button>
               <button
                 onClick={() => setShowImportResults(false)}
                 className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-lg font-bold shadow-md transition-all"

@@ -242,30 +242,13 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                 />
 
                 {/* CUSTOMERS */}
-                <li>
-                  <MenuButton
-                    label="Customers"
-                    icon={Users}
-                    isOpen={openMenus.customers}
-                    isActive={isActiveParent(["/customers"])}
-                    onClick={() => toggleMenu("customers")}
-                    isMobile={isMobile}
-                  />
-
-                  <SubMenu isOpen={openMenus.customers} isMobile={isMobile}>
-                    <SubNavItem
-                      to="/customers"
-                      label="All Customers"
-                      onClick={handleLinkClick}
-                      end={true}
-                    />
-                    <SubNavItem
-                      to="/customers/vehicle-management"
-                      label="Vehicle Management"
-                      onClick={handleLinkClick}
-                    />
-                  </SubMenu>
-                </li>
+                <NavItem
+                  to="/customers"
+                  icon={Users}
+                  label="Customers"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
 
                 {/* WORKERS */}
                 <li>
@@ -416,6 +399,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                       "/buildings",
                       "/malls",
                       "/sites",
+                      "/customers/vehicle-management",
                     ])}
                     onClick={() => toggleMenu("management")}
                     isMobile={isMobile}
@@ -439,6 +423,11 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                     <SubNavItem
                       to="/sites"
                       label="Sites"
+                      onClick={handleLinkClick}
+                    />
+                    <SubNavItem
+                      to="/customers/vehicle-management"
+                      label="Vehicle Management"
                       onClick={handleLinkClick}
                     />
                   </SubMenu>
