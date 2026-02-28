@@ -17,6 +17,7 @@ import {
   Phone,
   X,
   History,
+  Activity,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
@@ -1245,9 +1246,16 @@ const Customers = () => {
     {
       header: "Actions",
       className:
-        "text-right sticky right-0 bg-white shadow-[-10px_0_10px_-10px_rgba(0,0,0,0.1)] min-w-[140px]",
+        "text-right sticky right-0 bg-white shadow-[-10px_0_10px_-10px_rgba(0,0,0,0.1)] min-w-[170px]",
       render: (row) => (
         <div className="flex items-center justify-end gap-1.5 pr-2">
+          <button
+            onClick={() => navigate(`/customers/${row.customer._id}/activity`)}
+            className="p-2 rounded-lg bg-violet-50 text-violet-600 hover:bg-violet-600 hover:text-white border border-violet-100 transition-all shadow-sm hover:shadow-md"
+            title="Activity Tracking"
+          >
+            <Activity className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={() => handleEdit(row.customer)}
             className="p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-100 transition-all shadow-sm hover:shadow-md"

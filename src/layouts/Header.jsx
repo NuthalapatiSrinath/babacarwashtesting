@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import adminTracker from "../utils/adminActivityTracker";
 import {
   Menu,
   Moon,
@@ -151,6 +152,10 @@ const Header = ({ onMenuClick, theme, toggleTheme }) => {
   }, []);
 
   const handleLogout = () => {
+    // Track logout and dispose tracker before clearing auth
+    adminTracker.trackLogout();
+    adminTracker.dispose();
+
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("isAuthenticated");

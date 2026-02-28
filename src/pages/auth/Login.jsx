@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { authService } from "../../api/authService";
+import adminTracker from "../../utils/adminActivityTracker";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -73,6 +74,10 @@ const Login = () => {
       if (response.statusCode === 200 && response.data.token) {
         localStorage.setItem("token", response.data.token);
         localStorage.setItem("user", JSON.stringify(response.data));
+
+        // Initialize activity tracker on login
+        adminTracker.initialize();
+        adminTracker.trackLogin();
 
         const userRole = response.data.role?.toLowerCase();
         const userName = response.data.name || "User";

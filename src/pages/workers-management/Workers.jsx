@@ -28,6 +28,7 @@ import {
   Car, // ✅ Driver icon
   UserCheck, // ✅ Office Staff icon
   Shield, // ✅ Supervisor icon
+  Activity,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
@@ -147,6 +148,15 @@ const Workers = () => {
     const status = activeTab === "active" ? 1 : 2;
     fetchData(pagination.page, pagination.limit, currentSearch, status);
   }, [activeTab]);
+
+  // --- Debounced server-side search when user types ---
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const status = activeTab === "active" ? 1 : 2;
+      fetchData(1, pagination.limit, currentSearch, status);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [currentSearch]);
 
   // --- FILTER LOGIC ---
   const companyOptions = useMemo(() => {
@@ -585,6 +595,13 @@ const Workers = () => {
             title="History"
           >
             <Calendar className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => navigate(`/workers/${r._id}/activity`)}
+            className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-100"
+            title="Activity Tracking"
+          >
+            <Activity className="w-3.5 h-3.5" />
           </button>
         </div>
       ),

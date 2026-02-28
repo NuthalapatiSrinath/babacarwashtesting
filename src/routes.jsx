@@ -41,6 +41,8 @@ import Enquiry from "./pages/support/Enquiry";
 import Pricing from "./pages/finance/Pricing";
 import Customers from "./pages/customers/Customers";
 import CustomerHistory from "./pages/customers/CustomerHistory";
+import CustomerActivityDetail from "./pages/customers/CustomerActivityDetail";
+import WorkerActivityDetail from "./pages/workers-management/WorkerActivityDetail";
 import VehicleManagement from "./pages/customers/VehicleManagement";
 import ImportHistory from "./pages/customers/ImportHistory";
 import OneWash from "./pages/washes/OneWash";
@@ -70,6 +72,9 @@ import SupervisorReports from "./pages/supervisor/Reports";
 
 // Notifications
 import Notifications from "./pages/notifications/Notifications";
+
+// Activity Tracking
+import AdminTracking from "./pages/tracking/AdminTracking";
 
 export const routes = [
   // --- OVERVIEW ---
@@ -160,6 +165,11 @@ export const routes = [
     component: <WorkerHistory />,
   },
   {
+    path: "/workers/:workerId/activity",
+    title: "Worker Activity",
+    component: <WorkerActivityDetail />,
+  },
+  {
     path: "/workers/staff",
     title: "Staff",
     component: <Staff />,
@@ -196,6 +206,11 @@ export const routes = [
     path: "/customers/:id/history",
     title: "Customer History",
     component: <CustomerHistory />,
+  },
+  {
+    path: "/customers/:customerId/activity",
+    title: "Customer Activity",
+    component: <CustomerActivityDetail />,
   },
   {
     path: "/customers/vehicle-management",
@@ -303,6 +318,13 @@ export const routes = [
     title: "All Notifications",
     component: <Notifications />,
     icon: Bell,
+  },
+
+  // --- ACTIVITY TRACKING (hidden route, no icon = no sidebar entry) ---
+  {
+    path: "/tracking",
+    title: "Activity Tracking",
+    component: <AdminTracking />,
   },
 
   // --- SUPERVISOR SECTION ---

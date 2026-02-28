@@ -1,6 +1,12 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 import { Toaster } from "react-hot-toast";
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 
 // Layouts & Pages
 import MainLayout from "./layouts/MainLayout";
@@ -11,6 +17,42 @@ import { routes } from "./routes"; // Your route config file
 import ProtectedRoute from "./components/ProtectedRoute";
 import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
 import TermsOfService from "./pages/legal/TermsOfService";
+
+// Activity Tracker
+import adminTracker from "./utils/adminActivityTracker";
+
+// --- Route Change Tracker (must be inside BrowserRouter) ---
+const RouteTracker = () => {
+  const location = useLocation();
+  const prevPath = useRef(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    // Initialize tracker if not already (e.g. page refresh while logged in)
+    if (!adminTracker._initialized) {
+      adminTracker.initialize();
+    }
+
+    // Only track if path actually changed
+    if (prevPath.current !== location.pathname) {
+      const matchedRoute = routes.find((r) => {
+        // Simple match for static routes
+        if (r.path === location.pathname) return true;
+        // For dynamic routes like /workers/:id, do a rough match
+        const pattern = r.path.replace(/:[^/]+/g, "[^/]+");
+        return new RegExp(`^${pattern}$`).test(location.pathname);
+      });
+
+      const title = matchedRoute?.title || document.title || location.pathname;
+      adminTracker.trackPageView(location.pathname, title);
+      prevPath.current = location.pathname;
+    }
+  }, [location.pathname]);
+
+  return null;
+};
 
 // --- Custom Loading Screen ---
 const LoadingScreen = () => (
@@ -104,6 +146,9 @@ function App() {
 
   return (
     <BrowserRouter>
+      {/* --- Route Change Tracker --- */}
+      <RouteTracker />
+
       {/* --- TOASTER SETTINGS --- */}
       <Toaster
         position="top-right"
