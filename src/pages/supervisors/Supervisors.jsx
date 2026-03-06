@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Edit2,
@@ -9,6 +10,7 @@ import {
   Building,
   ShoppingBag,
   Shield,
+  Activity,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -30,6 +32,7 @@ import {
 const Supervisors = () => {
   // Redux State
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const pp = usePagePermissions("supervisors");
   const { supervisors, loading, error, total, currentPage, totalPages } =
     useSelector((state) => state.supervisor);
@@ -178,23 +181,30 @@ const Supervisors = () => {
         "text-right w-24 sticky right-0 bg-white shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]",
       render: (row) => (
         <div className="flex justify-end gap-1.5 pr-2">
-          {pp.isActionVisible("edit") && (
           <button
-            onClick={() => handleEdit(row)}
-            className="p-2 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition-all"
-            title="Edit"
+            onClick={() => navigate(`/supervisors/${row._id}/activity`)}
+            className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-all"
+            title="Activity Tracking"
           >
-            <Edit2 className="w-4 h-4" />
+            <Activity className="w-4 h-4" />
           </button>
+          {pp.isActionVisible("edit") && (
+            <button
+              onClick={() => handleEdit(row)}
+              className="p-2 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition-all"
+              title="Edit"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
           )}
           {pp.isActionVisible("delete") && (
-          <button
-            onClick={() => handleDeleteAction(row)}
-            className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all"
-            title="Delete"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+            <button
+              onClick={() => handleDeleteAction(row)}
+              className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all"
+              title="Delete"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           )}
         </div>
       ),
@@ -257,15 +267,17 @@ const Supervisors = () => {
           onLimitChange={handleLimitChange}
           // Header Actions
           onSearch={handleSearch}
-          actionButton={pp.isToolbarVisible("addSupervisor") ?
-            <button
-              onClick={handleAdd}
-              className="h-10 px-5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all active:scale-95 whitespace-nowrap"
-            >
-              <Plus className="w-4 h-4" />
-              Add Supervisor
-            </button>
-          : null}
+          actionButton={
+            pp.isToolbarVisible("addSupervisor") ? (
+              <button
+                onClick={handleAdd}
+                className="h-10 px-5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all active:scale-95 whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4" />
+                Add Supervisor
+              </button>
+            ) : null
+          }
           // Expanded Row
           renderExpandedRow={renderDetailsRow}
         />

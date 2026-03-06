@@ -79,6 +79,7 @@ import Notifications from "./pages/notifications/Notifications";
 
 // Activity Tracking
 import AdminTracking from "./pages/tracking/AdminTracking";
+import SupervisorActivityDetail from "./pages/supervisors/SupervisorActivityDetail";
 
 // Admin Staff Management
 import AdminStaff from "./pages/admin-staff/AdminStaff";
@@ -402,5 +403,10 @@ export const routes = [
     title: "Supervisor Settlements",
     component: <SupervisorSettlements />,
     icon: Wallet,
+  },
+  {
+    path: "/supervisors/:supervisorId/activity",
+    title: "Supervisor Activity Detail",
+    component: <SupervisorActivityDetail />,
   },
 ];

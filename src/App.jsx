@@ -18,8 +18,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import PrivacyPolicy from "./pages/legal/PrivacyPolicy";
 import TermsOfService from "./pages/legal/TermsOfService";
 
-// Activity Tracker
-import adminTracker from "./utils/adminActivityTracker";
+// Activity Tracker (role-based)
+import { getTracker } from "./utils/getTracker";
 
 // Permissions
 import { PERMISSION_MODULES } from "./utils/usePermissions";
@@ -33,9 +33,11 @@ const RouteTracker = () => {
     const token = localStorage.getItem("token");
     if (!token) return;
 
+    const tracker = getTracker();
+
     // Initialize tracker if not already (e.g. page refresh while logged in)
-    if (!adminTracker._initialized) {
-      adminTracker.initialize();
+    if (!tracker._initialized) {
+      tracker.initialize();
     }
 
     // Only track if path actually changed
@@ -49,7 +51,7 @@ const RouteTracker = () => {
       });
 
       const title = matchedRoute?.title || document.title || location.pathname;
-      adminTracker.trackPageView(location.pathname, title);
+      tracker.trackPageView(location.pathname, title);
       prevPath.current = location.pathname;
     }
   }, [location.pathname]);
