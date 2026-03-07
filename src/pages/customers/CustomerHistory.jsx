@@ -27,6 +27,7 @@ import DataTable from "../../components/DataTable";
 import RichDateRangePicker from "../../components/inputs/RichDateRangePicker";
 
 import { customerService } from "../../api/customerService";
+import { toShiftRange } from "../../utils/shiftTime";
 
 const CustomerHistory = () => {
   const { id } = useParams();
@@ -57,12 +58,20 @@ const CustomerHistory = () => {
         startDate,
         endDate,
       });
+      // Convert dates to shift range (18:30-18:30 Dubai time)
+      let apiStartDate = startDate;
+      let apiEndDate = endDate;
+      if (startDate && endDate) {
+        const shiftRange = toShiftRange(startDate, endDate);
+        apiStartDate = shiftRange.startDate;
+        apiEndDate = shiftRange.endDate;
+      }
       const res = await customerService.getHistory(
         id,
         page,
         limit,
-        startDate,
-        endDate,
+        apiStartDate,
+        apiEndDate,
       );
 
       console.log("📦 Backend Response:", res);

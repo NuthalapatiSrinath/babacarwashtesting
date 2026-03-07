@@ -43,6 +43,7 @@ import PaymentHistoryModal from "../../components/modals/PaymentHistoryModal";
 import RichDateRangePicker from "../../components/inputs/RichDateRangePicker";
 import CustomDropdown from "../../components/ui/CustomDropdown"; // Import CustomDropdown
 import usePagePermissions from "../../utils/usePagePermissions";
+import { toShiftRange } from "../../utils/shiftTime";
 
 // API
 import { buildingService } from "../../api/buildingService";
@@ -91,34 +92,26 @@ const ResidencePayments = () => {
 
   const getRangeForTab = (tab) => {
     const today = new Date();
-    let start, end;
+    let startStr, endStr;
 
     if (tab === "today") {
-      // Today only
-      start = new Date(today);
-      end = new Date(today);
+      startStr = today.toISOString().split("T")[0];
+      endStr = startStr;
     } else if (tab === "this_month") {
-      // Current month: 1st of month to today
-      start = new Date(today.getFullYear(), today.getMonth(), 1);
-      end = new Date(today);
+      startStr = new Date(today.getFullYear(), today.getMonth(), 1)
+        .toISOString()
+        .split("T")[0];
+      endStr = today.toISOString().split("T")[0];
     } else {
-      // Last month: 1st to last day of last month
-      start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      end = new Date(today.getFullYear(), today.getMonth(), 0);
+      startStr = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        .toISOString()
+        .split("T")[0];
+      endStr = new Date(today.getFullYear(), today.getMonth(), 0)
+        .toISOString()
+        .split("T")[0];
     }
 
-    // Set to start and end of day
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-
-    console.log(`📅 Tab: ${tab}`);
-    console.log(`   Start: ${start.toISOString()}`);
-    console.log(`   End: ${end.toISOString()}`);
-
-    return {
-      startDate: start.toISOString(),
-      endDate: end.toISOString(),
-    };
+    return toShiftRange(startStr, endStr);
   };
 
   const [activeTab, setActiveTab] = useState("this_month");
@@ -216,12 +209,23 @@ const ResidencePayments = () => {
       const isSearching = searchTerm.trim().length > 0;
       const fetchLimit = isSearching ? 3000 : limit;
 
+      // If dates are YYYY-MM-DD (from custom picker), convert to shift range
+      let apiFilters = { ...filters };
+      if (apiFilters.startDate && apiFilters.startDate.length === 10) {
+        const shiftRange = toShiftRange(
+          apiFilters.startDate,
+          apiFilters.endDate,
+        );
+        apiFilters.startDate = shiftRange.startDate;
+        apiFilters.endDate = shiftRange.endDate;
+      }
+
       const result = await dispatch(
         fetchResidencePayments({
           page,
           limit: fetchLimit,
           search: "",
-          filters: filters,
+          filters: apiFilters,
         }),
       ).unwrap();
 
@@ -656,16 +660,14 @@ Are you sure you want to proceed?`;
       // Switch date filter to show the generated invoices
       // Invoices for e.g. February are dated March 1st (1st of next month)
       const invoiceDate = new Date(billingYear, billingMonth + 1, 1);
-      const filterStart = new Date(invoiceDate);
-      filterStart.setHours(0, 0, 0, 0);
-      const filterEnd = new Date(invoiceDate);
-      filterEnd.setHours(23, 59, 59, 999);
+      const invoiceDateStr = invoiceDate.toISOString().split("T")[0];
+      const shiftRange = toShiftRange(invoiceDateStr, invoiceDateStr);
 
       setActiveTab("custom");
       setFilters((prev) => ({
         ...prev,
-        startDate: filterStart.toISOString(),
-        endDate: filterEnd.toISOString(),
+        startDate: shiftRange.startDate,
+        endDate: shiftRange.endDate,
       }));
     } catch (error) {
       const errorMsg =

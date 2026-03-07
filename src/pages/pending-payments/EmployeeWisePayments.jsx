@@ -63,6 +63,7 @@ import { oneWashService } from "../../api/oneWashService";
 // Components
 import CustomDropdown from "../../components/ui/CustomDropdown";
 import RichDateRangePicker from "../../components/inputs/RichDateRangePicker";
+import { toShiftRange } from "../../utils/shiftTime";
 
 // ============================================================
 // HELPER: compute due date from billing_month or createdAt
@@ -672,12 +673,14 @@ const EmployeeWisePayments = () => {
   // ==============================
   const getDateRangeParams = useCallback(() => {
     if (filterMode === "date_range") {
-      return { startDate: filters.startDate, endDate: filters.endDate };
+      return toShiftRange(filters.startDate, filters.endDate);
     }
-    const start = new Date(filters.year, filters.month - 1, 1).toISOString();
-    const lastDay = new Date(filters.year, filters.month, 0);
-    lastDay.setHours(23, 59, 59, 999);
-    return { startDate: start, endDate: lastDay.toISOString() };
+    const first = new Date(filters.year, filters.month - 1, 1);
+    const last = new Date(filters.year, filters.month, 0);
+    return toShiftRange(
+      first.toISOString().split("T")[0],
+      last.toISOString().split("T")[0],
+    );
   }, [filterMode, filters]);
 
   const fetchAllPending = async () => {

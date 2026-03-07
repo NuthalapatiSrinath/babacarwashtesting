@@ -30,6 +30,7 @@ import CustomDropdown from "../../components/ui/CustomDropdown";
 import { jobService } from "../../api/jobService";
 import { supervisorService } from "../../api/supervisorService";
 import { buildingService } from "../../api/buildingService";
+import { toShiftRange } from "../../utils/shiftTime";
 
 const SupervisorResidence = () => {
   const [loading, setLoading] = useState(false);
@@ -118,6 +119,9 @@ const SupervisorResidence = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
 
+  // Get team worker IDs for filtering
+  const teamWorkerIds = useMemo(() => workers.map((w) => w._id), [workers]);
+
   const fetchAllJobsForFilters = async () => {
     if (!filters.startDate || !filters.endDate) return;
 
@@ -127,14 +131,18 @@ const SupervisorResidence = () => {
     if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
 
     try {
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
+      const shiftRange = toShiftRange(filters.startDate, filters.endDate);
 
       const apiFilters = {
         status: filters.status,
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
+        startDate: shiftRange.startDate,
+        endDate: shiftRange.endDate,
       };
+
+      // Send team worker IDs so only team jobs are returned
+      if (teamWorkerIds.length > 0) {
+        apiFilters.workers = teamWorkerIds;
+      }
 
       const res = await jobService.list(1, 10000, "", apiFilters);
       console.log("✅ [Supervisor Residence] All jobs for filters:", res);
@@ -155,14 +163,18 @@ const SupervisorResidence = () => {
 
     setLoading(true);
     try {
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
+      const shiftRange = toShiftRange(filters.startDate, filters.endDate);
 
       const apiFilters = {
         ...filters,
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
+        startDate: shiftRange.startDate,
+        endDate: shiftRange.endDate,
       };
+
+      // Send team worker IDs so only team jobs are returned
+      if (!filters.worker && teamWorkerIds.length > 0) {
+        apiFilters.workers = teamWorkerIds;
+      }
 
       console.log("📤 [Supervisor Residence] Fetching data with:", {
         page,
@@ -226,15 +238,12 @@ const SupervisorResidence = () => {
     setExporting(true);
     const toastId = toast.loading("Preparing download...");
     try {
-      const start = new Date(filters.startDate);
-      const end = new Date(filters.endDate);
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
+      const shiftRange = toShiftRange(filters.startDate, filters.endDate);
 
       const apiFilters = {
         ...filters,
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
+        startDate: shiftRange.startDate,
+        endDate: shiftRange.endDate,
       };
 
       const res = await jobService.list(1, 10000, searchTerm, apiFilters);

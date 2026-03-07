@@ -26,6 +26,7 @@ import DataTable from "../../components/DataTable";
 import CustomDropdown from "../../components/ui/CustomDropdown";
 import RichDateRangePicker from "../../components/inputs/RichDateRangePicker";
 import usePagePermissions from "../../utils/usePagePermissions";
+import { toShiftRange } from "../../utils/shiftTime";
 
 // Helper: compute due date (last day of billing month)
 const getDueDate = (item) => {
@@ -111,17 +112,17 @@ const PendingPayments = () => {
   }, [searchTerm]);
 
   const getDateRangeParams = () => {
-    let start, end;
+    let startStr, endStr;
     if (filterMode === "date_range") {
-      start = filters.startDate;
-      end = filters.endDate;
+      startStr = filters.startDate;
+      endStr = filters.endDate;
     } else {
-      start = new Date(filters.year, filters.month - 1, 1).toISOString();
-      const lastDay = new Date(filters.year, filters.month, 0);
-      lastDay.setHours(23, 59, 59, 999);
-      end = lastDay.toISOString();
+      const first = new Date(filters.year, filters.month - 1, 1);
+      const last = new Date(filters.year, filters.month, 0);
+      startStr = first.toISOString().split("T")[0];
+      endStr = last.toISOString().split("T")[0];
     }
-    return { startDate: start, endDate: end };
+    return toShiftRange(startStr, endStr);
   };
 
   const fetchData = async (page = 1, limit = 100) => {
@@ -310,7 +311,6 @@ const PendingPayments = () => {
           { header: "Parking No", key: "parking", width: 15 },
           { header: "Reg No", key: "regNo", width: 15 },
           { header: "Amount Pending", key: "amount", width: 18 },
-          { header: "Total Due", key: "totalDue", width: 15 },
           { header: "Due Date", key: "date", width: 15 },
           { header: "Customer Mobile", key: "mobile", width: 18 },
         ];
@@ -327,26 +327,40 @@ const PendingPayments = () => {
 
         // Add Data for this building
         let buildingIndex = 1;
+        let buildingTotal = 0;
         buildingGroup.workers.forEach((wg) => {
           wg.payments.forEach((p) => {
             const amountPending = Number(p.totalDue) - Number(p.paid);
+            buildingTotal += amountPending;
             const row = sheet.addRow({
               slNo: buildingIndex++,
               worker: wg.workerName,
               parking: p.parkingNo,
               regNo: p.regNo,
               amount: amountPending,
-              totalDue: Number(p.totalDueFigure),
               date: p.dueDate,
               mobile: p.customerMobile,
             });
 
             row.getCell("amount").numFmt = "#,##0.00";
-            row.getCell("totalDue").numFmt = "#,##0.00";
             row.alignment = { vertical: "middle", horizontal: "center" };
             row.getCell("worker").alignment = { horizontal: "left" };
           });
         });
+
+        // Add total row at bottom of each building sheet
+        const totalRow = sheet.addRow({
+          slNo: "",
+          worker: "",
+          parking: "",
+          regNo: "TOTAL",
+          amount: buildingTotal,
+          date: "",
+          mobile: "",
+        });
+        totalRow.font = { bold: true };
+        totalRow.getCell("amount").numFmt = "#,##0.00";
+        totalRow.getCell("regNo").alignment = { horizontal: "right" };
       });
 
       // Write & Save
@@ -470,22 +484,31 @@ const PendingPayments = () => {
               "Reg No",
               "Building",
               "Amount",
-              "Total Due",
               "Due Date",
             ],
           ];
+          let workerTotal = 0;
           const tableBody = workerGroup.payments.map((p, i) => {
             const amount = (Number(p.totalDue) - Number(p.paid)).toFixed(2);
+            workerTotal += Number(amount);
             return [
               i + 1,
               p.parkingNo,
               p.regNo,
               buildingGroup.buildingName,
               amount,
-              p.totalDueFigure,
               p.dueDate,
             ];
           });
+          // Add total row at bottom
+          tableBody.push([
+            "",
+            "",
+            "",
+            "TOTAL",
+            workerTotal.toFixed(2),
+            "",
+          ]);
 
           autoTable(doc, {
             startY: currentY,
@@ -510,9 +533,15 @@ const PendingPayments = () => {
               1: { cellWidth: 18 },
               2: { cellWidth: 22 },
               3: { cellWidth: "auto" },
-              4: { cellWidth: 18, fontStyle: "bold", halign: "right" },
-              5: { cellWidth: 18, fontStyle: "bold", halign: "right" },
-              6: { cellWidth: 20 },
+              4: { cellWidth: 20, fontStyle: "bold", halign: "right" },
+              5: { cellWidth: 22 },
+            },
+            didParseCell: (data) => {
+              // Bold the total row
+              if (data.row.index === tableBody.length - 1) {
+                data.cell.styles.fontStyle = "bold";
+                data.cell.styles.fillColor = [240, 240, 240];
+              }
             },
             margin: { left: margin, right: margin },
           });
@@ -610,13 +639,6 @@ const PendingPayments = () => {
       key: "amount",
       className: "text-right text-xs font-bold text-red-600",
       render: (r) => (r.total_amount - r.amount_paid).toFixed(2),
-    },
-    {
-      header: "TOTAL DUE",
-      accessor: "total_amount",
-      key: "totalDue",
-      className: "text-right text-xs font-bold text-orange-600",
-      render: (r) => Number(r.total_amount || 0).toFixed(2),
     },
     {
       header: "DUE DATE",
@@ -773,6 +795,17 @@ const PendingPayments = () => {
           onLimitChange={(l) => fetchData(1, l)}
           onSearch={(term) => setSearchTerm(term)}
         />
+        {data.length > 0 && (
+          <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+            <div className="text-sm font-bold text-slate-700">
+              Total Amount Due:{" "}
+              <span className="text-red-600 text-base">
+                {data.reduce((sum, r) => sum + (Number(r.total_amount || 0) - Number(r.amount_paid || 0)), 0).toFixed(2)}
+              </span>
+              <span className="text-[10px] text-slate-400 ml-1">AED</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

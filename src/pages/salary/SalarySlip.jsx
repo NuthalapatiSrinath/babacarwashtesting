@@ -42,12 +42,16 @@ const SalarySlip = () => {
     try {
       const res = await salaryService.getSlip(workerId, year, month);
       setData(res);
-      
+
       // ==================== FRONTEND DEBUGGING ====================
       console.log("\n");
-      console.log("═══════════════════════════════════════════════════════════");
+      console.log(
+        "═══════════════════════════════════════════════════════════",
+      );
       console.log("📄 SALARY SLIP DATA RECEIVED IN FRONTEND");
-      console.log("═══════════════════════════════════════════════════════════");
+      console.log(
+        "═══════════════════════════════════════════════════════════",
+      );
       console.log("👤 Employee Name:", res.employeeName);
       console.log("🆔 Employee Code:", res.employeeCode);
       console.log("🏷️ Role:", res.role);
@@ -72,10 +76,15 @@ const SalarySlip = () => {
       console.log("⏱️ OT Hours:", res.otHours);
       console.log("\n--- CALCULATION METHOD ---");
       console.log("📊 Method Used:", res.calculationBreakdown?.method);
-      console.log("📋 Breakdown:", JSON.stringify(res.calculationBreakdown, null, 2));
+      console.log(
+        "📋 Breakdown:",
+        JSON.stringify(res.calculationBreakdown, null, 2),
+      );
       console.log("\n💰 FINAL NET SALARY:", res.closingBalance);
-      console.log("═══════════════════════════════════════════════════════════\n");
-      
+      console.log(
+        "═══════════════════════════════════════════════════════════\n",
+      );
+
       setInputs({
         simBillAmount: res.simBillAmount || 0,
         lastMonthBalance: res.lastMonthBalance || 0,
@@ -98,18 +107,18 @@ const SalarySlip = () => {
   const loadTemplateSettings = async () => {
     try {
       // First check localStorage for immediate preference
-      const localTemplate = localStorage.getItem('salary_slip_template');
+      const localTemplate = localStorage.getItem("salary_slip_template");
       if (localTemplate) {
         setSelectedTemplate(localTemplate);
         return;
       }
-      
+
       // Otherwise load from API
       const settings = await salarySettingsService.getSettings();
       const template = settings.slipTemplate || "template1";
       setSelectedTemplate(template);
       // Save to localStorage for future use
-      localStorage.setItem('salary_slip_template', template);
+      localStorage.setItem("salary_slip_template", template);
     } catch (error) {
       console.error("Failed to load template settings:", error);
       // Default to template1 if error
@@ -435,8 +444,8 @@ const SalarySlip = () => {
 
       {/* --- CONDITIONAL TEMPLATE RENDERING --- */}
       {selectedTemplate === "template2" ? (
-        <SalarySlip2 
-          data={data} 
+        <SalarySlip2
+          data={data}
           inputs={inputs}
           handlePrint={handlePrint}
           handleSave={handleSave}
@@ -453,303 +462,476 @@ const SalarySlip = () => {
             className="bg-white shadow-2xl print:shadow-none"
             style={styles.slipContainer}
           >
-        {/* Header */}
-        <div style={styles.header}>
-          <h1 style={styles.companyName}>BABA CAR WASHING AND CLEANING LLC</h1>
-        </div>
+            {/* Header */}
+            <div style={styles.header}>
+              <h1 style={styles.companyName}>
+                BABA CAR WASHING AND CLEANING LLC
+              </h1>
+            </div>
 
-        {/* Info Grid */}
-        <table style={styles.infoTable}>
-          <tbody>
-            <tr>
-              <td style={{ ...styles.td, width: "40%" }}>
-                NAME : {data.employeeName?.toUpperCase()}
-              </td>
-              <td style={{ ...styles.td, width: "30%", textAlign: "center" }}>
-                CODE : {data.employeeCode || "N/A"}
-              </td>
-              <td style={{ ...styles.td, width: "30%", textAlign: "right" }}>
-                {monthName}/{shortYear} SALARY
-              </td>
-            </tr>
-          </tbody>
-        </table>
+            {/* Info Grid */}
+            <table style={styles.infoTable}>
+              <tbody>
+                <tr>
+                  <td style={{ ...styles.td, width: "40%" }}>
+                    NAME : {data.employeeName?.toUpperCase()}
+                  </td>
+                  <td
+                    style={{ ...styles.td, width: "30%", textAlign: "center" }}
+                  >
+                    CODE : {data.employeeCode || "N/A"}
+                  </td>
+                  <td
+                    style={{ ...styles.td, width: "30%", textAlign: "right" }}
+                  >
+                    {monthName}/{shortYear} SALARY
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
-        {/* Main Financial Table */}
-        <table style={styles.mainTable}>
-          <thead>
-            <tr>
-              <th style={{ ...styles.th, width: "12%" }}>DATE</th>
-              <th style={{ ...styles.th, textAlign: "left" }}>PARTICULARS</th>
-              <th style={{ ...styles.th, width: "12%" }}></th>
-              <th style={{ ...styles.th, width: "18%" }}>DEBIT</th>
-              <th style={{ ...styles.th, width: "18%" }}>CREDIT</th>
-            </tr>
-          </thead>
-          <tbody style={{ fontWeight: "500" }}>
-            {/* Basic Salary */}
-            <tr>
-              <td style={styles.td}></td>
-              <td style={styles.td}>
-                {monthName}/{shortYear} BASIC{" "}
-                {Number(data.basicSalary).toFixed(2)} AED SALARY
-              </td>
-              <td
-                style={{ ...styles.td, textAlign: "center", fontSize: "9px" }}
-              >
-                Dr
-              </td>
-              <td style={styles.tdRight}>
-                {Number(data.basicSalary).toFixed(2)}
-              </td>
-              <td style={styles.td}></td>
-            </tr>
+            {/* Main Financial Table */}
+            <table style={styles.mainTable}>
+              <thead>
+                <tr>
+                  <th style={{ ...styles.th, width: "12%" }}>DATE</th>
+                  <th style={{ ...styles.th, textAlign: "left" }}>
+                    PARTICULARS
+                  </th>
+                  <th style={{ ...styles.th, width: "12%" }}></th>
+                  <th style={{ ...styles.th, width: "18%" }}>DEBIT</th>
+                  <th style={{ ...styles.th, width: "18%" }}>CREDIT</th>
+                </tr>
+              </thead>
+              <tbody style={{ fontWeight: "500" }}>
+                {/* Basic Salary */}
+                <tr>
+                  <td style={styles.td}></td>
+                  <td style={styles.td}>
+                    {monthName}/{shortYear} BASIC{" "}
+                    {Number(data.basicSalary).toFixed(2)} AED SALARY
+                  </td>
+                  <td
+                    style={{
+                      ...styles.td,
+                      textAlign: "center",
+                      fontSize: "9px",
+                    }}
+                  >
+                    Dr
+                  </td>
+                  <td style={styles.tdRight}>
+                    {Number(data.basicSalary).toFixed(2)}
+                  </td>
+                  <td style={styles.td}></td>
+                </tr>
 
-            {/* Extra Work / OT */}
-            <tr>
-              <td style={styles.td}></td>
-              <td style={styles.td}>EXTRA WORK AND OT</td>
-              <td
-                style={{ ...styles.td, textAlign: "center", fontSize: "9px" }}
-              >
-                Dr
-              </td>
-              <td style={styles.tdRight}>
-                {Number(data.overtimeAmount || data.extraWorkOt || 0).toFixed(
-                  2,
-                )}
-              </td>
-              <td style={styles.td}></td>
-            </tr>
+                {/* Mall Wash Type Breakdown */}
+                {data.role === "mall" &&
+                  (data.insideWashCount > 0 ||
+                    data.outsideWashCount > 0 ||
+                    data.totalWashTypeCount > 0) && (
+                    <>
+                      {data.insideWashCount > 0 && (
+                        <tr>
+                          <td style={styles.td}></td>
+                          <td
+                            style={{
+                              ...styles.td,
+                              fontSize: "8px",
+                              color: "#555",
+                              paddingLeft: "12px",
+                            }}
+                          >
+                            ↳ INSIDE WASH: {data.insideWashCount} ×{" "}
+                            {Number(
+                              data.calculationBreakdown?.insideRate || 3,
+                            ).toFixed(2)}
+                          </td>
+                          <td style={styles.td}></td>
+                          <td
+                            style={{
+                              ...styles.tdRight,
+                              fontSize: "8px",
+                              color: "#555",
+                            }}
+                          >
+                            {(
+                              data.insideWashCount *
+                              (data.calculationBreakdown?.insideRate || 3)
+                            ).toFixed(2)}
+                          </td>
+                          <td style={styles.td}></td>
+                        </tr>
+                      )}
+                      {data.outsideWashCount > 0 && (
+                        <tr>
+                          <td style={styles.td}></td>
+                          <td
+                            style={{
+                              ...styles.td,
+                              fontSize: "8px",
+                              color: "#555",
+                              paddingLeft: "12px",
+                            }}
+                          >
+                            ↳ OUTSIDE WASH: {data.outsideWashCount} ×{" "}
+                            {Number(
+                              data.calculationBreakdown?.outsideRate || 3,
+                            ).toFixed(2)}
+                          </td>
+                          <td style={styles.td}></td>
+                          <td
+                            style={{
+                              ...styles.tdRight,
+                              fontSize: "8px",
+                              color: "#555",
+                            }}
+                          >
+                            {(
+                              data.outsideWashCount *
+                              (data.calculationBreakdown?.outsideRate || 3)
+                            ).toFixed(2)}
+                          </td>
+                          <td style={styles.td}></td>
+                        </tr>
+                      )}
+                      {data.totalWashTypeCount > 0 && (
+                        <tr>
+                          <td style={styles.td}></td>
+                          <td
+                            style={{
+                              ...styles.td,
+                              fontSize: "8px",
+                              color: "#555",
+                              paddingLeft: "12px",
+                            }}
+                          >
+                            ↳ IN+OUT WASH: {data.totalWashTypeCount} ×{" "}
+                            {Number(
+                              data.calculationBreakdown?.totalRate || 6,
+                            ).toFixed(2)}
+                          </td>
+                          <td style={styles.td}></td>
+                          <td
+                            style={{
+                              ...styles.tdRight,
+                              fontSize: "8px",
+                              color: "#555",
+                            }}
+                          >
+                            {(
+                              data.totalWashTypeCount *
+                              (data.calculationBreakdown?.totalRate || 6)
+                            ).toFixed(2)}
+                          </td>
+                          <td style={styles.td}></td>
+                        </tr>
+                      )}
+                      {data.totalSubscriptionWashes > 0 && (
+                        <tr>
+                          <td style={styles.td}></td>
+                          <td
+                            style={{
+                              ...styles.td,
+                              fontSize: "8px",
+                              color: "#555",
+                              paddingLeft: "12px",
+                            }}
+                          >
+                            ↳ MONTHLY SUB: {data.totalSubscriptionWashes} ×{" "}
+                            {Number(
+                              data.calculationBreakdown?.monthlyPay /
+                                data.totalSubscriptionWashes || 1.35,
+                            ).toFixed(2)}
+                          </td>
+                          <td style={styles.td}></td>
+                          <td
+                            style={{
+                              ...styles.tdRight,
+                              fontSize: "8px",
+                              color: "#555",
+                            }}
+                          >
+                            {Number(
+                              data.calculationBreakdown?.monthlyPay || 0,
+                            ).toFixed(2)}
+                          </td>
+                          <td style={styles.td}></td>
+                        </tr>
+                      )}
+                    </>
+                  )}
 
-            {/* Incentive */}
-            <tr>
-              <td style={styles.td}></td>
-              <td style={styles.td}>EXTRA PAYMENT</td>
-              <td
-                style={{ ...styles.td, textAlign: "center", fontSize: "9px" }}
-              >
-                Dr
-              </td>
-              <td style={styles.tdRight}>{totalExtra.toFixed(2)}</td>
-              <td style={styles.td}></td>
-            </tr>
+                {/* Extra Work / OT */}
+                <tr>
+                  <td style={styles.td}></td>
+                  <td style={styles.td}>EXTRA WORK AND OT</td>
+                  <td
+                    style={{
+                      ...styles.td,
+                      textAlign: "center",
+                      fontSize: "9px",
+                    }}
+                  >
+                    Dr
+                  </td>
+                  <td style={styles.tdRight}>
+                    {Number(
+                      data.overtimeAmount || data.extraWorkOt || 0,
+                    ).toFixed(2)}
+                  </td>
+                  <td style={styles.td}></td>
+                </tr>
 
-            {/* ETISALAT SIM */}
-            <tr>
-              <td style={styles.td}></td>
-              <td style={styles.td}>ETISALAT SIM BALANCE</td>
-              <td
-                style={{ ...styles.td, textAlign: "center", fontSize: "9px" }}
-              >
-                {data.simDeduction > 0 ? "Cr" : ""}
-              </td>
-              <td style={styles.td}></td>
-              <td style={styles.tdRight}>
-                {data.simDeduction > 0
-                  ? Number(data.simDeduction).toFixed(2)
-                  : ""}
-              </td>
-            </tr>
+                {/* Incentive */}
+                <tr>
+                  <td style={styles.td}></td>
+                  <td style={styles.td}>EXTRA PAYMENT</td>
+                  <td
+                    style={{
+                      ...styles.td,
+                      textAlign: "center",
+                      fontSize: "9px",
+                    }}
+                  >
+                    Dr
+                  </td>
+                  <td style={styles.tdRight}>{totalExtra.toFixed(2)}</td>
+                  <td style={styles.td}></td>
+                </tr>
 
-            {/* LAST MONTH BALANCE */}
-            <tr>
-              <td style={styles.td}></td>
-              <td style={styles.td}>LAST MONTH BALANCE</td>
-              <td
-                style={{ ...styles.td, textAlign: "center", fontSize: "9px" }}
-              >
-                {data.lastMonthBalance !== 0 ? "Cr" : ""}
-              </td>
-              <td style={styles.td}></td>
-              <td style={styles.tdRight}>
-                {data.lastMonthBalance !== 0
-                  ? Number(data.lastMonthBalance).toFixed(2)
-                  : ""}
-              </td>
-            </tr>
+                {/* ETISALAT SIM */}
+                <tr>
+                  <td style={styles.td}></td>
+                  <td style={styles.td}>ETISALAT SIM BALANCE</td>
+                  <td
+                    style={{
+                      ...styles.td,
+                      textAlign: "center",
+                      fontSize: "9px",
+                    }}
+                  >
+                    {data.simDeduction > 0 ? "Cr" : ""}
+                  </td>
+                  <td style={styles.td}></td>
+                  <td style={styles.tdRight}>
+                    {data.simDeduction > 0
+                      ? Number(data.simDeduction).toFixed(2)
+                      : ""}
+                  </td>
+                </tr>
 
-            {/* ADVANCE */}
-            <tr>
-              <td
-                style={{
-                  ...styles.td,
-                  fontWeight: "bold",
-                  textAlign: "center",
-                }}
-              >
-                ADV
-              </td>
-              <td style={{ ...styles.td, fontWeight: "bold" }}>ADVANCE</td>
-              <td
-                style={{ ...styles.td, textAlign: "center", fontSize: "9px" }}
-              >
-                {data.advanceDeduction > 0 ? "Cr" : ""}
-              </td>
-              <td style={styles.td}></td>
-              <td style={styles.tdRight}>
-                {data.advanceDeduction > 0
-                  ? Number(data.advanceDeduction).toFixed(2)
-                  : ""}
-              </td>
-            </tr>
+                {/* LAST MONTH BALANCE */}
+                <tr>
+                  <td style={styles.td}></td>
+                  <td style={styles.td}>LAST MONTH BALANCE</td>
+                  <td
+                    style={{
+                      ...styles.td,
+                      textAlign: "center",
+                      fontSize: "9px",
+                    }}
+                  >
+                    {data.lastMonthBalance !== 0 ? "Cr" : ""}
+                  </td>
+                  <td style={styles.td}></td>
+                  <td style={styles.tdRight}>
+                    {data.lastMonthBalance !== 0
+                      ? Number(data.lastMonthBalance).toFixed(2)
+                      : ""}
+                  </td>
+                </tr>
 
-            {/* C3 PAY */}
-            <tr>
-              <td style={styles.td}></td>
-              <td style={styles.td}>C3 PAY</td>
-              <td
-                style={{ ...styles.td, textAlign: "center", fontSize: "9px" }}
-              >
-                {data.otherDeduction > 0 ? "Cr" : ""}
-              </td>
-              <td style={styles.td}></td>
-              <td style={styles.tdRight}>
-                {data.otherDeduction > 0
-                  ? Number(data.otherDeduction).toFixed(2)
-                  : ""}
-              </td>
-            </tr>
+                {/* ADVANCE */}
+                <tr>
+                  <td
+                    style={{
+                      ...styles.td,
+                      fontWeight: "bold",
+                      textAlign: "center",
+                    }}
+                  >
+                    ADV
+                  </td>
+                  <td style={{ ...styles.td, fontWeight: "bold" }}>ADVANCE</td>
+                  <td
+                    style={{
+                      ...styles.td,
+                      textAlign: "center",
+                      fontSize: "9px",
+                    }}
+                  >
+                    {data.advanceDeduction > 0 ? "Cr" : ""}
+                  </td>
+                  <td style={styles.td}></td>
+                  <td style={styles.tdRight}>
+                    {data.advanceDeduction > 0
+                      ? Number(data.advanceDeduction).toFixed(2)
+                      : ""}
+                  </td>
+                </tr>
 
-            {/* TOTAL */}
-            <tr
+                {/* C3 PAY */}
+                <tr>
+                  <td style={styles.td}></td>
+                  <td style={styles.td}>C3 PAY</td>
+                  <td
+                    style={{
+                      ...styles.td,
+                      textAlign: "center",
+                      fontSize: "9px",
+                    }}
+                  >
+                    {data.otherDeduction > 0 ? "Cr" : ""}
+                  </td>
+                  <td style={styles.td}></td>
+                  <td style={styles.tdRight}>
+                    {data.otherDeduction > 0
+                      ? Number(data.otherDeduction).toFixed(2)
+                      : ""}
+                  </td>
+                </tr>
+
+                {/* TOTAL */}
+                <tr
+                  style={{
+                    fontWeight: "bold",
+                    backgroundColor: "#f3f4f6", // Light Gray
+                    WebkitPrintColorAdjust: "exact",
+                    printColorAdjust: "exact",
+                  }}
+                >
+                  <td style={styles.td}></td>
+                  <td style={{ ...styles.td, textAlign: "right" }}>TOTAL</td>
+                  <td style={styles.td}></td>
+                  <td style={styles.tdRight}>
+                    {Number(data.totalEarnings).toFixed(2)}
+                  </td>
+                  <td style={styles.tdRight}>
+                    {Number(data.totalDeductions).toFixed(2)}
+                  </td>
+                </tr>
+
+                {/* CLOSING BALANCE */}
+                <tr style={{ fontWeight: "bold" }}>
+                  <td style={styles.td}></td>
+                  <td style={{ ...styles.td, textAlign: "right" }}>
+                    CLOSING BALANCE
+                  </td>
+                  <td style={styles.td}></td>
+                  <td style={styles.td}></td>
+                  <td
+                    style={{
+                      ...styles.tdRight,
+                      fontSize: "11px",
+                      backgroundColor: "#000",
+                      color: "white",
+                      WebkitPrintColorAdjust: "exact",
+                      printColorAdjust: "exact",
+                    }}
+                  >
+                    {Number(data.closingBalance).toFixed(2)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Warning */}
+            <div style={styles.warningBox}>
+              "You must keep an accurate record; if we discover that you are
+              doing cars without recording them, you will be fined, and you
+              won't receive any payments and other benefits from the company."
+            </div>
+
+            {/* Daily Grid - All dates in one line */}
+            <table id="daily-grid" style={styles.dailyTable}>
+              <tbody>
+                <tr>
+                  {Array.from({ length: data.daysInMonth || 31 }, (_, i) => (
+                    <td key={i} style={styles.dailyTh}>
+                      {i + 1}
+                    </td>
+                  ))}
+                  <td
+                    style={{
+                      ...styles.dailyTh,
+                      backgroundColor: "black",
+                      color: "white",
+                    }}
+                  >
+                    TOT
+                  </td>
+                </tr>
+                <tr>
+                  {Array.from({ length: data.daysInMonth || 31 }, (_, i) => (
+                    <td key={i} style={styles.td}>
+                      {data.dailyData?.[i + 1] || 0}
+                    </td>
+                  ))}
+                  <td style={{ ...styles.td, fontWeight: "bold" }}>
+                    {data.totalWashes || 0}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Attendance Summary */}
+            <table
               style={{
-                fontWeight: "bold",
-                backgroundColor: "#f3f4f6", // Light Gray
+                ...styles.infoTable,
+                marginTop: "5px",
+                border: "1px solid black",
+                backgroundColor: "#f9fafb", // very light gray
                 WebkitPrintColorAdjust: "exact",
                 printColorAdjust: "exact",
               }}
             >
-              <td style={styles.td}></td>
-              <td style={{ ...styles.td, textAlign: "right" }}>TOTAL</td>
-              <td style={styles.td}></td>
-              <td style={styles.tdRight}>
-                {Number(data.totalEarnings).toFixed(2)}
-              </td>
-              <td style={styles.tdRight}>
-                {Number(data.totalDeductions).toFixed(2)}
-              </td>
-            </tr>
+              <tbody>
+                <tr>
+                  <td style={{ padding: "4px" }}>
+                    P-PRESENT DAYS : {data.presentDays}
+                  </td>
+                  <td style={{ padding: "4px", textAlign: "center" }}>
+                    AB - ABSENT DAYS : {inputs.absentDays}
+                  </td>
+                  <td style={{ padding: "4px", textAlign: "center" }}>
+                    ND - NO DUTY DAYS : {inputs.noDutyDays}
+                  </td>
+                  <td style={{ padding: "4px", textAlign: "right" }}>
+                    SL- SICK DAYS : {inputs.sickLeaveDays}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
-            {/* CLOSING BALANCE */}
-            <tr style={{ fontWeight: "bold" }}>
-              <td style={styles.td}></td>
-              <td style={{ ...styles.td, textAlign: "right" }}>
-                CLOSING BALANCE
-              </td>
-              <td style={styles.td}></td>
-              <td style={styles.td}></td>
-              <td
+            {/* Signatures */}
+            <div style={styles.footer}>
+              <div
                 style={{
-                  ...styles.tdRight,
-                  fontSize: "11px",
-                  backgroundColor: "#000",
-                  color: "white",
-                  WebkitPrintColorAdjust: "exact",
-                  printColorAdjust: "exact",
+                  width: "40%",
+                  borderTop: "1px solid black",
+                  textAlign: "center",
+                  paddingTop: "5px",
                 }}
               >
-                {Number(data.closingBalance).toFixed(2)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* Warning */}
-        <div style={styles.warningBox}>
-          "You must keep an accurate record; if we discover that you are doing
-          cars without recording them, you will be fined, and you won't receive
-          any payments and other benefits from the company."
-        </div>
-
-        {/* Daily Grid - All dates in one line */}
-        <table id="daily-grid" style={styles.dailyTable}>
-          <tbody>
-            <tr>
-              {Array.from({ length: data.daysInMonth || 31 }, (_, i) => (
-                <td key={i} style={styles.dailyTh}>
-                  {i + 1}
-                </td>
-              ))}
-              <td
+                Prepared By Signatory
+              </div>
+              <div
                 style={{
-                  ...styles.dailyTh,
-                  backgroundColor: "black",
-                  color: "white",
+                  width: "40%",
+                  borderTop: "1px solid black",
+                  textAlign: "center",
+                  paddingTop: "5px",
                 }}
               >
-                TOT
-              </td>
-            </tr>
-            <tr>
-              {Array.from({ length: data.daysInMonth || 31 }, (_, i) => (
-                <td key={i} style={styles.td}>
-                  {data.dailyData?.[i + 1] || 0}
-                </td>
-              ))}
-              <td style={{ ...styles.td, fontWeight: "bold" }}>
-                {data.totalWashes || 0}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* Attendance Summary */}
-        <table
-          style={{
-            ...styles.infoTable,
-            marginTop: "5px",
-            border: "1px solid black",
-            backgroundColor: "#f9fafb", // very light gray
-            WebkitPrintColorAdjust: "exact",
-            printColorAdjust: "exact",
-          }}
-        >
-          <tbody>
-            <tr>
-              <td style={{ padding: "4px" }}>
-                P-PRESENT DAYS : {data.presentDays}
-              </td>
-              <td style={{ padding: "4px", textAlign: "center" }}>
-                AB - ABSENT DAYS : {inputs.absentDays}
-              </td>
-              <td style={{ padding: "4px", textAlign: "center" }}>
-                ND - NO DUTY DAYS : {inputs.noDutyDays}
-              </td>
-              <td style={{ padding: "4px", textAlign: "right" }}>
-                SL- SICK DAYS : {inputs.sickLeaveDays}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* Signatures */}
-        <div style={styles.footer}>
-          <div
-            style={{
-              width: "40%",
-              borderTop: "1px solid black",
-              textAlign: "center",
-              paddingTop: "5px",
-            }}
-          >
-            Prepared By Signatory
+                Received By Signatory
+              </div>
+            </div>
           </div>
-          <div
-            style={{
-              width: "40%",
-              borderTop: "1px solid black",
-              textAlign: "center",
-              paddingTop: "5px",
-            }}
-          >
-            Received By Signatory
-          </div>
-        </div>
-      </div>
 
-      {/* --- PRINT CSS - DL ENVELOPE LANDSCAPE --- */}
-      <style>{`
+          {/* --- PRINT CSS - DL ENVELOPE LANDSCAPE --- */}
+          <style>{`
         @media print {
           @page {
             size: 220mm 110mm;

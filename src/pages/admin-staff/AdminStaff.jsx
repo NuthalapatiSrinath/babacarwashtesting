@@ -121,12 +121,24 @@ const AdminStaff = () => {
     }
   };
 
-  // Open Edit
-  const handleEdit = (staff) => {
+  // Open Edit — fetch fresh data by ID to always get the latest password
+  const handleEdit = async (staff) => {
     setSelectedStaff(staff);
     setForm({ name: staff.name, number: staff.number, password: "" });
     setIsEditing(true);
     setIsCreateOpen(true);
+    try {
+      const response = await adminStaffService.getById(staff._id);
+      const freshStaff = response?.data || response;
+      const pw = freshStaff?.password || "";
+      setForm({
+        name: freshStaff.name || staff.name,
+        number: freshStaff.number || staff.number,
+        password: pw.includes("$f$") ? "" : pw,
+      });
+    } catch {
+      // Fallback: keep form as-is, user can still type a new password
+    }
   };
 
   // Toggle Block/Unblock
@@ -426,8 +438,14 @@ const AdminStaff = () => {
                 <input
                   type="text"
                   value={form.number}
-                  onChange={(e) => setForm({ ...form, number: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value
+                      .replace(/\D/g, "")
+                      .slice(0, 10);
+                    setForm({ ...form, number: value });
+                  }}
                   placeholder="Enter phone number"
+                  maxLength={10}
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none bg-slate-50 focus:bg-white transition-all"
                 />
               </div>

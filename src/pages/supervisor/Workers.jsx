@@ -24,6 +24,7 @@ import DataTable from "../../components/DataTable";
 import DateRangePicker from "../../components/DateRangePicker";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { toShiftRange } from "../../utils/shiftTime";
 
 const SupervisorWorkers = () => {
   const [workers, setWorkers] = useState([]);
@@ -194,14 +195,19 @@ const SupervisorWorkers = () => {
   const fetchWorkerHistory = async (workerId) => {
     try {
       setHistoryLoading(true);
+      // Convert date range to shift-based range (18:30 to 18:30 Dubai time)
+      const startStr = new Date(dateRange.startDate)
+        .toISOString()
+        .split("T")[0];
+      const endStr = new Date(dateRange.endDate).toISOString().split("T")[0];
+      const shiftRange = toShiftRange(startStr, endStr);
+
       const params = {
         pageNo: historyPage - 1,
         pageSize: historyLimit,
         search: historySearch || "",
-        startDate: new Date(dateRange.startDate).toISOString(),
-        endDate: new Date(
-          new Date(dateRange.endDate).setHours(23, 59, 59),
-        ).toISOString(),
+        startDate: shiftRange.startDate,
+        endDate: shiftRange.endDate,
         service_type: selectedWorker?.service_type || "residence",
       };
 

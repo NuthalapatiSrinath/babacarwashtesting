@@ -39,6 +39,7 @@ import EditPaymentAmountModal from "../../components/modals/EditPaymentAmountMod
 import RichDateRangePicker from "../../components/inputs/RichDateRangePicker";
 import CustomDropdown from "../../components/ui/CustomDropdown";
 import usePagePermissions from "../../utils/usePagePermissions";
+import { toShiftRange } from "../../utils/shiftTime";
 
 // Redux
 import { exportPayments } from "../../redux/slices/paymentSlice";
@@ -72,27 +73,26 @@ const OneWashPayments = () => {
 
   const getRangeForTab = (tab) => {
     const today = new Date();
-    let start, end;
+    let startStr, endStr;
 
     if (tab === "today") {
-      start = new Date(today);
-      end = new Date(today);
+      startStr = today.toISOString().split("T")[0];
+      endStr = startStr;
     } else if (tab === "this_month") {
-      start = new Date(today.getFullYear(), today.getMonth(), 1);
-      end = new Date(today);
+      startStr = new Date(today.getFullYear(), today.getMonth(), 1)
+        .toISOString()
+        .split("T")[0];
+      endStr = today.toISOString().split("T")[0];
     } else {
-      start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      end = new Date(today.getFullYear(), today.getMonth(), 0);
+      startStr = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        .toISOString()
+        .split("T")[0];
+      endStr = new Date(today.getFullYear(), today.getMonth(), 0)
+        .toISOString()
+        .split("T")[0];
     }
 
-    // Set to start and end of day in local time
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-
-    return {
-      startDate: start.toISOString(),
-      endDate: end.toISOString(),
-    };
+    return toShiftRange(startStr, endStr);
   };
 
   const [activeTab, setActiveTab] = useState("today");
@@ -171,6 +171,15 @@ const OneWashPayments = () => {
   const fetchData = async (page = 1, limit = 100) => {
     try {
       const apiFilters = { ...filters };
+      // If dates are YYYY-MM-DD (from custom picker), convert to shift range
+      if (apiFilters.startDate && apiFilters.startDate.length === 10) {
+        const shiftRange = toShiftRange(
+          apiFilters.startDate,
+          apiFilters.endDate,
+        );
+        apiFilters.startDate = shiftRange.startDate;
+        apiFilters.endDate = shiftRange.endDate;
+      }
       const isSearching = searchTerm.trim().length > 0;
       const fetchLimit = isSearching ? 3000 : limit;
 

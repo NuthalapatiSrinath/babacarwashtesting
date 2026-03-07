@@ -4,7 +4,6 @@ import {
   Download,
   User,
   Users,
-  MapPin,
   Building,
   ShoppingBag,
   CheckCircle,
@@ -20,14 +19,14 @@ import CustomDropdown from "../../components/ui/CustomDropdown";
 
 // APIs
 import { attendanceService } from "../../api/attendanceService";
-import { mallService } from "../../api/mallService";
-import { siteService } from "../../api/siteService";
-import { buildingService } from "../../api/buildingService";
-import usePagePermissions from "../../utils/usePagePermissions";
+import { supervisorService } from "../../api/supervisorService";
 import { toShiftRange } from "../../utils/shiftTime";
 
-const Attendance = () => {
-  const pp = usePagePermissions("attendance");
+const SupervisorAttendance = () => {
+  // --- Get logged-in supervisor info ---
+  const userString = localStorage.getItem("user");
+  const user = userString ? JSON.parse(userString) : {};
+
   // --- DATE HELPERS ---
   const formatDateLocal = (date) => {
     const year = date.getFullYear();
@@ -46,20 +45,17 @@ const Attendance = () => {
 
   // --- STATE ---
   const [loading, setLoading] = useState(false);
-  const [allData, setAllData] = useState([]); // Master list from API
+  const [allData, setAllData] = useState([]);
+
+  // My team workers
+  const [teamWorkers, setTeamWorkers] = useState([]);
 
   // Filters
   const [dateRange, setDateRange] = useState({
     startDate: getLast10Days(),
     endDate: getToday(),
   });
-  const [activePremise, setActivePremise] = useState("all");
   const [selectedEmployee, setSelectedEmployee] = useState("");
-  const [selectedMall, setSelectedMall] = useState("");
-  const [selectedSite, setSelectedSite] = useState("");
-  const [selectedBuilding, setSelectedBuilding] = useState("");
-
-  // Search (Local)
   const [searchTerm, setSearchTerm] = useState("");
 
   const [pagination, setPagination] = useState({
@@ -69,12 +65,6 @@ const Attendance = () => {
     totalPages: 1,
   });
 
-  // Dropdown Options
-  const [employees, setEmployees] = useState([]);
-  const [malls, setMalls] = useState([]);
-  const [sites, setSites] = useState([]);
-  const [buildings, setBuildings] = useState([]);
-
   // Absent Reason Modal
   const [absentModal, setAbsentModal] = useState({
     isOpen: false,
@@ -83,38 +73,29 @@ const Attendance = () => {
     notes: "",
   });
 
-  // --- 1. INITIAL LOAD ---
+  // --- 1. LOAD TEAM WORKERS ---
   useEffect(() => {
-    const loadOptions = async () => {
+    const loadTeam = async () => {
       try {
-        const [orgRes, mallsRes, sitesRes, bldgsRes] = await Promise.all([
-          attendanceService.getOrgList(),
-          mallService.list(1, 1000),
-          siteService.list(1, 1000),
-          buildingService.list(1, 1000),
-        ]);
-        setEmployees(orgRes.data || []);
-        setMalls(mallsRes.data || []);
-        setSites(sitesRes.data || []);
-        setBuildings(bldgsRes.data || []);
+        const res = await supervisorService.getTeam({ limit: 1000 });
+        setTeamWorkers(res.data || []);
       } catch (error) {
-        console.error("Failed to load options", error);
+        console.error("Failed to load team", error);
       }
     };
-    loadOptions();
-    fetchRecords();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadTeam();
   }, []);
 
-  // --- 2. FETCH DATA (API) ---
+  // --- 2. FETCH ATTENDANCE DATA ---
   const fetchRecords = async () => {
+    if (teamWorkers.length === 0) return;
+
     setLoading(true);
     try {
       const start = new Date(dateRange.startDate);
       const end = new Date(dateRange.endDate);
 
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        console.warn("Invalid dates selected");
         setLoading(false);
         return;
       }
@@ -130,23 +111,17 @@ const Attendance = () => {
         endDate: shiftRange.endDate,
       };
 
-      if (selectedEmployee) params.worker = selectedEmployee;
-
-      if (activePremise !== "all") {
-        params.premise = activePremise;
-        if (activePremise === "mall" && selectedMall)
-          params.mall = [selectedMall];
-        if (activePremise === "site" && selectedSite)
-          params.site = selectedSite;
-        if (activePremise === "residence" && selectedBuilding)
-          params.building = [selectedBuilding];
+      if (selectedEmployee) {
+        params.worker = selectedEmployee;
+      } else {
+        // Send team worker IDs so backend returns ONLY team members
+        params.workers = teamWorkers.map((w) => w._id);
       }
 
       const response = await attendanceService.list(params);
-      const fullList = Array.isArray(response.data) ? response.data : [];
+      let fullList = Array.isArray(response.data) ? response.data : [];
 
       fullList.sort((a, b) => new Date(b.date) - new Date(a.date));
-
       setAllData(fullList);
     } catch (error) {
       console.error(error);
@@ -156,19 +131,14 @@ const Attendance = () => {
     }
   };
 
-  // --- 3. AUTO-FETCH ON FILTER CHANGE ---
+  // --- 3. AUTO-FETCH ON FILTER/TEAM CHANGE ---
   useEffect(() => {
-    setPagination((prev) => ({ ...prev, page: 1 }));
-    fetchRecords();
+    if (teamWorkers.length > 0) {
+      setPagination((prev) => ({ ...prev, page: 1 }));
+      fetchRecords();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    dateRange,
-    activePremise,
-    selectedEmployee,
-    selectedMall,
-    selectedSite,
-    selectedBuilding,
-  ]);
+  }, [dateRange, selectedEmployee, teamWorkers]);
 
   // --- 4. CLIENT-SIDE SEARCH & PAGINATION ---
   const filteredData = useMemo(() => {
@@ -177,16 +147,10 @@ const Attendance = () => {
     const lowerTerm = searchTerm.toLowerCase();
     return allData.filter((item) => {
       const workerName = item.worker?.name?.toLowerCase() || "";
-      const staffName = item.staff?.name?.toLowerCase() || "";
       const notes = item.notes?.toLowerCase() || "";
-      const employeeId =
-        item.worker?.employeeCode?.toLowerCase() ||
-        item.staff?.employeeCode?.toLowerCase() ||
-        "";
-
+      const employeeId = item.worker?.employeeCode?.toLowerCase() || "";
       return (
         workerName.includes(lowerTerm) ||
-        staffName.includes(lowerTerm) ||
         notes.includes(lowerTerm) ||
         employeeId.includes(lowerTerm)
       );
@@ -207,7 +171,6 @@ const Attendance = () => {
   }, [filteredData.length, pagination.limit]);
 
   // --- 5. HANDLERS ---
-
   const handleDateChange = (field, value) => {
     if (field === "clear") {
       setDateRange({ startDate: getLast10Days(), endDate: getToday() });
@@ -216,19 +179,11 @@ const Attendance = () => {
     }
   };
 
-  const handlePremiseChange = (newPremise) => {
-    setActivePremise(newPremise);
-    setSelectedMall("");
-    setSelectedSite("");
-    setSelectedBuilding("");
-  };
-
   const handleStatusToggle = async (row, statusType) => {
     const isPresent = statusType === "P";
     if (row.present === isPresent) return;
 
     if (!isPresent) {
-      // Marking ABSENT → open reason modal
       setAbsentModal({
         isOpen: true,
         row: row,
@@ -238,7 +193,6 @@ const Attendance = () => {
       return;
     }
 
-    // Marking PRESENT → update immediately
     const updatedList = allData.map((item) =>
       item._id === row._id
         ? { ...item, present: true, type: "", notes: " " }
@@ -288,93 +242,16 @@ const Attendance = () => {
     }
   };
 
-  const handleNoteBlur = async (row, newNote) => {
-    if (row.notes === newNote) return;
-    try {
-      await attendanceService.update({
-        ids: [row._id],
-        present: row.present,
-        type: row.type,
-        notes: newNote,
-      });
-      toast.success("Note saved");
-    } catch (error) {
-      toast.error("Failed to save note");
-    }
-  };
-
-  const handleExport = async () => {
-    try {
-      toast.loading("Exporting...");
-      const startStr = new Date(dateRange.startDate)
-        .toISOString()
-        .split("T")[0];
-      const endStr = new Date(dateRange.endDate).toISOString().split("T")[0];
-      const shiftRange = toShiftRange(startStr, endStr);
-
-      const params = {
-        startDate: shiftRange.startDate,
-        endDate: shiftRange.endDate,
-        premise: activePremise !== "all" ? activePremise : undefined,
-        worker: selectedEmployee || undefined,
-      };
-
-      if (activePremise === "mall" && selectedMall)
-        params.mall = [selectedMall];
-      if (activePremise === "site" && selectedSite) params.site = selectedSite;
-      if (activePremise === "residence" && selectedBuilding)
-        params.building = [selectedBuilding];
-
-      const blob = await attendanceService.exportData(params);
-      const url = window.URL.createObjectURL(new Blob([blob]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `Attendance_Export.xlsx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      toast.dismiss();
-      toast.success("Export successful");
-    } catch (error) {
-      toast.dismiss();
-      toast.error("Export failed");
-    }
-  };
-
-  // --- PREPARE DROPDOWN OPTIONS ---
+  // --- DROPDOWN OPTIONS ---
   const employeeOptions = useMemo(
     () => [
-      { value: "", label: "All Employees" },
-      ...employees.map((emp) => ({
-        value: emp._id,
-        label: `${emp.name} (${emp.mobile || emp.employeeCode})`,
+      { value: "", label: "All My Workers" },
+      ...teamWorkers.map((w) => ({
+        value: w._id,
+        label: `${w.name} (${w.mobile || w.employeeCode || ""})`,
       })),
     ],
-    [employees],
-  );
-
-  const mallOptions = useMemo(
-    () => [
-      { value: "", label: "All Malls" },
-      ...malls.map((m) => ({ value: m._id, label: m.name })),
-    ],
-    [malls],
-  );
-
-  const siteOptions = useMemo(
-    () => [
-      { value: "", label: "All Sites" },
-      ...sites.map((s) => ({ value: s._id, label: s.name })),
-    ],
-    [sites],
-  );
-
-  const buildingOptions = useMemo(
-    () => [
-      { value: "", label: "All Buildings" },
-      ...buildings.map((b) => ({ value: b._id, label: b.name })),
-    ],
-    [buildings],
+    [teamWorkers],
   );
 
   // --- COLUMNS ---
@@ -400,22 +277,15 @@ const Attendance = () => {
       header: "Employee Details",
       accessor: "worker",
       render: (row) => {
-        const person = row.worker || row.staff || {};
-        const isWorker = !!row.worker;
+        const person = row.worker || {};
         return (
           <div className="flex flex-col">
             <span className="font-bold text-slate-800 text-sm">
               {person.name || "Unknown"}
             </span>
             <div className="flex items-center gap-2 mt-1">
-              <span
-                className={`text-[10px] px-1.5 py-0.5 rounded border uppercase font-bold tracking-wide ${
-                  isWorker
-                    ? "bg-blue-50 text-blue-600 border-blue-100"
-                    : "bg-purple-50 text-purple-600 border-purple-100"
-                }`}
-              >
-                {isWorker ? "Worker" : "Staff"}
+              <span className="text-[10px] px-1.5 py-0.5 rounded border uppercase font-bold tracking-wide bg-blue-50 text-blue-600 border-blue-100">
+                Worker
               </span>
               <span className="text-[11px] text-slate-400 font-mono">
                 {person.mobile || person.employeeCode || "No ID"}
@@ -476,7 +346,6 @@ const Attendance = () => {
               }
               onChange={async (newNote) => {
                 if (row.notes === newNote) return;
-                // If 'No Remark' is selected, set notes to a single space
                 const noteValue = newNote === "" ? " " : newNote;
                 setAllData((prev) =>
                   prev.map((item) =>
@@ -506,48 +375,20 @@ const Attendance = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6 font-sans">
-      {/* --- HEADER --- */}
-
       {/* --- FILTERS --- */}
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden flex flex-col">
         <div className="p-5 border-b border-gray-100 bg-slate-50/50 space-y-5">
-          {/* TOP ROW: TABS AND DATE */}
+          {/* TOP ROW: DATE + EMPLOYEE FILTER */}
           <div className="flex flex-col xl:flex-row gap-5 justify-between items-start xl:items-end">
             <div className="flex flex-col gap-1.5">
               <span className="text-xs font-bold text-slate-500 uppercase ml-1">
-                Premise Type
+                My Team Attendance
               </span>
-              <div className="flex p-1 bg-white border border-slate-200 rounded-lg w-fit shadow-sm">
-                {[
-                  { id: "all", label: "All", icon: Users },
-                  { id: "residence", label: "Residence", icon: Building },
-                  { id: "mall", label: "Mall", icon: ShoppingBag },
-                  { id: "site", label: "Site", icon: MapPin },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => handlePremiseChange(tab.id)}
-                    className={`px-4 py-2 text-sm font-bold rounded-md transition-all flex items-center gap-2 ${
-                      activePremise === tab.id
-                        ? "bg-slate-800 text-white shadow-md"
-                        : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
-                    }`}
-                  >
-                    <tab.icon className="w-3.5 h-3.5" />
-                    {tab.label}
-                  </button>
-                ))}
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <Users className="w-4 h-4 text-indigo-500" />
+                <span className="font-bold">{teamWorkers.length} Workers</span>
               </div>
             </div>
-            {pp.isToolbarVisible("export") && (
-              <button
-                onClick={handleExport}
-                className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm transition-all active:scale-95"
-              >
-                <Download className="w-4 h-4 text-emerald-600" />
-                <span>Export Excel</span>
-              </button>
-            )}
 
             <div className="w-full xl:w-auto">
               <span className="text-xs font-bold text-slate-500 uppercase mb-1.5 block ml-1">
@@ -561,62 +402,24 @@ const Attendance = () => {
             </div>
           </div>
 
-          {/* BOTTOM ROW: DROPDOWNS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t border-slate-200/60">
+          {/* EMPLOYEE DROPDOWN */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-200/60">
             <div className="relative">
               <CustomDropdown
                 value={selectedEmployee}
                 onChange={setSelectedEmployee}
                 options={employeeOptions}
                 icon={User}
-                placeholder="All Employees"
+                placeholder="All My Workers"
                 searchable={true}
               />
-            </div>
-
-            <div className="relative col-span-1 md:col-span-2">
-              {activePremise === "mall" && (
-                <CustomDropdown
-                  value={selectedMall}
-                  onChange={setSelectedMall}
-                  options={mallOptions}
-                  icon={ShoppingBag}
-                  placeholder="All Malls"
-                  searchable={true}
-                />
-              )}
-              {activePremise === "site" && (
-                <CustomDropdown
-                  value={selectedSite}
-                  onChange={setSelectedSite}
-                  options={siteOptions}
-                  icon={MapPin}
-                  placeholder="All Sites"
-                  searchable={true}
-                />
-              )}
-              {activePremise === "residence" && (
-                <CustomDropdown
-                  value={selectedBuilding}
-                  onChange={setSelectedBuilding}
-                  options={buildingOptions}
-                  icon={Building}
-                  placeholder="All Buildings"
-                  searchable={true}
-                />
-              )}
-              {activePremise === "all" && (
-                <div className="w-full py-2.5 px-4 text-sm text-slate-400 italic bg-slate-50 border border-slate-200 rounded-xl select-none">
-                  (Select a premise type above to filter further)
-                </div>
-              )}
             </div>
           </div>
         </div>
 
         {/* --- DATA TABLE --- */}
         <DataTable
-          columns={pp.filterColumns(columns)}
+          columns={columns}
           data={displayedData}
           loading={loading}
           pagination={pagination}
@@ -662,9 +465,7 @@ const Attendance = () => {
               <p className="text-sm text-slate-600">
                 You are marking{" "}
                 <strong className="text-slate-800">
-                  {absentModal.row?.worker?.name ||
-                    absentModal.row?.staff?.name ||
-                    "Unknown"}
+                  {absentModal.row?.worker?.name || "Unknown"}
                 </strong>{" "}
                 as absent. Please select a reason:
               </p>
@@ -777,4 +578,4 @@ const Attendance = () => {
   );
 };
 
-export default Attendance;
+export default SupervisorAttendance;

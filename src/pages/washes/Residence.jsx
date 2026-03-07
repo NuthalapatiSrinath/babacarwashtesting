@@ -34,6 +34,7 @@ import { workerService } from "../../api/workerService";
 import { buildingService } from "../../api/buildingService";
 import { customerService } from "../../api/customerService";
 import usePagePermissions from "../../utils/usePagePermissions";
+import { toShiftRange } from "../../utils/shiftTime";
 
 const Residence = () => {
   const pp = usePagePermissions("washes_residence");
@@ -136,15 +137,21 @@ const Residence = () => {
     if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
 
     try {
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
+      const shiftRange = toShiftRange(
+        filters.startDate.length > 10
+          ? start.toISOString().split("T")[0]
+          : filters.startDate,
+        filters.endDate.length > 10
+          ? end.toISOString().split("T")[0]
+          : filters.endDate,
+      );
 
       // ⚡ IMPORTANT: Don't include building/worker filters here
       // We want to show ALL buildings/workers in dropdown, not just filtered ones
       const apiFilters = {
         status: filters.status, // Include status filter
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
+        startDate: shiftRange.startDate,
+        endDate: shiftRange.endDate,
         // ❌ DON'T include: building, worker (so dropdown shows all options)
       };
 
@@ -173,13 +180,19 @@ const Residence = () => {
 
     setLoading(true);
     try {
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
+      const shiftRange = toShiftRange(
+        filters.startDate.length > 10
+          ? start.toISOString().split("T")[0]
+          : filters.startDate,
+        filters.endDate.length > 10
+          ? end.toISOString().split("T")[0]
+          : filters.endDate,
+      );
 
       const apiFilters = {
         ...filters,
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
+        startDate: shiftRange.startDate,
+        endDate: shiftRange.endDate,
       };
 
       const res = await jobService.list(page, limit, searchTerm, apiFilters);
@@ -238,13 +251,19 @@ const Residence = () => {
       const start = new Date(filters.startDate);
       const end = new Date(filters.endDate);
 
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
+      const shiftRange = toShiftRange(
+        filters.startDate.length > 10
+          ? filters.startDate.split("T")[0]
+          : filters.startDate,
+        filters.endDate.length > 10
+          ? filters.endDate.split("T")[0]
+          : filters.endDate,
+      );
 
       const apiFilters = {
         ...filters,
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
+        startDate: shiftRange.startDate,
+        endDate: shiftRange.endDate,
       };
 
       const res = await jobService.list(1, 10000, searchTerm, apiFilters);
@@ -699,20 +718,20 @@ const Residence = () => {
       render: (row) => (
         <div className="flex justify-end gap-1.5 pr-2">
           {pp.isActionVisible("edit") && (
-          <button
-            onClick={() => handleEdit(row)}
-            className="p-2 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition-all"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
+            <button
+              onClick={() => handleEdit(row)}
+              className="p-2 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition-all"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
           )}
           {pp.isActionVisible("delete") && (
-          <button
-            onClick={() => handleDelete(row._id)}
-            className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+            <button
+              onClick={() => handleDelete(row._id)}
+              className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           )}
         </div>
       ),
@@ -740,40 +759,40 @@ const Residence = () => {
 
         <div className="flex items-center gap-3">
           {pp.isToolbarVisible("runScheduler") && (
-          <button
-            onClick={handleRunScheduler}
-            disabled={runningScheduler}
-            className="h-11 px-5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-200 hover:shadow-emerald-300 transition-all flex items-center gap-2 disabled:opacity-70"
-          >
-            {runningScheduler ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Play className="w-4 h-4" />
-            )}{" "}
-            Run Scheduler
-          </button>
+            <button
+              onClick={handleRunScheduler}
+              disabled={runningScheduler}
+              className="h-11 px-5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-200 hover:shadow-emerald-300 transition-all flex items-center gap-2 disabled:opacity-70"
+            >
+              {runningScheduler ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Play className="w-4 h-4" />
+              )}{" "}
+              Run Scheduler
+            </button>
           )}
           {pp.isToolbarVisible("export") && (
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="h-11 px-5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2 disabled:opacity-70"
-          >
-            {exporting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4 text-slate-500" />
-            )}{" "}
-            Export
-          </button>
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="h-11 px-5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2 disabled:opacity-70"
+            >
+              {exporting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 text-slate-500" />
+              )}{" "}
+              Export
+            </button>
           )}
           {pp.isToolbarVisible("addJob") && (
-          <button
-            onClick={handleCreate}
-            className="h-11 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all active:scale-95 flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> Schedule Job
-          </button>
+            <button
+              onClick={handleCreate}
+              className="h-11 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all active:scale-95 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> Schedule Job
+            </button>
           )}
         </div>
       </div>
@@ -781,74 +800,74 @@ const Residence = () => {
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden flex flex-col">
         <div className="p-4 border-b border-gray-100 bg-slate-50/50 flex flex-col xl:flex-row gap-4 items-end">
           {pp.isToolbarVisible("dateRange") && (
-          <div className="w-full xl:w-auto">
-            <span className="text-xs font-bold text-slate-500 uppercase mb-1.5 block ml-1">
-              Date Range
-            </span>
-            <RichDateRangePicker
-              startDate={filters.startDate}
-              endDate={filters.endDate}
-              onChange={handleDateChange}
-            />
-          </div>
+            <div className="w-full xl:w-auto">
+              <span className="text-xs font-bold text-slate-500 uppercase mb-1.5 block ml-1">
+                Date Range
+              </span>
+              <RichDateRangePicker
+                startDate={filters.startDate}
+                endDate={filters.endDate}
+                onChange={handleDateChange}
+              />
+            </div>
           )}
 
           <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
             {pp.isToolbarVisible("statusFilter") && (
-            <div>
-              <CustomDropdown
-                label="Status"
-                value={filters.status}
-                onChange={(val) => setFilters({ ...filters, status: val })}
-                options={statusOptions}
-                icon={Filter}
-                placeholder="All Status"
-              />
-            </div>
+              <div>
+                <CustomDropdown
+                  label="Status"
+                  value={filters.status}
+                  onChange={(val) => setFilters({ ...filters, status: val })}
+                  options={statusOptions}
+                  icon={Filter}
+                  placeholder="All Status"
+                />
+              </div>
             )}
             {pp.isToolbarVisible("buildingFilter") && (
-            <div>
-              <CustomDropdown
-                label="Building"
-                value={filters.building}
-                onChange={(val) => setFilters({ ...filters, building: val })}
-                options={buildingOptions}
-                icon={Building2}
-                placeholder="All Buildings"
-                searchable={true}
-              />
-            </div>
+              <div>
+                <CustomDropdown
+                  label="Building"
+                  value={filters.building}
+                  onChange={(val) => setFilters({ ...filters, building: val })}
+                  options={buildingOptions}
+                  icon={Building2}
+                  placeholder="All Buildings"
+                  searchable={true}
+                />
+              </div>
             )}
             {pp.isToolbarVisible("workerFilter") && (
-            <div>
-              <CustomDropdown
-                label="Worker"
-                value={filters.worker}
-                onChange={(val) => setFilters({ ...filters, worker: val })}
-                options={workerOptions}
-                icon={User}
-                placeholder="All Workers"
-                searchable={true}
-              />
-            </div>
+              <div>
+                <CustomDropdown
+                  label="Worker"
+                  value={filters.worker}
+                  onChange={(val) => setFilters({ ...filters, worker: val })}
+                  options={workerOptions}
+                  icon={User}
+                  placeholder="All Workers"
+                  searchable={true}
+                />
+              </div>
             )}
 
             {pp.isToolbarVisible("search") && (
-            <div className="relative">
-              <span className="text-xs font-bold text-slate-500 uppercase mb-1.5 block ml-1">
-                Search
-              </span>
-              <div className="relative h-[42px]">
-                <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-full pl-10 pr-4 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 font-medium transition-all"
-                />
+              <div className="relative">
+                <span className="text-xs font-bold text-slate-500 uppercase mb-1.5 block ml-1">
+                  Search
+                </span>
+                <div className="relative h-[42px]">
+                  <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full h-full pl-10 pr-4 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 font-medium transition-all"
+                  />
+                </div>
               </div>
-            </div>
             )}
           </div>
         </div>

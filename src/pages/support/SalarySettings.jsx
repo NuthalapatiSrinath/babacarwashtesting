@@ -28,13 +28,13 @@ const SalarySettings = () => {
     try {
       const apiSettings = await salarySettingsService.getSettings();
       // Check localStorage for template preference
-      const localTemplate = localStorage.getItem('salary_slip_template');
+      const localTemplate = localStorage.getItem("salary_slip_template");
       // Merge with defaults to ensure all keys exist if DB is partial
       setConfig({
         ...salarySettingsService.getDefaultConfig(),
         ...apiSettings,
         // Prefer localStorage template if exists
-        slipTemplate: localTemplate || apiSettings.slipTemplate || 'template1',
+        slipTemplate: localTemplate || apiSettings.slipTemplate || "template1",
       });
     } catch (error) {
       toast.error("Failed to load settings");
@@ -48,7 +48,7 @@ const SalarySettings = () => {
     try {
       const response = await salarySettingsService.saveSettings(config);
       // Save template selection to localStorage for immediate effect
-      localStorage.setItem('salary_slip_template', config.slipTemplate);
+      localStorage.setItem("salary_slip_template", config.slipTemplate);
       toast.success("Settings saved successfully!");
       if (response.data) setConfig(response.data);
     } catch (error) {
@@ -178,8 +178,10 @@ const SalarySettings = () => {
                     slipTemplate: value,
                   }));
                   // Immediately save to localStorage for instant effect
-                  localStorage.setItem('salary_slip_template', value);
-                  toast.success('Template 1 selected! (Don\'t forget to click Save Changes)');
+                  localStorage.setItem("salary_slip_template", value);
+                  toast.success(
+                    "Template 1 selected! (Don't forget to click Save Changes)",
+                  );
                 }}
                 className="w-5 h-5 text-indigo-600"
               />
@@ -203,8 +205,10 @@ const SalarySettings = () => {
                     slipTemplate: value,
                   }));
                   // Immediately save to localStorage for instant effect
-                  localStorage.setItem('salary_slip_template', value);
-                  toast.success('Template 2 selected! (Don\'t forget to click Save Changes)');
+                  localStorage.setItem("salary_slip_template", value);
+                  toast.success(
+                    "Template 2 selected! (Don't forget to click Save Changes)",
+                  );
                 }}
                 className="w-5 h-5 text-purple-600"
               />
@@ -307,7 +311,15 @@ const SalarySettings = () => {
               Mall Employees
             </h2>
             <div className="grid grid-cols-2 gap-4">
-              <InputField label="Direct Wash Rate" path="mall.oneWashRate" />
+              <InputField label="Inside Wash Rate" path="mall.insideWashRate" />
+              <InputField
+                label="Outside Wash Rate"
+                path="mall.outsideWashRate"
+              />
+              <InputField
+                label="In+Out (Total) Rate"
+                path="mall.totalWashRate"
+              />
               <InputField label="Monthly Sub Rate" path="mall.monthlyRate" />
               <InputField label="Fixed Allowance" path="mall.fixedAllowance" />
               <InputField label="Sick Pay (Daily)" path="mall.sickLeavePay" />

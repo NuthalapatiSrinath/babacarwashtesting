@@ -1,6 +1,14 @@
 import React from "react";
 
-const SalarySlip2 = ({ data, inputs, handlePrint, handleSave, saving, navigate, setShowEditModal }) => {
+const SalarySlip2 = ({
+  data,
+  inputs,
+  handlePrint,
+  handleSave,
+  saving,
+  navigate,
+  setShowEditModal,
+}) => {
   // Calculations
   const totalExtra =
     (Number(data.extraPaymentIncentive) || 0) +
@@ -207,6 +215,143 @@ const SalarySlip2 = ({ data, inputs, handlePrint, handleSave, saving, navigate, 
               </td>
               <td style={styles.td}></td>
             </tr>
+
+            {/* Mall Wash Type Breakdown */}
+            {data.role === "mall" &&
+              (data.insideWashCount > 0 ||
+                data.outsideWashCount > 0 ||
+                data.totalWashTypeCount > 0) && (
+                <>
+                  {data.insideWashCount > 0 && (
+                    <tr>
+                      <td style={styles.td}></td>
+                      <td
+                        style={{
+                          ...styles.td,
+                          fontSize: "8px",
+                          color: "#555",
+                          paddingLeft: "12px",
+                        }}
+                      >
+                        ↳ INSIDE WASH: {data.insideWashCount} ×{" "}
+                        {Number(
+                          data.calculationBreakdown?.insideRate || 3,
+                        ).toFixed(2)}
+                      </td>
+                      <td style={styles.td}></td>
+                      <td
+                        style={{
+                          ...styles.tdRight,
+                          fontSize: "8px",
+                          color: "#555",
+                        }}
+                      >
+                        {(
+                          data.insideWashCount *
+                          (data.calculationBreakdown?.insideRate || 3)
+                        ).toFixed(2)}
+                      </td>
+                      <td style={styles.td}></td>
+                    </tr>
+                  )}
+                  {data.outsideWashCount > 0 && (
+                    <tr>
+                      <td style={styles.td}></td>
+                      <td
+                        style={{
+                          ...styles.td,
+                          fontSize: "8px",
+                          color: "#555",
+                          paddingLeft: "12px",
+                        }}
+                      >
+                        ↳ OUTSIDE WASH: {data.outsideWashCount} ×{" "}
+                        {Number(
+                          data.calculationBreakdown?.outsideRate || 3,
+                        ).toFixed(2)}
+                      </td>
+                      <td style={styles.td}></td>
+                      <td
+                        style={{
+                          ...styles.tdRight,
+                          fontSize: "8px",
+                          color: "#555",
+                        }}
+                      >
+                        {(
+                          data.outsideWashCount *
+                          (data.calculationBreakdown?.outsideRate || 3)
+                        ).toFixed(2)}
+                      </td>
+                      <td style={styles.td}></td>
+                    </tr>
+                  )}
+                  {data.totalWashTypeCount > 0 && (
+                    <tr>
+                      <td style={styles.td}></td>
+                      <td
+                        style={{
+                          ...styles.td,
+                          fontSize: "8px",
+                          color: "#555",
+                          paddingLeft: "12px",
+                        }}
+                      >
+                        ↳ IN+OUT WASH: {data.totalWashTypeCount} ×{" "}
+                        {Number(
+                          data.calculationBreakdown?.totalRate || 6,
+                        ).toFixed(2)}
+                      </td>
+                      <td style={styles.td}></td>
+                      <td
+                        style={{
+                          ...styles.tdRight,
+                          fontSize: "8px",
+                          color: "#555",
+                        }}
+                      >
+                        {(
+                          data.totalWashTypeCount *
+                          (data.calculationBreakdown?.totalRate || 6)
+                        ).toFixed(2)}
+                      </td>
+                      <td style={styles.td}></td>
+                    </tr>
+                  )}
+                  {data.totalSubscriptionWashes > 0 && (
+                    <tr>
+                      <td style={styles.td}></td>
+                      <td
+                        style={{
+                          ...styles.td,
+                          fontSize: "8px",
+                          color: "#555",
+                          paddingLeft: "12px",
+                        }}
+                      >
+                        ↳ MONTHLY SUB: {data.totalSubscriptionWashes} ×{" "}
+                        {Number(
+                          data.calculationBreakdown?.monthlyPay /
+                            data.totalSubscriptionWashes || 1.35,
+                        ).toFixed(2)}
+                      </td>
+                      <td style={styles.td}></td>
+                      <td
+                        style={{
+                          ...styles.tdRight,
+                          fontSize: "8px",
+                          color: "#555",
+                        }}
+                      >
+                        {Number(
+                          data.calculationBreakdown?.monthlyPay || 0,
+                        ).toFixed(2)}
+                      </td>
+                      <td style={styles.td}></td>
+                    </tr>
+                  )}
+                </>
+              )}
 
             {/* Extra Work / OT */}
             <tr>

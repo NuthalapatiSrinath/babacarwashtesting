@@ -9,15 +9,14 @@ import {
   Landmark,
   FileText,
   Eye,
-  ShoppingBag,
+  Building2,
   Calendar,
-  Car,
   CheckCircle2,
   Clock,
   Coins,
   X,
   MapPin,
-  Droplets,
+  Home,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -29,10 +28,10 @@ import CustomDropdown from "../../components/ui/CustomDropdown";
 import ReceiptModal from "../../components/modals/ReceiptModal";
 
 // API
-import { oneWashService } from "../../api/oneWashService";
+import { paymentService } from "../../api/paymentService";
 import { toShiftRange } from "../../utils/shiftTime";
 
-const SupervisorOneWashPayments = () => {
+const SupervisorResidencePayments = () => {
   const [currency, setCurrency] = useState("AED");
   const [loading, setLoading] = useState(false);
   const [payments, setPayments] = useState([]);
@@ -42,15 +41,10 @@ const SupervisorOneWashPayments = () => {
     cash: 0,
     card: 0,
     bank: 0,
-    outsideCount: 0,
-    insideOutsideCount: 0,
-    residenceCount: 0,
-    outsideAmount: 0,
-    insideOutsideAmount: 0,
-    residenceAmount: 0,
   });
   const [total, setTotal] = useState(0);
   const [workers, setWorkers] = useState([]);
+  const [buildings, setBuildings] = useState([]);
 
   // Date tabs
   const getMonthNames = () => {
@@ -77,7 +71,6 @@ const SupervisorOneWashPayments = () => {
       start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
       end = new Date(today.getFullYear(), today.getMonth(), 0);
     }
-    // Convert calendar dates to shift-based range (18:30-18:30 Dubai time)
     const fmt = (d) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const shiftRange = toShiftRange(fmt(start), fmt(end));
@@ -91,9 +84,9 @@ const SupervisorOneWashPayments = () => {
     startDate: initialDates.startDate,
     endDate: initialDates.endDate,
     worker: "",
+    building: "",
     status: "",
     payment_mode: "",
-    wash_type: "",
   });
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -131,6 +124,22 @@ const SupervisorOneWashPayments = () => {
     fetchWorkerList();
   }, []);
 
+  // Fetch buildings for filter dropdown
+  useEffect(() => {
+    const fetchBuildings = async () => {
+      try {
+        const api = (await import("../../api/axiosInstance")).default;
+        const res = await api.get("/buildings", {
+          params: { pageNo: 0, pageSize: 1000 },
+        });
+        setBuildings(res.data?.data || []);
+      } catch {
+        // silent
+      }
+    };
+    fetchBuildings();
+  }, []);
+
   const fetchData = useCallback(
     async (page = 1, limit = 100) => {
       setLoading(true);
@@ -138,8 +147,10 @@ const SupervisorOneWashPayments = () => {
         const isSearching = searchTerm.trim().length > 0;
         const fetchLimit = isSearching ? 3000 : limit;
 
-        // If dates are YYYY-MM-DD (from custom picker), convert to shift range
-        let apiFilters = { ...filters };
+        let apiFilters = {
+          ...filters,
+          onewash: "false", // residence payments
+        };
         if (
           filters.startDate &&
           filters.endDate &&
@@ -150,7 +161,7 @@ const SupervisorOneWashPayments = () => {
           apiFilters.endDate = shiftRange.endDate;
         }
 
-        const result = await oneWashService.list(
+        const result = await paymentService.list(
           page,
           fetchLimit,
           "",
@@ -195,15 +206,17 @@ const SupervisorOneWashPayments = () => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase().trim();
     const id = String(row.id || row._id || "").toLowerCase();
-    const vehicleReg = row.registration_no?.toLowerCase() || "";
-    const parkingNo = row.parking_no?.toString().toLowerCase() || "";
+    const customerName = row.customer?.name?.toLowerCase() || "";
+    const buildingName = row.building?.name?.toLowerCase() || "";
     const workerName = row.worker?.name?.toLowerCase() || "";
-    const amount = String(row.amount || "").toLowerCase();
+    const amount = String(
+      row.total_amount || row.amount_paid || "",
+    ).toLowerCase();
     const status = row.status?.toLowerCase() || "";
     return (
       id.includes(term) ||
-      vehicleReg.includes(term) ||
-      parkingNo.includes(term) ||
+      customerName.includes(term) ||
+      buildingName.includes(term) ||
       workerName.includes(term) ||
       amount.includes(term) ||
       status.includes(term)
@@ -232,8 +245,9 @@ const SupervisorOneWashPayments = () => {
   const handleExport = async () => {
     const toastId = toast.loading("Downloading report...");
     try {
-      const result = await oneWashService.exportData({
+      const result = await paymentService.exportData({
         ...filters,
+        onewash: "false",
         search: searchTerm,
       });
       const blob = new Blob([result], {
@@ -244,7 +258,7 @@ const SupervisorOneWashPayments = () => {
       link.href = url;
       link.setAttribute(
         "download",
-        `onewash_payments_${new Date().toISOString().split("T")[0]}.xlsx`,
+        `residence_payments_${new Date().toISOString().split("T")[0]}.xlsx`,
       );
       document.body.appendChild(link);
       link.click();
@@ -263,19 +277,19 @@ const SupervisorOneWashPayments = () => {
       receipt_no: row.receipt_no,
       createdAt: row.createdAt,
       vehicle: {
-        registration_no: row.registration_no || "-",
-        parking_no: row.parking_no || "-",
+        registration_no: "-",
+        parking_no: "-",
       },
-      building: row.building || row.mall || { name: "-" },
-      amount_paid: row.amount || 0,
+      building: row.building || { name: "-" },
+      amount_paid: row.amount_paid || 0,
       tip: row.tip_amount || 0,
       balance: row.balance || 0,
       payment_mode: row.payment_mode || "cash",
       status: row.status || "pending",
       settled: row.settled || "pending",
       worker: row.worker,
-      service_type: row.service_type,
-      mall: row.mall,
+      service_type: "residence",
+      customer: row.customer,
     });
   };
 
@@ -294,6 +308,14 @@ const SupervisorOneWashPayments = () => {
     }
     return opts;
   }, [workers]);
+
+  const buildingOptions = useMemo(() => {
+    const opts = [{ value: "", label: "All Buildings" }];
+    if (buildings?.length) {
+      buildings.forEach((b) => opts.push({ value: b._id, label: b.name }));
+    }
+    return opts;
+  }, [buildings]);
 
   // --- Computed Stats ---
   const cashPct =
@@ -334,80 +356,70 @@ const SupervisorOneWashPayments = () => {
       ),
     },
     {
-      header: "Vehicle",
-      accessor: "registration_no",
+      header: "Customer",
+      accessor: "customer.name",
       render: (row) => (
         <div className="flex flex-col">
           <span className="font-bold text-slate-700 text-sm flex items-center gap-1">
-            <Car className="w-3 h-3 text-slate-400" />
-            {row.registration_no || "N/A"}
+            <User className="w-3 h-3 text-slate-400" />
+            {row.customer?.name || "N/A"}
           </span>
-          {row.parking_no && (
+          {row.customer?.flat_no && (
             <span className="text-[10px] text-slate-400 flex items-center gap-1 pl-4">
-              P: {row.parking_no}
+              Flat: {row.customer.flat_no}
             </span>
           )}
         </div>
       ),
     },
     {
-      header: "Service",
-      accessor: "display_service_type",
-      className: "text-center",
+      header: "Building",
+      accessor: "building.name",
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <Building2 className="w-3 h-3 text-emerald-500" />
+          <span className="text-sm text-slate-700 font-medium">
+            {row.building?.name || "-"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      header: "Total",
+      accessor: "total_amount",
+      className: "text-right",
+      render: (row) => (
+        <span className="font-bold text-slate-700 text-sm">
+          {(row.total_amount || 0).toFixed(2)}{" "}
+          <span className="text-[10px] text-slate-400">{currency}</span>
+        </span>
+      ),
+    },
+    {
+      header: "Paid",
+      accessor: "amount_paid",
+      className: "text-right",
+      render: (row) => (
+        <span className="font-bold text-emerald-600 text-sm">
+          {(row.amount_paid || 0).toFixed(2)}{" "}
+          <span className="text-[10px] text-emerald-400">{currency}</span>
+        </span>
+      ),
+    },
+    {
+      header: "Balance",
+      accessor: "balance",
+      className: "text-right",
       render: (row) => {
-        const txt = row.display_service_type || "-";
-        const s = (txt || "").toLowerCase();
-        let c = "bg-slate-50 text-slate-600 border-slate-200";
-        if (s === "residence")
-          c = "bg-green-50 text-green-700 border-green-200";
-        else if (s === "external" || s === "outside")
-          c = "bg-blue-50 text-blue-700 border-blue-200";
-        else if (s === "total" || s === "inside + outside")
-          c = "bg-purple-50 text-purple-700 border-purple-200";
-        else if (s === "internal" || s === "inside")
-          c = "bg-indigo-50 text-indigo-700 border-indigo-200";
-        else if (s === "mall")
-          c = "bg-amber-50 text-amber-700 border-amber-200";
+        const bal = row.balance || 0;
         return (
           <span
-            className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${c}`}
+            className={`font-bold text-sm ${bal > 0 ? "text-red-600" : "text-slate-400"}`}
           >
-            {txt}
+            {bal.toFixed(2)} <span className="text-[10px]">{currency}</span>
           </span>
         );
       },
-    },
-    {
-      header: "Original Amount",
-      accessor: "original_amount",
-      className: "text-right",
-      render: (row) => (
-        <span className="font-bold text-emerald-600 text-sm">
-          {(row.amount - (row.tip_amount || 0)).toFixed(2)}{" "}
-          <span className="text-[10px] text-emerald-400">{currency}</span>
-        </span>
-      ),
-    },
-    {
-      header: "Tip",
-      accessor: "tip_amount",
-      className: "text-center",
-      render: (row) => (
-        <span className="text-slate-500 text-sm">
-          {row.tip_amount ? `${row.tip_amount}` : "-"}
-        </span>
-      ),
-    },
-    {
-      header: "Total Amount",
-      accessor: "amount",
-      className: "text-right",
-      render: (row) => (
-        <span className="font-bold text-emerald-600 text-sm">
-          {row.amount}{" "}
-          <span className="text-[10px] text-emerald-400">{currency}</span>
-        </span>
-      ),
     },
     {
       header: "Mode",
@@ -527,15 +539,15 @@ const SupervisorOneWashPayments = () => {
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200">
-              <ShoppingBag className="w-7 h-7 text-white" />
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-200">
+              <Home className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                One Wash Payments
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                Residence Payments
               </h1>
               <p className="text-sm text-slate-500 font-medium">
-                Manage on-demand wash transactions
+                Manage residence subscription payments
               </p>
             </div>
           </div>
@@ -545,10 +557,10 @@ const SupervisorOneWashPayments = () => {
             <div className="relative">
               <input
                 type="text"
-                placeholder="Search vehicle, worker, parking..."
+                placeholder="Search customer, building, worker..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-52 h-10 bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 text-xs outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 transition-all"
+                className="w-52 h-10 bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 text-xs outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 transition-all"
               />
               <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
             </div>
@@ -558,7 +570,7 @@ const SupervisorOneWashPayments = () => {
                 onClick={() => handleTabChange("today")}
                 className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
                   activeTab === "today"
-                    ? "bg-white text-indigo-600 shadow-sm"
+                    ? "bg-white text-emerald-600 shadow-sm"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
@@ -568,7 +580,7 @@ const SupervisorOneWashPayments = () => {
                 onClick={() => handleTabChange("this_month")}
                 className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
                   activeTab === "this_month"
-                    ? "bg-white text-indigo-600 shadow-sm"
+                    ? "bg-white text-emerald-600 shadow-sm"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
@@ -578,7 +590,7 @@ const SupervisorOneWashPayments = () => {
                 onClick={() => handleTabChange("last_month")}
                 className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
                   activeTab === "last_month"
-                    ? "bg-white text-indigo-600 shadow-sm"
+                    ? "bg-white text-emerald-600 shadow-sm"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
@@ -597,14 +609,14 @@ const SupervisorOneWashPayments = () => {
 
         {/* ─── STAT CARDS ─── */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-6">
-          {/* Original Amount */}
+          {/* Total Amount */}
           <div className="p-4 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-md flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white shrink-0">
               <Coins className="w-6 h-6" />
             </div>
             <div>
               <span className="block text-xs font-bold opacity-60 uppercase tracking-wider mb-0.5">
-                Original Amount
+                Total Amount
               </span>
               <div className="flex items-baseline gap-1">
                 <span className="text-xl font-bold">
@@ -672,81 +684,18 @@ const SupervisorOneWashPayments = () => {
             </div>
           </div>
 
-          {/* Tips */}
+          {/* Records */}
           <div className="p-4 rounded-xl bg-white border border-slate-100 shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
-              <Coins className="w-6 h-6" />
+              <FileText className="w-6 h-6" />
             </div>
             <div>
               <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-                Tips
+                Records
               </span>
               <span className="text-xl font-bold text-amber-600">
-                {stats.tips?.toLocaleString() || 0}
+                {total || 0}
               </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Wash Type Breakdown */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-          <div className="p-3 rounded-xl bg-blue-50 border border-blue-100 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-              <Car className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="block text-[10px] font-bold text-blue-400 uppercase tracking-wider">
-                Outside
-              </span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-lg font-bold text-blue-700">
-                  {stats.outsideAmount?.toLocaleString() || 0}{" "}
-                  <span className="text-[10px] text-blue-400">{currency}</span>
-                </span>
-                <span className="text-[10px] font-bold text-blue-500">
-                  ({stats.outsideCount || 0} jobs)
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="p-3 rounded-xl bg-purple-50 border border-purple-100 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 shrink-0">
-              <Car className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="block text-[10px] font-bold text-purple-400 uppercase tracking-wider">
-                Inside + Outside
-              </span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-lg font-bold text-purple-700">
-                  {stats.insideOutsideAmount?.toLocaleString() || 0}{" "}
-                  <span className="text-[10px] text-purple-400">
-                    {currency}
-                  </span>
-                </span>
-                <span className="text-[10px] font-bold text-purple-500">
-                  ({stats.insideOutsideCount || 0} jobs)
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="p-3 rounded-xl bg-green-50 border border-green-100 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0">
-              <MapPin className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="block text-[10px] font-bold text-green-400 uppercase tracking-wider">
-                Residence
-              </span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-lg font-bold text-green-700">
-                  {stats.residenceAmount?.toLocaleString() || 0}{" "}
-                  <span className="text-[10px] text-green-400">{currency}</span>
-                </span>
-                <span className="text-[10px] font-bold text-green-500">
-                  ({stats.residenceCount || 0} jobs)
-                </span>
-              </div>
             </div>
           </div>
         </div>
@@ -795,16 +744,13 @@ const SupervisorOneWashPayments = () => {
             </div>
             <div>
               <CustomDropdown
-                label="Wash Type"
-                value={filters.wash_type}
-                onChange={(val) => setFilters({ ...filters, wash_type: val })}
-                options={[
-                  { value: "", label: "All Types" },
-                  { value: "outside", label: "Outside" },
-                  { value: "total", label: "Inside + Outside" },
-                ]}
-                icon={Droplets}
-                placeholder="All Types"
+                label="Building"
+                value={filters.building}
+                onChange={(val) => setFilters({ ...filters, building: val })}
+                options={buildingOptions}
+                icon={Building2}
+                placeholder="All Buildings"
+                searchable={true}
               />
             </div>
             <div>
@@ -829,7 +775,7 @@ const SupervisorOneWashPayments = () => {
             <span className="text-sm font-semibold text-slate-700">
               Filtered Results:
             </span>
-            <span className="px-2.5 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-bold">
+            <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-bold">
               {filteredPayments.length} of {total}
             </span>
             <span className="text-xs text-slate-500">total records</span>
@@ -864,7 +810,7 @@ const SupervisorOneWashPayments = () => {
               className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
             >
               {/* Modal Header */}
-              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-5 text-white">
+              <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-5 text-white">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
@@ -888,28 +834,37 @@ const SupervisorOneWashPayments = () => {
 
               {/* Modal Body */}
               <div className="p-5 space-y-4 max-h-[65vh] overflow-y-auto">
-                {/* Vehicle Info */}
+                {/* Customer Info */}
                 <div className="bg-slate-50 rounded-xl p-4">
                   <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">
-                    Vehicle Info
+                    Customer Info
                   </h4>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <span className="text-[10px] text-slate-400 block">
-                        Registration
+                        Name
                       </span>
                       <span className="font-bold text-slate-700 flex items-center gap-1">
-                        <Car className="w-3 h-3 text-slate-400" />
-                        {viewPayment.registration_no || "-"}
+                        <User className="w-3 h-3 text-slate-400" />
+                        {viewPayment.customer?.name || "-"}
                       </span>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-400 block">
-                        Parking
+                        Flat No
                       </span>
                       <span className="font-bold text-slate-700 flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-slate-400" />
-                        {viewPayment.parking_no || "-"}
+                        {viewPayment.customer?.flat_no || "-"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">
+                        Building
+                      </span>
+                      <span className="font-bold text-slate-700 flex items-center gap-1">
+                        <Building2 className="w-3 h-3 text-slate-400" />
+                        {viewPayment.building?.name || "-"}
                       </span>
                     </div>
                   </div>
@@ -923,30 +878,28 @@ const SupervisorOneWashPayments = () => {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <span className="text-[10px] text-slate-400 block">
-                        Original Amount
-                      </span>
-                      <span className="font-bold text-emerald-600 text-lg">
-                        {(
-                          (viewPayment.amount || 0) -
-                          (viewPayment.tip_amount || 0)
-                        ).toFixed(2)}{" "}
-                        {currency}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block">
-                        Tip
-                      </span>
-                      <span className="font-bold text-slate-700">
-                        {viewPayment.tip_amount || 0} {currency}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block">
                         Total Amount
                       </span>
+                      <span className="font-bold text-slate-700 text-lg">
+                        {(viewPayment.total_amount || 0).toFixed(2)} {currency}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">
+                        Amount Paid
+                      </span>
                       <span className="font-bold text-emerald-600 text-lg">
-                        {viewPayment.amount || 0} {currency}
+                        {(viewPayment.amount_paid || 0).toFixed(2)} {currency}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">
+                        Balance
+                      </span>
+                      <span
+                        className={`font-bold text-lg ${(viewPayment.balance || 0) > 0 ? "text-red-600" : "text-slate-400"}`}
+                      >
+                        {(viewPayment.balance || 0).toFixed(2)} {currency}
                       </span>
                     </div>
                     <div>
@@ -978,6 +931,16 @@ const SupervisorOneWashPayments = () => {
                         {(viewPayment.status || "PENDING").toUpperCase()}
                       </span>
                     </div>
+                    {viewPayment.receipt_no && (
+                      <div>
+                        <span className="text-[10px] text-slate-400 block">
+                          Receipt No
+                        </span>
+                        <span className="font-bold text-slate-700">
+                          {viewPayment.receipt_no}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -993,26 +956,6 @@ const SupervisorOneWashPayments = () => {
                       </span>
                       <span className="font-bold text-slate-700">
                         {viewPayment.worker?.name || "-"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block">
-                        Service Type
-                      </span>
-                      <span className="font-bold text-slate-700">
-                        {viewPayment.display_service_type ||
-                          viewPayment.service_type ||
-                          "-"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block">
-                        Location
-                      </span>
-                      <span className="font-bold text-slate-700">
-                        {viewPayment.mall?.name ||
-                          viewPayment.building?.name ||
-                          "-"}
                       </span>
                     </div>
                     <div>
@@ -1038,6 +981,18 @@ const SupervisorOneWashPayments = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Notes */}
+                {viewPayment.notes && (
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">
+                      Remarks
+                    </h4>
+                    <p className="text-sm text-slate-600">
+                      {viewPayment.notes}
+                    </p>
+                  </div>
+                )}
 
                 {/* Timestamp */}
                 <div className="text-center text-[10px] text-slate-400 pt-2">
@@ -1066,4 +1021,4 @@ const SupervisorOneWashPayments = () => {
   );
 };
 
-export default SupervisorOneWashPayments;
+export default SupervisorResidencePayments;

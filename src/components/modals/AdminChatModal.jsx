@@ -18,30 +18,49 @@ const AdminChatModal = ({ isOpen, onClose, staff, currentUser }) => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
   const pollIntervalRef = useRef(null);
+  const prevMessageCountRef = useRef(0);
 
   const currentUserIsAdmin =
     currentUser?.role === "admin" || currentUser?.role === "manager";
 
-  // Scroll to bottom
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  // Check if user is scrolled near the bottom
+  const isNearBottom = () => {
+    const el = messagesContainerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 100;
   };
 
-  // Fetch messages
-  const fetchMessages = async () => {
+  // Scroll to bottom
+  const scrollToBottom = (instant = false) => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: instant ? "instant" : "smooth",
+    });
+  };
+
+  // Fetch messages (silent = true skips loading indicator for background polls)
+  const fetchMessages = async (silent = false) => {
     if (!staff?._id) return;
 
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const response = await adminMessagesService.getConversation(staff._id);
-      setMessages(response.data || []);
-      scrollToBottom();
+      const newMessages = response.data || [];
+      const hadNew = newMessages.length !== prevMessageCountRef.current;
+      prevMessageCountRef.current = newMessages.length;
+      setMessages(newMessages);
+      // On initial load, jump to bottom instantly; on new incoming messages, smooth scroll only if near bottom
+      if (!silent && hadNew) {
+        setTimeout(() => scrollToBottom(true), 50);
+      } else if (silent && hadNew && isNearBottom()) {
+        setTimeout(() => scrollToBottom(), 50);
+      }
     } catch (error) {
       console.error("Failed to fetch messages:", error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -56,37 +75,66 @@ const AdminChatModal = ({ isOpen, onClose, staff, currentUser }) => {
     }
   };
 
-  // Send message
+  // Send message — optimistic UI like WhatsApp
   const handleSendMessage = async (e) => {
     e.preventDefault();
 
     if (!newMessage.trim() || !staff?._id) return;
 
+    const messageText = newMessage.trim();
+    setNewMessage("");
+
+    // Keep focus on input immediately so user can keep typing
+    inputRef.current?.focus();
+
+    // Optimistically add the message to the UI immediately
+    const optimisticMsg = {
+      _id: "temp_" + Date.now(),
+      message: messageText,
+      senderId: {
+        _id: currentUser?._id,
+        name: currentUser?.name || currentUser?.firstName,
+      },
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      _optimistic: true,
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+    prevMessageCountRef.current += 1;
+    setTimeout(() => scrollToBottom(), 30);
+
     setSending(true);
     try {
       await adminMessagesService.sendMessage({
         staffId: staff._id,
-        message: newMessage.trim(),
+        message: messageText,
       });
-
-      setNewMessage("");
-      await fetchMessages();
-      inputRef.current?.focus();
+      // Silently sync to get the real message from server
+      await fetchMessages(true);
     } catch (error) {
+      // Remove optimistic message on failure
+      setMessages((prev) => prev.filter((m) => m._id !== optimisticMsg._id));
+      prevMessageCountRef.current -= 1;
       toast.error(error.message || "Failed to send message");
     } finally {
       setSending(false);
+      // Re-focus after send completes
+      inputRef.current?.focus();
     }
   };
 
   // Delete message
   const handleDeleteMessage = async (messageId) => {
+    // Optimistically remove from UI
+    setMessages((prev) => prev.filter((m) => m._id !== messageId));
+    prevMessageCountRef.current -= 1;
     try {
       await adminMessagesService.deleteMessage(messageId);
       toast.success("Message deleted");
-      await fetchMessages();
+      await fetchMessages(true);
     } catch (error) {
       toast.error(error.message || "Failed to delete message");
+      await fetchMessages(true);
     }
   };
 
@@ -97,7 +145,7 @@ const AdminChatModal = ({ isOpen, onClose, staff, currentUser }) => {
       markMessagesAsRead();
 
       pollIntervalRef.current = setInterval(() => {
-        fetchMessages();
+        fetchMessages(true);
       }, 5000);
 
       return () => {
@@ -114,11 +162,6 @@ const AdminChatModal = ({ isOpen, onClose, staff, currentUser }) => {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen]);
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   const getMessageSender = (message) => {
     const isCurrentUser = message.senderId?._id === currentUser?._id;
@@ -170,7 +213,10 @@ const AdminChatModal = ({ isOpen, onClose, staff, currentUser }) => {
           </div>
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 bg-slate-50 dark:bg-slate-800/50">
+          <div
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto p-4 bg-slate-50 dark:bg-slate-800/50"
+          >
             {loading ? (
               <div className="flex items-center justify-center h-full">
                 <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
@@ -188,10 +234,8 @@ const AdminChatModal = ({ isOpen, onClose, staff, currentUser }) => {
                     getMessageSender(message);
 
                   return (
-                    <motion.div
+                    <div
                       key={message._id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
                       className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}
                     >
                       <div
@@ -243,7 +287,7 @@ const AdminChatModal = ({ isOpen, onClose, staff, currentUser }) => {
                           </button>
                         )}
                       </div>
-                    </motion.div>
+                    </div>
                   );
                 })}
                 <div ref={messagesEndRef} />
@@ -264,7 +308,7 @@ const AdminChatModal = ({ isOpen, onClose, staff, currentUser }) => {
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type a message..."
                 className="flex-1 px-4 py-2.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                disabled={sending}
+                autoComplete="off"
               />
               <button
                 type="submit"

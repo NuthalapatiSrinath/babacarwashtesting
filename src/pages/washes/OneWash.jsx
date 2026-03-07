@@ -29,6 +29,7 @@ import CustomDropdown from "../../components/ui/CustomDropdown";
 import { oneWashService } from "../../api/oneWashService";
 import { workerService } from "../../api/workerService";
 import usePagePermissions from "../../utils/usePagePermissions";
+import { toShiftRange } from "../../utils/shiftTime";
 
 const OneWash = () => {
   const pp = usePagePermissions("washes_onewash");
@@ -137,13 +138,19 @@ const OneWash = () => {
         return;
       }
 
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
+      const shiftRange = toShiftRange(
+        filters.startDate.length > 10
+          ? start.toISOString().split("T")[0]
+          : filters.startDate,
+        filters.endDate.length > 10
+          ? end.toISOString().split("T")[0]
+          : filters.endDate,
+      );
 
       const apiFilters = {
         ...filters,
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
+        startDate: shiftRange.startDate,
+        endDate: shiftRange.endDate,
       };
 
       const res = await oneWashService.list(
@@ -182,15 +189,19 @@ const OneWash = () => {
 
     setExporting(true);
     try {
-      const start = new Date(filters.startDate);
-      const end = new Date(filters.endDate);
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
+      const shiftRange = toShiftRange(
+        filters.startDate.length > 10
+          ? filters.startDate.split("T")[0]
+          : filters.startDate,
+        filters.endDate.length > 10
+          ? filters.endDate.split("T")[0]
+          : filters.endDate,
+      );
 
       const apiFilters = {
         ...filters,
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
+        startDate: shiftRange.startDate,
+        endDate: shiftRange.endDate,
       };
 
       // 1. Fetch All Data
@@ -521,22 +532,22 @@ const OneWash = () => {
       render: (row) => (
         <div className="flex justify-end gap-2 pr-2">
           {pp.isActionVisible("edit") && (
-          <button
-            onClick={() => handleEdit(row)}
-            className="hover:text-indigo-600 text-slate-400 transition-colors"
-            title="Edit"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
+            <button
+              onClick={() => handleEdit(row)}
+              className="hover:text-indigo-600 text-slate-400 transition-colors"
+              title="Edit"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
           )}
           {pp.isActionVisible("delete") && (
-          <button
-            onClick={() => handleDelete(row._id)}
-            className="hover:text-red-600 text-slate-400 transition-colors"
-            title="Delete"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+            <button
+              onClick={() => handleDelete(row._id)}
+              className="hover:text-red-600 text-slate-400 transition-colors"
+              title="Delete"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           )}
         </div>
       ),
@@ -648,26 +659,26 @@ const OneWash = () => {
 
         <div className="flex items-center gap-3">
           {pp.isToolbarVisible("export") && (
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="h-11 px-5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2 disabled:opacity-70"
-          >
-            {exporting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4 text-slate-500" />
-            )}{" "}
-            Export
-          </button>
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="h-11 px-5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2 disabled:opacity-70"
+            >
+              {exporting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 text-slate-500" />
+              )}{" "}
+              Export
+            </button>
           )}
           {pp.isToolbarVisible("addJob") && (
-          <button
-            onClick={handleCreate}
-            className="h-11 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all active:scale-95 flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> New Job
-          </button>
+            <button
+              onClick={handleCreate}
+              className="h-11 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all active:scale-95 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> New Job
+            </button>
           )}
         </div>
       </div>
@@ -675,99 +686,99 @@ const OneWash = () => {
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden flex flex-col">
         <div className="p-4 border-b border-gray-100 bg-slate-50/50 flex flex-col xl:flex-row gap-4 items-end">
           {pp.isToolbarVisible("dateRange") && (
-          <div className="w-full xl:w-auto">
-            <span className="text-xs font-bold text-slate-500 uppercase mb-1.5 block ml-1">
-              Date Range
-            </span>
-            <RichDateRangePicker
-              startDate={filters.startDate}
-              endDate={filters.endDate}
-              onChange={handleDateChange}
-            />
-          </div>
+            <div className="w-full xl:w-auto">
+              <span className="text-xs font-bold text-slate-500 uppercase mb-1.5 block ml-1">
+                Date Range
+              </span>
+              <RichDateRangePicker
+                startDate={filters.startDate}
+                endDate={filters.endDate}
+                onChange={handleDateChange}
+              />
+            </div>
           )}
 
           <div className="flex-[2] grid grid-cols-1 md:grid-cols-4 gap-4 w-full">
             {pp.isToolbarVisible("serviceTypeFilter") && (
-            <div>
-              <CustomDropdown
-                label="Service Type"
-                value={filters.service_type}
-                onChange={(val) =>
-                  setFilters({ ...filters, service_type: val })
-                }
-                options={serviceTypeOptions}
-                icon={Filter}
-                placeholder="All Services"
-              />
-            </div>
+              <div>
+                <CustomDropdown
+                  label="Service Type"
+                  value={filters.service_type}
+                  onChange={(val) =>
+                    setFilters({ ...filters, service_type: val })
+                  }
+                  options={serviceTypeOptions}
+                  icon={Filter}
+                  placeholder="All Services"
+                />
+              </div>
             )}
             {pp.isToolbarVisible("paymentModeFilter") && (
-            <div>
-              <CustomDropdown
-                label="Payment Mode"
-                value={filters.payment_mode}
-                onChange={(val) =>
-                  setFilters({ ...filters, payment_mode: val })
-                }
-                options={[
-                  { value: "", label: "All Modes" },
-                  { value: "cash", label: "Cash" },
-                  { value: "card", label: "Card" },
-                  { value: "bank transfer", label: "Bank Transfer" },
-                ]}
-                icon={CreditCard}
-                placeholder="All Modes"
-              />
-            </div>
+              <div>
+                <CustomDropdown
+                  label="Payment Mode"
+                  value={filters.payment_mode}
+                  onChange={(val) =>
+                    setFilters({ ...filters, payment_mode: val })
+                  }
+                  options={[
+                    { value: "", label: "All Modes" },
+                    { value: "cash", label: "Cash" },
+                    { value: "card", label: "Card" },
+                    { value: "bank transfer", label: "Bank Transfer" },
+                  ]}
+                  icon={CreditCard}
+                  placeholder="All Modes"
+                />
+              </div>
             )}
             {pp.isToolbarVisible("washTypeFilter") && (
-            <div>
-              <CustomDropdown
-                label="Wash Type"
-                value={filters.wash_type}
-                onChange={(val) => setFilters({ ...filters, wash_type: val })}
-                options={[
-                  { value: "", label: "All Types" },
-                  { value: "outside", label: "Outside" },
-                  { value: "total", label: "Inside + Outside" },
-                ]}
-                icon={Droplets}
-                placeholder="All Types"
-              />
-            </div>
+              <div>
+                <CustomDropdown
+                  label="Wash Type"
+                  value={filters.wash_type}
+                  onChange={(val) => setFilters({ ...filters, wash_type: val })}
+                  options={[
+                    { value: "", label: "All Types" },
+                    { value: "outside", label: "Outside" },
+                    { value: "total", label: "Inside + Outside" },
+                  ]}
+                  icon={Droplets}
+                  placeholder="All Types"
+                />
+              </div>
             )}
             {pp.isToolbarVisible("workerFilter") && (
-            <div>
-              <CustomDropdown
-                label="Worker"
-                value={filters.worker}
-                onChange={(val) => setFilters({ ...filters, worker: val })}
-                options={workerOptions}
-                icon={User}
-                placeholder="All Workers"
-                searchable={true}
-              />
-            </div>
+              <div>
+                <CustomDropdown
+                  label="Worker"
+                  value={filters.worker}
+                  onChange={(val) => setFilters({ ...filters, worker: val })}
+                  options={workerOptions}
+                  icon={User}
+                  placeholder="All Workers"
+                  searchable={true}
+                />
+              </div>
             )}
           </div>
 
           {pp.isToolbarVisible("search") && (
-          <div className="w-full xl:w-48">
-            <span className="text-xs font-bold text-slate-500 uppercase mb-1.5 block ml-1">
-              Search
-            </span>
-            <div className="relative h-[42px]">
-              <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search All Columns..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full h-full pl-10 pr-4 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 font-medium transition-all"
-              />
+            <div className="w-full xl:w-48">
+              <span className="text-xs font-bold text-slate-500 uppercase mb-1.5 block ml-1">
+                Search
+              </span>
+              <div className="relative h-[42px]">
+                <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search All Columns..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full h-full pl-10 pr-4 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 font-medium transition-all"
+                />
+              </div>
             </div>
-          </div>
           )}
         </div>
 

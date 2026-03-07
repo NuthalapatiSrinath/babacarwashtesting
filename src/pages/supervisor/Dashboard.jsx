@@ -84,6 +84,8 @@ const SupervisorDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [counts, setCounts] = useState(null);
+  const [shiftDate, setShiftDate] = useState(null);
+  const [shiftWindow, setShiftWindow] = useState(null);
 
   const fetchDashboard = useCallback(async (showLoader = true) => {
     if (showLoader) setLoading(true);
@@ -92,6 +94,12 @@ const SupervisorDashboard = () => {
       const response = await analyticsService.getSupervisorStats({});
       if (response.data?.counts) {
         setCounts(response.data.counts);
+      }
+      if (response.data?.shiftDate) {
+        setShiftDate(response.data.shiftDate);
+      }
+      if (response.data?.shiftWindow) {
+        setShiftWindow(response.data.shiftWindow);
       }
       if (!showLoader) toast.success("Dashboard refreshed");
     } catch (error) {
@@ -189,7 +197,9 @@ const SupervisorDashboard = () => {
                     Supervisor Dashboard
                   </h1>
                   <p className="text-blue-200 text-sm md:text-base mt-1">
-                    Your team&apos;s complete performance overview
+                    {shiftDate
+                      ? `Shift: ${new Date(shiftDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}${shiftWindow ? ` (${shiftWindow.start} - ${shiftWindow.end})` : ""}`
+                      : "Your team's complete performance overview"}
                   </p>
                 </div>
               </motion.div>
@@ -250,8 +260,16 @@ const SupervisorDashboard = () => {
         >
           <SectionHeader
             icon={Zap}
-            title="Today's Statistics"
-            subtitle="Real-time performance for the current day"
+            title={
+              shiftDate
+                ? `Today's Statistics — ${shiftDate}`
+                : "Today's Statistics"
+            }
+            subtitle={
+              shiftWindow
+                ? `Shift window: ${shiftWindow.start} to ${shiftWindow.end} (Dubai)`
+                : "Real-time performance for the current shift"
+            }
             gradient="from-blue-600 to-indigo-600"
           />
 

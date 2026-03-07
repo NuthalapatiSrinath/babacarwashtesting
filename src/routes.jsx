@@ -73,7 +73,9 @@ import SupervisorResidence from "./pages/supervisor/Residence";
 import SupervisorWorkers from "./pages/supervisor/Workers";
 import SupervisorSettlements from "./pages/supervisor/Settlements";
 import SupervisorOneWashPayments from "./pages/supervisor/OneWashPayments";
+import SupervisorResidencePayments from "./pages/supervisor/ResidencePayments";
 import SupervisorYearlyRecords from "./pages/supervisor/YearlyRecords";
+import SupervisorAttendance from "./pages/supervisor/Attendance";
 
 // Notifications
 import Notifications from "./pages/notifications/Notifications";
@@ -405,6 +407,12 @@ export const routes = [
     icon: DollarSign,
   },
   {
+    path: "/supervisor/payments/residence",
+    title: "Supervisor Residence Payments",
+    component: <SupervisorResidencePayments />,
+    icon: DollarSign,
+  },
+  {
     path: "/supervisor/yearly-records",
     title: "Supervisor Yearly Records",
     component: <SupervisorYearlyRecords />,
@@ -415,6 +423,12 @@ export const routes = [
     title: "Supervisor Settlements",
     component: <SupervisorSettlements />,
     icon: Wallet,
+  },
+  {
+    path: "/supervisor/attendance",
+    title: "Supervisor Attendance",
+    component: <SupervisorAttendance />,
+    icon: ClipboardCheck,
   },
   {
     path: "/supervisors/:supervisorId/activity",

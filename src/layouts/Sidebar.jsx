@@ -208,6 +208,14 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                   isMobile={isMobile}
                 />
 
+                <NavItem
+                  to="/supervisor/attendance"
+                  icon={ClipboardCheck}
+                  label="Attendance"
+                  onClick={handleLinkClick}
+                  isMobile={isMobile}
+                />
+
                 <li>
                   <MenuButton
                     label="Washes"
@@ -250,6 +258,13 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                       label="Onewash"
                       onClick={handleLinkClick}
                     />
+                    {user.service_type !== "mall" && (
+                      <SubNavItem
+                        to="/supervisor/payments/residence"
+                        label="Residence"
+                        onClick={handleLinkClick}
+                      />
+                    )}
                   </SubMenu>
                 </li>
 
@@ -598,6 +613,7 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                         to="/settings"
                         label="General Settings"
                         onClick={handleLinkClick}
+                        end={true}
                       />
                       <SubNavItem
                         to="/settings/salary"
