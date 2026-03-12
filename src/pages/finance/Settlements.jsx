@@ -193,13 +193,15 @@ const Settlements = () => {
       render: (row) => (
         <div className="flex justify-end">
           {row.status !== "completed" ? (
-            pp.isActionVisible("approve") && <button
-              onClick={() => handleApproveClick(row)}
-              className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-1"
-            >
-              <CheckCircle className="w-3 h-3" />
-              Approve
-            </button>
+            pp.isActionVisible("approve") && (
+              <button
+                onClick={() => handleApproveClick(row)}
+                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center gap-1"
+              >
+                <CheckCircle className="w-3 h-3" />
+                Approve
+              </button>
+            )
           ) : (
             <span className="text-xs font-medium text-slate-400 italic px-4 py-1.5 bg-slate-50 rounded-lg border border-slate-100">
               Settled
@@ -218,6 +220,7 @@ const Settlements = () => {
           columns={pp.filterColumns(columns)}
           data={filteredSettlements}
           loading={loading}
+          hideSearch={!pp.isToolbarVisible("search")}
           pagination={{
             page: currentPage,
             limit: 100,

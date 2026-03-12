@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useSearchParams } from "react-router-dom";
 import {
   FileSpreadsheet,
   Building,
@@ -28,6 +29,7 @@ import usePagePermissions from "../../utils/usePagePermissions";
 const CollectionSheet = () => {
   const dispatch = useDispatch();
   const pp = usePagePermissions("collectionSheet");
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { buildings } = useSelector((state) => state.building);
   const { workers } = useSelector((state) => state.worker);
@@ -44,13 +46,18 @@ const CollectionSheet = () => {
   const initialYear = currentMonth === 1 ? currentYear - 1 : currentYear;
   const initialMonth = currentMonth === 1 ? 12 : currentMonth - 1;
 
-  const [filters, setFilters] = useState({
-    serviceType: "residence",
-    building: "all",
-    worker: "all",
-    month: initialMonth,
-    year: initialYear,
-  });
+  // Initialize filters from URL parameters or defaults
+  const getInitialFilters = () => {
+    return {
+      serviceType: searchParams.get("serviceType") || "residence",
+      building: searchParams.get("building") || "all",
+      worker: searchParams.get("worker") || "all",
+      month: parseInt(searchParams.get("month")) || initialMonth,
+      year: parseInt(searchParams.get("year")) || initialYear,
+    };
+  };
+
+  const [filters, setFilters] = useState(getInitialFilters);
 
   // --- MISSING VARIABLE FIXED HERE ---
   // This calculates the list of years (2024, 2025, etc.) for the dropdown
@@ -88,6 +95,12 @@ const CollectionSheet = () => {
 
   // --- EFFECTS ---
 
+  // Sync filters with URL parameters on mount or URL change
+  useEffect(() => {
+    const urlFilters = getInitialFilters();
+    setFilters(urlFilters);
+  }, [searchParams]);
+
   // Initial Load of Dropdowns
   useEffect(() => {
     dispatch(fetchBuildings({ page: 1, limit: 1000 }));
@@ -109,12 +122,18 @@ const CollectionSheet = () => {
       setViewLoading(true);
       try {
         console.log("🔵 [FRONTEND] Fetching View Data with Filters:", filters);
+        console.log(
+          "🔵 [FRONTEND] Current URL Params:",
+          Object.fromEntries(searchParams),
+        );
 
         const apiFilters = {
           ...filters,
           building: filters.building === "all" ? "" : filters.building,
           worker: filters.worker === "all" ? "" : filters.worker,
         };
+
+        console.log("🔵 [FRONTEND] API Filters being sent:", apiFilters);
 
         const data = await paymentService.getCollectionData(apiFilters);
         console.log(
@@ -131,16 +150,28 @@ const CollectionSheet = () => {
       }
     };
     loadViewData();
-  }, [filters, availableMonths]);
+  }, [filters, availableMonths, searchParams]);
 
   // --- HANDLERS ---
 
   const handleFilterChange = (name, value) => {
+    let newFilters;
     if (name === "building") {
-      setFilters((prev) => ({ ...prev, building: value, worker: "all" }));
+      newFilters = { ...filters, building: value, worker: "all" };
     } else {
-      setFilters((prev) => ({ ...prev, [name]: value }));
+      newFilters = { ...filters, [name]: value };
     }
+
+    setFilters(newFilters);
+
+    // Update URL parameters to persist state across navigation
+    const newSearchParams = new URLSearchParams();
+    Object.entries(newFilters).forEach(([key, val]) => {
+      if (val !== "all" && val !== "") {
+        newSearchParams.set(key, val.toString());
+      }
+    });
+    setSearchParams(newSearchParams);
   };
 
   const loadImage = (url) => {
@@ -157,12 +188,15 @@ const CollectionSheet = () => {
     const toastId = toast.loading("Generating Excel Sheet...");
     try {
       console.log("🔵 [FRONTEND] Downloading Excel with Filters:", filters);
+      console.log("🔵 [FRONTEND] Selected Worker ID:", filters.worker);
 
       const apiFilters = {
         ...filters,
         building: filters.building === "all" ? "" : filters.building,
         worker: filters.worker === "all" ? "" : filters.worker,
       };
+
+      console.log("🔵 [FRONTEND] Excel API Filters being sent:", apiFilters);
 
       const result = await dispatch(
         downloadCollectionSheet(apiFilters),
@@ -196,6 +230,7 @@ const CollectionSheet = () => {
 
     try {
       console.log("🔵 [FRONTEND] Downloading PDF with Filters:", filters);
+      console.log("🔵 [FRONTEND] Selected Worker ID for PDF:", filters.worker);
 
       let data = viewData;
       if (!data || data.length === 0) {
@@ -205,6 +240,7 @@ const CollectionSheet = () => {
           building: filters.building === "all" ? "" : filters.building,
           worker: filters.worker === "all" ? "" : filters.worker,
         };
+        console.log("🔵 [FRONTEND] PDF API Filters being sent:", apiFilters);
         data = await paymentService.getCollectionData(apiFilters);
       }
 
@@ -408,90 +444,104 @@ const CollectionSheet = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 items-end">
-            {pp.isToolbarVisible("serviceTypeFilter") && (<div className="md:col-span-1">
-              <CustomDropdown
-                label="Service Type"
-                value={filters.serviceType}
-                onChange={(val) => handleFilterChange("serviceType", val)}
-                options={[
-                  { value: "residence", label: "Residence", icon: Layers },
-                  { value: "onewash", label: "One Wash", icon: Filter },
-                ]}
-                icon={Layers}
-              />
-            </div>)}
-            {pp.isToolbarVisible("buildingFilter") && (<div className="md:col-span-1 xl:col-span-1">
-              <CustomDropdown
-                label="Building"
-                value={filters.building}
-                onChange={(val) => handleFilterChange("building", val)}
-                options={buildingList}
-                icon={Building}
-                searchable
-              />
-            </div>)}
-            {pp.isToolbarVisible("workerFilter") && (<div className="md:col-span-1 xl:col-span-1">
-              <CustomDropdown
-                label="Worker"
-                value={filters.worker}
-                onChange={(val) => handleFilterChange("worker", val)}
-                options={workerList}
-                icon={User}
-                searchable
-              />
-            </div>)}
-            {pp.isToolbarVisible("monthFilter") && (<div className="md:col-span-1">
-              <CustomDropdown
-                label="Month"
-                value={filters.month}
-                onChange={(val) => handleFilterChange("month", Number(val))}
-                options={availableMonths}
-                icon={Calendar}
-                disabled={availableMonths.length === 0}
-              />
-            </div>)}
-            {pp.isToolbarVisible("yearFilter") && (<div className="md:col-span-1">
-              <CustomDropdown
-                label="Year"
-                value={filters.year}
-                onChange={(val) => handleFilterChange("year", Number(val))}
-                options={yearOptions}
-                icon={Calendar}
-              />
-            </div>)}
+            {pp.isToolbarVisible("serviceTypeFilter") && (
+              <div className="md:col-span-1">
+                <CustomDropdown
+                  label="Service Type"
+                  value={filters.serviceType}
+                  onChange={(val) => handleFilterChange("serviceType", val)}
+                  options={[
+                    { value: "residence", label: "Residence", icon: Layers },
+                    { value: "onewash", label: "One Wash", icon: Filter },
+                  ]}
+                  icon={Layers}
+                />
+              </div>
+            )}
+            {pp.isToolbarVisible("buildingFilter") && (
+              <div className="md:col-span-1 xl:col-span-1">
+                <CustomDropdown
+                  label="Building"
+                  value={filters.building}
+                  onChange={(val) => handleFilterChange("building", val)}
+                  options={buildingList}
+                  icon={Building}
+                  searchable
+                />
+              </div>
+            )}
+            {pp.isToolbarVisible("workerFilter") && (
+              <div className="md:col-span-1 xl:col-span-1">
+                <CustomDropdown
+                  label="Worker"
+                  value={filters.worker}
+                  onChange={(val) => handleFilterChange("worker", val)}
+                  options={workerList}
+                  icon={User}
+                  searchable
+                />
+              </div>
+            )}
+            {pp.isToolbarVisible("monthFilter") && (
+              <div className="md:col-span-1">
+                <CustomDropdown
+                  label="Month"
+                  value={filters.month}
+                  onChange={(val) => handleFilterChange("month", Number(val))}
+                  options={availableMonths}
+                  icon={Calendar}
+                  disabled={availableMonths.length === 0}
+                />
+              </div>
+            )}
+            {pp.isToolbarVisible("yearFilter") && (
+              <div className="md:col-span-1">
+                <CustomDropdown
+                  label="Year"
+                  value={filters.year}
+                  onChange={(val) => handleFilterChange("year", Number(val))}
+                  options={yearOptions}
+                  icon={Calendar}
+                />
+              </div>
+            )}
             <div className="md:col-span-1 flex gap-2">
-              {pp.isToolbarVisible("exportExcel") && (<button
-                onClick={handleDownloadExcel}
-                disabled={
-                  downloading ||
-                  availableMonths.length === 0 ||
-                  filters.worker === "all"
-                }
-                className="flex-1 h-[42px] bg-white border border-emerald-200 text-emerald-700 font-bold rounded-xl hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-xs"
-              >
-                {downloading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <FileSpreadsheet className="w-4 h-4" />
-                )}{" "}
-                Excel
-              </button>)}
-              {pp.isToolbarVisible("exportPdf") && (<button
-                onClick={handleDownloadPDF}
-                disabled={
-                  pdfLoading ||
-                  availableMonths.length === 0 ||
-                  filters.worker === "all"
-                }
-                className="flex-1 h-[42px] bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-xs"
-              >
-                {pdfLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <FileText className="w-4 h-4" />
-                )}{" "}
-                PDF
-              </button>)}
+              {pp.isToolbarVisible("exportExcel") && (
+                <button
+                  onClick={handleDownloadExcel}
+                  disabled={
+                    downloading ||
+                    availableMonths.length === 0 ||
+                    filters.worker === "all"
+                  }
+                  className="flex-1 h-[42px] bg-white border border-emerald-200 text-emerald-700 font-bold rounded-xl hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-xs"
+                >
+                  {downloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FileSpreadsheet className="w-4 h-4" />
+                  )}{" "}
+                  Excel
+                </button>
+              )}
+              {pp.isToolbarVisible("exportPdf") && (
+                <button
+                  onClick={handleDownloadPDF}
+                  disabled={
+                    pdfLoading ||
+                    availableMonths.length === 0 ||
+                    filters.worker === "all"
+                  }
+                  className="flex-1 h-[42px] bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-xs"
+                >
+                  {pdfLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4" />
+                  )}{" "}
+                  PDF
+                </button>
+              )}
             </div>
           </div>
         </div>

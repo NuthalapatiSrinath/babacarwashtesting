@@ -603,13 +603,15 @@ const Workers = () => {
           >
             <Calendar className="w-3.5 h-3.5" />
           </button>
-          <button
-            onClick={() => navigate(`/workers/${r._id}/activity`)}
-            className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-100"
-            title="Activity Tracking"
-          >
-            <Activity className="w-3.5 h-3.5" />
-          </button>
+          {pp.isActionVisible("activity") && (
+            <button
+              onClick={() => navigate(`/workers/${r._id}/activity`)}
+              className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-100"
+              title="Activity Tracking"
+            >
+              <Activity className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -640,55 +642,55 @@ const Workers = () => {
       render: (row) => (
         <div className="flex justify-end gap-1.5 pr-2">
           {pp.isActionVisible("view") && (
-          <button
-            onClick={() => navigate(`/workers/${row._id}`)}
-            className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-all"
-            title="View Profile"
-          >
-            <Eye className="w-4 h-4" />
-          </button>
+            <button
+              onClick={() => navigate(`/workers/${row._id}`)}
+              className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-all"
+              title="View Profile"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
           )}
 
           {pp.isActionVisible("view") && (
-          <button
-            onClick={() =>
-              navigate("/workers/monthly", {
-                state: {
-                  workerId: row._id,
-                  worker: row,
-                },
-              })
-            }
-            className="p-2 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-all"
-            title="Monthly Records"
-          >
-            <FileText className="w-4 h-4" />
-          </button>
+            <button
+              onClick={() =>
+                navigate("/workers/monthly", {
+                  state: {
+                    workerId: row._id,
+                    worker: row,
+                  },
+                })
+              }
+              className="p-2 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg transition-all"
+              title="Monthly Records"
+            >
+              <FileText className="w-4 h-4" />
+            </button>
           )}
 
           {pp.isActionVisible("edit") && (
-          <button
-            onClick={() => {
-              setSelectedWorker(row);
-              setIsModalOpen(true);
-            }}
-            className="p-2 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition-all"
-            title="Edit"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
+            <button
+              onClick={() => {
+                setSelectedWorker(row);
+                setIsModalOpen(true);
+              }}
+              className="p-2 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-lg transition-all"
+              title="Edit"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
           )}
           {pp.isActionVisible("delete") && (
-          <button
-            onClick={() => {
-              setWorkerToDelete(row);
-              setIsDeleteModalOpen(true);
-            }}
-            className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all"
-            title="Delete"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+            <button
+              onClick={() => {
+                setWorkerToDelete(row);
+                setIsDeleteModalOpen(true);
+              }}
+              className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all"
+              title="Delete"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           )}
         </div>
       ),
@@ -735,60 +737,60 @@ const Workers = () => {
 
           <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
             {pp.isToolbarVisible("search") && (
-            <div className="relative w-full lg:w-64 group mr-2">
-              <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={currentSearch}
-                onChange={(e) => setCurrentSearch(e.target.value)}
-                className="w-full h-12 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
-              />
-            </div>
+              <div className="relative w-full lg:w-64 group mr-2">
+                <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={currentSearch}
+                  onChange={(e) => setCurrentSearch(e.target.value)}
+                  className="w-full h-12 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
+                />
+              </div>
             )}
             <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-100">
               {pp.isToolbarVisible("export") && (
-              <button
-                onClick={handleExportData}
-                className="h-10 px-4 text-slate-600 hover:text-blue-600 rounded-xl text-[11px] font-black uppercase tracking-tighter flex items-center gap-2 transition-all hover:bg-white hover:shadow-sm"
-              >
-                <Download className="w-3.5 h-3.5" />{" "}
-                <span className="hidden sm:inline">Export</span>
-              </button>
+                <button
+                  onClick={handleExportData}
+                  className="h-10 px-4 text-slate-600 hover:text-blue-600 rounded-xl text-[11px] font-black uppercase tracking-tighter flex items-center gap-2 transition-all hover:bg-white hover:shadow-sm"
+                >
+                  <Download className="w-3.5 h-3.5" />{" "}
+                  <span className="hidden sm:inline">Export</span>
+                </button>
               )}
               {pp.isToolbarVisible("template") && (
-              <button
-                onClick={handleDownloadTemplate}
-                className="h-10 px-4 text-slate-600 hover:text-emerald-600 rounded-xl text-[11px] font-black uppercase tracking-tighter flex items-center gap-2 transition-all hover:bg-white hover:shadow-sm"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />{" "}
-                <span className="hidden sm:inline">Template</span>
-              </button>
+                <button
+                  onClick={handleDownloadTemplate}
+                  className="h-10 px-4 text-slate-600 hover:text-emerald-600 rounded-xl text-[11px] font-black uppercase tracking-tighter flex items-center gap-2 transition-all hover:bg-white hover:shadow-sm"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />{" "}
+                  <span className="hidden sm:inline">Template</span>
+                </button>
               )}
               {pp.isToolbarVisible("import") && (
-              <button
-                onClick={() => fileInputRef.current.click()}
-                className="h-10 px-4 text-slate-600 hover:text-indigo-600 rounded-xl text-[11px] font-black uppercase tracking-tighter flex items-center gap-2 transition-all hover:bg-white hover:shadow-sm"
-              >
-                {importLoading ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <UploadCloud className="w-3.5 h-3.5" />
-                )}{" "}
-                <span className="hidden sm:inline">Import</span>
-              </button>
+                <button
+                  onClick={() => fileInputRef.current.click()}
+                  className="h-10 px-4 text-slate-600 hover:text-indigo-600 rounded-xl text-[11px] font-black uppercase tracking-tighter flex items-center gap-2 transition-all hover:bg-white hover:shadow-sm"
+                >
+                  {importLoading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <UploadCloud className="w-3.5 h-3.5" />
+                  )}{" "}
+                  <span className="hidden sm:inline">Import</span>
+                </button>
               )}
             </div>
             {pp.isToolbarVisible("addWorker") && (
-            <button
-              onClick={() => {
-                setSelectedWorker(null);
-                setIsModalOpen(true);
-              }}
-              className="h-12 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-indigo-200 active:scale-95 transition-all"
-            >
-              <Plus className="w-4 h-4" /> Add Worker
-            </button>
+              <button
+                onClick={() => {
+                  setSelectedWorker(null);
+                  setIsModalOpen(true);
+                }}
+                className="h-12 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-indigo-200 active:scale-95 transition-all"
+              >
+                <Plus className="w-4 h-4" /> Add Worker
+              </button>
             )}
           </div>
         </div>

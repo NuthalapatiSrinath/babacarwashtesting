@@ -20,7 +20,7 @@ import CustomDropdown from "../../components/ui/CustomDropdown";
 // APIs
 import { attendanceService } from "../../api/attendanceService";
 import { supervisorService } from "../../api/supervisorService";
-import { toShiftRange } from "../../utils/shiftTime";
+import { toCalendarRange } from "../../utils/shiftTime";
 
 const SupervisorAttendance = () => {
   // --- Get logged-in supervisor info ---
@@ -104,7 +104,7 @@ const SupervisorAttendance = () => {
         .toISOString()
         .split("T")[0];
       const endStr = new Date(dateRange.endDate).toISOString().split("T")[0];
-      const shiftRange = toShiftRange(startStr, endStr);
+      const shiftRange = toCalendarRange(startStr, endStr);
 
       const params = {
         startDate: shiftRange.startDate,
@@ -337,6 +337,7 @@ const SupervisorAttendance = () => {
           { value: "AB", label: "Absent (AB)" },
           { value: "ND", label: "No Duty (ND)" },
           { value: "SL", label: "Sick Leave (SL)" },
+          { value: "WO", label: "Week Off (WO)" },
         ];
         return (
           <div className="relative group w-full max-w-xs">
@@ -347,16 +348,31 @@ const SupervisorAttendance = () => {
               onChange={async (newNote) => {
                 if (row.notes === newNote) return;
                 const noteValue = newNote === "" ? " " : newNote;
+                // Update both notes and type fields to ensure consistency
+                const typeValue = newNote === "" ? "" : newNote;
+                const isAbsentType = ["AB", "ND", "SL", "WO"].includes(
+                  typeValue,
+                );
+                const presentValue =
+                  typeValue === "" ? row.present : !isAbsentType;
+
                 setAllData((prev) =>
                   prev.map((item) =>
-                    item._id === row._id ? { ...item, notes: noteValue } : item,
+                    item._id === row._id
+                      ? {
+                          ...item,
+                          present: presentValue,
+                          notes: noteValue,
+                          type: typeValue,
+                        }
+                      : item,
                   ),
                 );
                 try {
                   await attendanceService.update({
                     ids: [row._id],
-                    present: row.present,
-                    type: row.type,
+                    present: presentValue,
+                    type: typeValue,
                     notes: noteValue,
                   });
                   toast.success("Note saved");
@@ -491,6 +507,12 @@ const SupervisorAttendance = () => {
                       value: "ND",
                       label: "No Duty",
                       active: "border-slate-500 bg-slate-100 text-slate-700",
+                    },
+                    {
+                      value: "WO",
+                      label: "Week Off",
+                      active:
+                        "border-emerald-500 bg-emerald-50 text-emerald-700",
                     },
                     {
                       value: "EL",

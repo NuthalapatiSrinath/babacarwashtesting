@@ -12,6 +12,7 @@ import { Suspense, useState, useEffect, useRef } from "react";
 import MainLayout from "./layouts/MainLayout";
 import Login from "./pages/auth/Login";
 import { routes } from "./routes"; // Your route config file
+import api from "./api/axiosInstance";
 
 // Components
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -91,7 +92,7 @@ const PublicRoute = ({ children }) => {
 const RoleBasedIndex = () => {
   const userString = localStorage.getItem("user");
   const user = userString ? JSON.parse(userString) : {};
-  const userRole = user.role || "admin";
+  const userRole = user.role || "user";
 
   if (userRole === "supervisor") {
     return <Navigate to="/supervisor/dashboard" replace />;
@@ -106,7 +107,7 @@ const RoleBasedIndex = () => {
 const ProtectedRouteContent = ({ route }) => {
   const userString = localStorage.getItem("user");
   const user = userString ? JSON.parse(userString) : {};
-  const userRole = user.role || "admin";
+  const userRole = user.role || "user";
 
   const isSupervisorRoute = route.path?.startsWith("/supervisor/");
 
@@ -159,6 +160,24 @@ function App() {
   const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {
+    const syncCurrentUser = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      try {
+        const response = await api.get("/users/me/info");
+        const latestUser = response?.data?.data;
+        if (latestUser) {
+          localStorage.setItem("user", JSON.stringify(latestUser));
+          window.dispatchEvent(new Event("user-updated"));
+        }
+      } catch {
+        // Ignore refresh failure and continue with cached user
+      }
+    };
+
+    syncCurrentUser();
+
     // Simulate initial app boot (optional, makes it feel smoother)
     const timer = setTimeout(() => setAppReady(true), 800);
     return () => clearTimeout(timer);

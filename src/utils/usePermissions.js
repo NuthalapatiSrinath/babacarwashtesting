@@ -1,4 +1,13 @@
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
+
+const readStoredUser = () => {
+  try {
+    const userString = localStorage.getItem("user");
+    return userString ? JSON.parse(userString) : {};
+  } catch {
+    return {};
+  }
+};
 
 /**
  * Hook to check permissions for the current user.
@@ -10,16 +19,20 @@ import { useMemo } from "react";
  *   if (hasPermission("payments", "view")) { ... }
  */
 export const usePermissions = () => {
-  const user = useMemo(() => {
-    try {
-      const userString = localStorage.getItem("user");
-      return userString ? JSON.parse(userString) : {};
-    } catch {
-      return {};
-    }
+  const [user, setUser] = useState(readStoredUser);
+
+  useEffect(() => {
+    const syncUser = () => setUser(readStoredUser());
+    window.addEventListener("storage", syncUser);
+    window.addEventListener("user-updated", syncUser);
+
+    return () => {
+      window.removeEventListener("storage", syncUser);
+      window.removeEventListener("user-updated", syncUser);
+    };
   }, []);
 
-  const userRole = user.role || "admin";
+  const userRole = user.role || "user";
   const isAdmin = userRole === "admin";
   const permissions = user.permissions || {};
 

@@ -1,5 +1,14 @@
-import { useMemo, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import PAGE_PERMISSIONS_CONFIG from "./pagePermissionsConfig";
+
+const readStoredUser = () => {
+  try {
+    const userString = localStorage.getItem("user");
+    return userString ? JSON.parse(userString) : {};
+  } catch {
+    return {};
+  }
+};
 
 /**
  * Hook for checking granular page-level permissions.
@@ -17,13 +26,17 @@ import PAGE_PERMISSIONS_CONFIG from "./pagePermissionsConfig";
  *   pp.filterColumns(columnsArray)    // → filtered columns (uses col.key)
  */
 export const usePagePermissions = (pageKey) => {
-  const user = useMemo(() => {
-    try {
-      const userString = localStorage.getItem("user");
-      return userString ? JSON.parse(userString) : {};
-    } catch {
-      return {};
-    }
+  const [user, setUser] = useState(readStoredUser);
+
+  useEffect(() => {
+    const syncUser = () => setUser(readStoredUser());
+    window.addEventListener("storage", syncUser);
+    window.addEventListener("user-updated", syncUser);
+
+    return () => {
+      window.removeEventListener("storage", syncUser);
+      window.removeEventListener("user-updated", syncUser);
+    };
   }, []);
 
   const isAdmin = user.role === "admin";

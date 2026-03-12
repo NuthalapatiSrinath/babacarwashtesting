@@ -90,6 +90,20 @@ export function toShiftRange(startDateStr, endDateStr) {
 }
 
 /**
+ * Convert a calendar date range to full-day UTC range (00:00:00 to 23:59:59.999).
+ * This is the standard non-shift range and should be used outside residence shift flows.
+ * @param {string} startDateStr - YYYY-MM-DD format date string
+ * @param {string} endDateStr - YYYY-MM-DD format date string
+ * @returns {{ startDate: string, endDate: string }} UTC ISO strings
+ */
+export function toCalendarRange(startDateStr, endDateStr) {
+  return {
+    startDate: new Date(`${startDateStr}T00:00:00.000Z`).toISOString(),
+    endDate: new Date(`${endDateStr}T23:59:59.999Z`).toISOString(),
+  };
+}
+
+/**
  * Get the shift date label (the date the current shift counts towards).
  * @returns {string} YYYY-MM-DD format
  */

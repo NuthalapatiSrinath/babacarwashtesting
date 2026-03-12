@@ -181,13 +181,15 @@ const Supervisors = () => {
         "text-right w-24 sticky right-0 bg-white shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]",
       render: (row) => (
         <div className="flex justify-end gap-1.5 pr-2">
-          <button
-            onClick={() => navigate(`/supervisors/${row._id}/activity`)}
-            className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-all"
-            title="Activity Tracking"
-          >
-            <Activity className="w-4 h-4" />
-          </button>
+          {pp.isActionVisible("activity") && (
+            <button
+              onClick={() => navigate(`/supervisors/${row._id}/activity`)}
+              className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-all"
+              title="Activity Tracking"
+            >
+              <Activity className="w-4 h-4" />
+            </button>
+          )}
           {pp.isActionVisible("edit") && (
             <button
               onClick={() => handleEdit(row)}
@@ -256,6 +258,7 @@ const Supervisors = () => {
           columns={pp.filterColumns(columns)}
           data={supervisors}
           loading={loading}
+          hideSearch={!pp.isToolbarVisible("search")}
           // Pagination props
           pagination={{
             page: currentPage,

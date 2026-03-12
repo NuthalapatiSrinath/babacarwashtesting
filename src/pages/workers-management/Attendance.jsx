@@ -24,7 +24,7 @@ import { mallService } from "../../api/mallService";
 import { siteService } from "../../api/siteService";
 import { buildingService } from "../../api/buildingService";
 import usePagePermissions from "../../utils/usePagePermissions";
-import { toShiftRange } from "../../utils/shiftTime";
+import { toCalendarRange } from "../../utils/shiftTime";
 
 const Attendance = () => {
   const pp = usePagePermissions("attendance");
@@ -123,7 +123,7 @@ const Attendance = () => {
         .toISOString()
         .split("T")[0];
       const endStr = new Date(dateRange.endDate).toISOString().split("T")[0];
-      const shiftRange = toShiftRange(startStr, endStr);
+      const shiftRange = toCalendarRange(startStr, endStr);
 
       const params = {
         startDate: shiftRange.startDate,
@@ -310,7 +310,7 @@ const Attendance = () => {
         .toISOString()
         .split("T")[0];
       const endStr = new Date(dateRange.endDate).toISOString().split("T")[0];
-      const shiftRange = toShiftRange(startStr, endStr);
+      const shiftRange = toCalendarRange(startStr, endStr);
 
       const params = {
         startDate: shiftRange.startDate,
@@ -467,6 +467,7 @@ const Attendance = () => {
           { value: "AB", label: "Absent (AB)" },
           { value: "ND", label: "No Duty (ND)" },
           { value: "SL", label: "Sick Leave (SL)" },
+          { value: "WO", label: "Week Off (WO)" },
         ];
         return (
           <div className="relative group w-full max-w-xs">
@@ -478,16 +479,31 @@ const Attendance = () => {
                 if (row.notes === newNote) return;
                 // If 'No Remark' is selected, set notes to a single space
                 const noteValue = newNote === "" ? " " : newNote;
+                // Update both notes and type fields to ensure consistency
+                const typeValue = newNote === "" ? "" : newNote;
+                const isAbsentType = ["AB", "ND", "SL", "WO"].includes(
+                  typeValue,
+                );
+                const presentValue =
+                  typeValue === "" ? row.present : !isAbsentType;
+
                 setAllData((prev) =>
                   prev.map((item) =>
-                    item._id === row._id ? { ...item, notes: noteValue } : item,
+                    item._id === row._id
+                      ? {
+                          ...item,
+                          present: presentValue,
+                          notes: noteValue,
+                          type: typeValue,
+                        }
+                      : item,
                   ),
                 );
                 try {
                   await attendanceService.update({
                     ids: [row._id],
-                    present: row.present,
-                    type: row.type,
+                    present: presentValue,
+                    type: typeValue,
                     notes: noteValue,
                   });
                   toast.success("Note saved");
@@ -690,6 +706,12 @@ const Attendance = () => {
                       value: "ND",
                       label: "No Duty",
                       active: "border-slate-500 bg-slate-100 text-slate-700",
+                    },
+                    {
+                      value: "WO",
+                      label: "Week Off",
+                      active:
+                        "border-emerald-500 bg-emerald-50 text-emerald-700",
                     },
                     {
                       value: "EL",

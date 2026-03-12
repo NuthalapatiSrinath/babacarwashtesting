@@ -185,11 +185,19 @@ const WorkRecords = () => {
     };
 
     fetchAvailableWorkers();
-  }, [filters.serviceType, filters.year, filters.month, availableMonths, teamWorkerIds]);
+  }, [
+    filters.serviceType,
+    filters.year,
+    filters.month,
+    availableMonths,
+    teamWorkerIds,
+  ]);
 
   const workersOptions = useMemo(() => {
     if (!workersList || workersList.length === 0) return [];
-    let filtered = workersList.filter((w) => w.service_type === filters.serviceType);
+    let filtered = workersList.filter(
+      (w) => w.service_type === filters.serviceType,
+    );
     // For supervisors, only show their team workers
     if (isSupervisor && teamWorkerIds && teamWorkerIds.length > 0) {
       filtered = filtered.filter((w) => teamWorkerIds.includes(w._id));

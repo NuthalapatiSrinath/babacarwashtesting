@@ -21,6 +21,7 @@ import {
   Building2,
   Map,
   Eye,
+  Activity,
   Save,
   Phone,
 } from "lucide-react";
@@ -476,36 +477,45 @@ const Staff = () => {
       render: (r) => (
         <div className="flex justify-end gap-2 pr-2 items-center h-full">
           {pp.isActionVisible("view") && (
-          <button
-            onClick={() => navigate(`/workers/staff/${r._id}`)}
-            className="p-2 bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl transition-all shadow-sm"
-          >
-            <Eye className="w-4 h-4" />
-          </button>
+            <button
+              onClick={() => navigate(`/workers/staff/${r._id}`)}
+              className="p-2 bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl transition-all shadow-sm"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+          )}
+          {pp.isActionVisible("activity") && (
+            <button
+              onClick={() => navigate(`/workers/${r._id}/activity`)}
+              className="p-2 bg-blue-50 border border-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all shadow-sm"
+              title="Activity Tracking"
+            >
+              <Activity className="w-4 h-4" />
+            </button>
           )}
           {pp.isActionVisible("edit") && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedStaff(r);
-              setIsModalOpen(true);
-            }}
-            className="p-2 bg-white border border-slate-200 text-slate-400 hover:text-amber-600 hover:border-amber-200 rounded-xl transition-all shadow-sm"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedStaff(r);
+                setIsModalOpen(true);
+              }}
+              className="p-2 bg-white border border-slate-200 text-slate-400 hover:text-amber-600 hover:border-amber-200 rounded-xl transition-all shadow-sm"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
           )}
           {pp.isActionVisible("delete") && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setStaffToDelete(r);
-              setIsDeleteModalOpen(true);
-            }}
-            className="p-2 bg-white border border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-200 rounded-xl transition-all shadow-sm"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setStaffToDelete(r);
+                setIsDeleteModalOpen(true);
+              }}
+              className="p-2 bg-white border border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-200 rounded-xl transition-all shadow-sm"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           )}
         </div>
       ),
@@ -523,61 +533,61 @@ const Staff = () => {
       <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 mb-6 relative z-20">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
           {pp.isToolbarVisible("search") && (
-          <div className="relative w-full lg:w-96 group">
-            <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-            <input
-              type="text"
-              placeholder="Search Name, Code or Mobile..."
-              value={currentSearch}
-              onChange={(e) => setCurrentSearch(e.target.value)}
-              className="w-full h-12 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
-            />
-          </div>
+            <div className="relative w-full lg:w-96 group">
+              <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+              <input
+                type="text"
+                placeholder="Search Name, Code or Mobile..."
+                value={currentSearch}
+                onChange={(e) => setCurrentSearch(e.target.value)}
+                className="w-full h-12 pl-12 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
+              />
+            </div>
           )}
           <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
             <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-100">
               {pp.isToolbarVisible("export") && (
-              <button
-                onClick={handleExportData}
-                className="h-10 px-4 text-slate-600 hover:text-blue-600 rounded-xl text-[11px] font-black uppercase tracking-tighter flex items-center gap-2 transition-all hover:bg-white hover:shadow-sm"
-              >
-                <Download className="w-3.5 h-3.5" />{" "}
-                <span className="hidden sm:inline">Export</span>
-              </button>
+                <button
+                  onClick={handleExportData}
+                  className="h-10 px-4 text-slate-600 hover:text-blue-600 rounded-xl text-[11px] font-black uppercase tracking-tighter flex items-center gap-2 transition-all hover:bg-white hover:shadow-sm"
+                >
+                  <Download className="w-3.5 h-3.5" />{" "}
+                  <span className="hidden sm:inline">Export</span>
+                </button>
               )}
               {pp.isToolbarVisible("export") && (
-              <button
-                onClick={handleDownloadTemplate}
-                className="h-10 px-4 text-slate-600 hover:text-emerald-600 rounded-xl text-[11px] font-black uppercase tracking-tighter flex items-center gap-2 transition-all hover:bg-white hover:shadow-sm"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />{" "}
-                <span className="hidden sm:inline">Template</span>
-              </button>
+                <button
+                  onClick={handleDownloadTemplate}
+                  className="h-10 px-4 text-slate-600 hover:text-emerald-600 rounded-xl text-[11px] font-black uppercase tracking-tighter flex items-center gap-2 transition-all hover:bg-white hover:shadow-sm"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />{" "}
+                  <span className="hidden sm:inline">Template</span>
+                </button>
               )}
               {pp.isToolbarVisible("import") && (
-              <button
-                onClick={() => fileInputRef.current.click()}
-                className="h-10 px-4 text-slate-600 hover:text-indigo-600 rounded-xl text-[11px] font-black uppercase tracking-tighter flex items-center gap-2 transition-all hover:bg-white hover:shadow-sm"
-              >
-                {importLoading ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <UploadCloud className="w-3.5 h-3.5" />
-                )}{" "}
-                <span className="hidden sm:inline">Import</span>
-              </button>
+                <button
+                  onClick={() => fileInputRef.current.click()}
+                  className="h-10 px-4 text-slate-600 hover:text-indigo-600 rounded-xl text-[11px] font-black uppercase tracking-tighter flex items-center gap-2 transition-all hover:bg-white hover:shadow-sm"
+                >
+                  {importLoading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <UploadCloud className="w-3.5 h-3.5" />
+                  )}{" "}
+                  <span className="hidden sm:inline">Import</span>
+                </button>
               )}
             </div>
             {pp.isToolbarVisible("addStaff") && (
-            <button
-              onClick={() => {
-                setSelectedStaff(null);
-                setIsModalOpen(true);
-              }}
-              className="h-12 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-indigo-200 active:scale-95 transition-all"
-            >
-              <Plus className="w-4 h-4" /> Add Staff
-            </button>
+              <button
+                onClick={() => {
+                  setSelectedStaff(null);
+                  setIsModalOpen(true);
+                }}
+                className="h-12 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-indigo-200 active:scale-95 transition-all"
+              >
+                <Plus className="w-4 h-4" /> Add Staff
+              </button>
             )}
           </div>
         </div>

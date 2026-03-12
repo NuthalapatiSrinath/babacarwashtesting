@@ -26,7 +26,7 @@ import DataTable from "../../components/DataTable";
 import CustomDropdown from "../../components/ui/CustomDropdown";
 import RichDateRangePicker from "../../components/inputs/RichDateRangePicker";
 import usePagePermissions from "../../utils/usePagePermissions";
-import { toShiftRange } from "../../utils/shiftTime";
+import { toCalendarRange } from "../../utils/shiftTime";
 
 // Helper: compute due date (last day of billing month)
 const getDueDate = (item) => {
@@ -122,7 +122,7 @@ const PendingPayments = () => {
       startStr = first.toISOString().split("T")[0];
       endStr = last.toISOString().split("T")[0];
     }
-    return toShiftRange(startStr, endStr);
+    return toCalendarRange(startStr, endStr);
   };
 
   const fetchData = async (page = 1, limit = 100) => {
@@ -776,6 +776,7 @@ const PendingPayments = () => {
           columns={pp.filterColumns(columns)}
           data={data}
           loading={loading}
+          hideSearch={!pp.isToolbarVisible("search")}
           pagination={pagination}
           onPageChange={(p) => fetchData(p, pagination.limit)}
           onLimitChange={(l) => fetchData(1, l)}

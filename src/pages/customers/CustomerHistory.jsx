@@ -27,7 +27,7 @@ import DataTable from "../../components/DataTable";
 import RichDateRangePicker from "../../components/inputs/RichDateRangePicker";
 
 import { customerService } from "../../api/customerService";
-import { toShiftRange } from "../../utils/shiftTime";
+import { toCalendarRange } from "../../utils/shiftTime";
 
 const CustomerHistory = () => {
   const { id } = useParams();
@@ -58,11 +58,11 @@ const CustomerHistory = () => {
         startDate,
         endDate,
       });
-      // Convert dates to shift range (18:30-18:30 Dubai time)
+      // Convert dates to full-day range (00:00 to 23:59 UTC)
       let apiStartDate = startDate;
       let apiEndDate = endDate;
       if (startDate && endDate) {
-        const shiftRange = toShiftRange(startDate, endDate);
+        const shiftRange = toCalendarRange(startDate, endDate);
         apiStartDate = shiftRange.startDate;
         apiEndDate = shiftRange.endDate;
       }

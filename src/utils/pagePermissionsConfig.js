@@ -65,6 +65,7 @@ const PAGE_PERMISSIONS_CONFIG = {
     ],
     actions: [
       { key: "view", label: "View Worker" },
+      { key: "activity", label: "Activity Tracking" },
       { key: "edit", label: "Edit Worker" },
       { key: "delete", label: "Delete Worker" },
     ],
@@ -90,6 +91,7 @@ const PAGE_PERMISSIONS_CONFIG = {
     ],
     actions: [
       { key: "view", label: "View Staff" },
+      { key: "activity", label: "Activity Tracking" },
       { key: "edit", label: "Edit Staff" },
       { key: "delete", label: "Delete Staff" },
     ],
@@ -129,6 +131,7 @@ const PAGE_PERMISSIONS_CONFIG = {
       { key: "phone", label: "Phone" },
     ],
     actions: [
+      { key: "activity", label: "Activity Tracking" },
       { key: "edit", label: "Edit Supervisor" },
       { key: "delete", label: "Delete Supervisor" },
     ],
@@ -329,10 +332,7 @@ const PAGE_PERMISSIONS_CONFIG = {
       { key: "breakdown", label: "Breakdown" },
       { key: "status", label: "Status" },
     ],
-    actions: [
-      { key: "approve", label: "Approve" },
-      { key: "reject", label: "Reject" },
-    ],
+    actions: [{ key: "approve", label: "Approve" }],
     toolbar: [{ key: "search", label: "Search" }],
   },
 

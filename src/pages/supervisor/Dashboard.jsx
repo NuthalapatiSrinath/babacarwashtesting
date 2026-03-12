@@ -198,7 +198,7 @@ const SupervisorDashboard = () => {
                   </h1>
                   <p className="text-blue-200 text-sm md:text-base mt-1">
                     {shiftDate
-                      ? `Shift: ${new Date(shiftDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}${shiftWindow ? ` (${shiftWindow.start} - ${shiftWindow.end})` : ""}`
+                      ? `${new Date(shiftDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}`
                       : "Your team's complete performance overview"}
                   </p>
                 </div>
@@ -267,8 +267,8 @@ const SupervisorDashboard = () => {
             }
             subtitle={
               shiftWindow
-                ? `Shift window: ${shiftWindow.start} to ${shiftWindow.end} (Dubai)`
-                : "Real-time performance for the current shift"
+                ? `Date: ${shiftDate || shiftWindow.start?.split(" ")?.[0]} (Dubai)`
+                : "Real-time performance for today"
             }
             gradient="from-blue-600 to-indigo-600"
           />

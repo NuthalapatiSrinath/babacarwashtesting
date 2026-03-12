@@ -29,7 +29,13 @@ export const workRecordsService = {
   },
 
   // 2. JSON Data Fetch for Rich PDF (Corrected Route)
-  getStatementData: async (year, month, serviceType, workerId = "", workers = null) => {
+  getStatementData: async (
+    year,
+    month,
+    serviceType,
+    workerId = "",
+    workers = null,
+  ) => {
     const baseUrl =
       serviceType === "onewash" || serviceType === "mall"
         ? "/onewash"

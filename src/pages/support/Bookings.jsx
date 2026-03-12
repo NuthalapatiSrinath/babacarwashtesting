@@ -324,13 +324,15 @@ const Bookings = () => {
         "text-right w-28 sticky right-0 bg-white shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]",
       render: (row) => (
         <div className="flex items-center justify-end gap-1 px-2">
-          {pp.isActionVisible("assignWorker") && (<button
-            onClick={() => handleOpenAssign(row)}
-            className="p-1.5 hover:bg-blue-50 rounded text-slate-400 hover:text-blue-600 transition-colors"
-            title="Assign Worker"
-          >
-            <UserPlus className="w-4 h-4" />
-          </button>)}
+          {pp.isActionVisible("assignWorker") && (
+            <button
+              onClick={() => handleOpenAssign(row)}
+              className="p-1.5 hover:bg-blue-50 rounded text-slate-400 hover:text-blue-600 transition-colors"
+              title="Assign Worker"
+            >
+              <UserPlus className="w-4 h-4" />
+            </button>
+          )}
 
           {pp.isActionVisible("accept") && row.status !== "accepted" && (
             <button
@@ -342,13 +344,15 @@ const Bookings = () => {
             </button>
           )}
 
-          {pp.isActionVisible("delete") && (<button
-            onClick={() => handleDelete(row)}
-            className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600 transition-colors"
-            title="Delete"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>)}
+          {pp.isActionVisible("delete") && (
+            <button
+              onClick={() => handleDelete(row)}
+              className="p-1.5 hover:bg-red-50 rounded text-slate-400 hover:text-red-600 transition-colors"
+              title="Delete"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       ),
     },
@@ -363,6 +367,7 @@ const Bookings = () => {
           columns={pp.filterColumns(columns)}
           data={filteredBookings}
           loading={loading}
+          hideSearch={!pp.isToolbarVisible("search")}
           pagination={{
             page: currentPage,
             limit: pagination.limit,

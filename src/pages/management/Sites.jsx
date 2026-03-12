@@ -151,22 +151,22 @@ const Sites = () => {
       render: (row) => (
         <div className="flex justify-end gap-1.5 pr-2">
           {pp.isActionVisible("edit") && (
-          <button
-            onClick={() => handleEdit(row)}
-            className="p-2 hover:bg-purple-50 text-slate-400 hover:text-purple-600 rounded-lg transition-all"
-            title="Edit"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
+            <button
+              onClick={() => handleEdit(row)}
+              className="p-2 hover:bg-purple-50 text-slate-400 hover:text-purple-600 rounded-lg transition-all"
+              title="Edit"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
           )}
           {pp.isActionVisible("delete") && (
-          <button
-            onClick={() => openDeleteModal(row)}
-            className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all"
-            title="Delete"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+            <button
+              onClick={() => openDeleteModal(row)}
+              className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-all"
+              title="Delete"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           )}
         </div>
       ),
@@ -182,6 +182,7 @@ const Sites = () => {
           columns={pp.filterColumns(columns)}
           data={getDisplayData()}
           loading={loading}
+          hideSearch={!pp.isToolbarVisible("search")}
           pagination={pagination}
           // Pagination Handlers
           onPageChange={(newPage) =>
@@ -191,15 +192,17 @@ const Sites = () => {
           // Search Handler (Integrated into Table Header)
           onSearch={(term) => fetchData(1, pagination.limit, term)}
           // Add Button (Integrated into Table Header)
-          actionButton={pp.isToolbarVisible("addSite") ?
-            <button
-              onClick={handleAdd}
-              className="h-10 px-5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 whitespace-nowrap"
-            >
-              <Plus className="w-4 h-4" />
-              Add Site
-            </button>
-          : null}
+          actionButton={
+            pp.isToolbarVisible("addSite") ? (
+              <button
+                onClick={handleAdd}
+                className="h-10 px-5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4" />
+                Add Site
+              </button>
+            ) : null
+          }
         />
       </div>
 

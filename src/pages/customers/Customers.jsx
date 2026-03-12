@@ -1686,6 +1686,7 @@ const Customers = () => {
           columns={pp.filterColumns(columns)}
           data={flattenedData}
           loading={loading}
+          hideSearch={!pp.isToolbarVisible("search")}
           pagination={{
             ...pagination,
             displayTotal: flattenedData.length, // Custom prop for display count

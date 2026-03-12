@@ -23,7 +23,7 @@ import EnquiryModal from "../../components/modals/EnquiryModal";
 import DeleteModal from "../../components/modals/DeleteModal";
 import RichDateRangePicker from "../../components/inputs/RichDateRangePicker";
 import usePagePermissions from "../../utils/usePagePermissions";
-import { toShiftRange } from "../../utils/shiftTime";
+import { toCalendarRange } from "../../utils/shiftTime";
 
 // Redux
 import {
@@ -86,9 +86,12 @@ const Enquiry = () => {
     // Prepare filters with safe dates
     const apiFilters = { ...filters };
 
-    // ✅ FIX: Ensure dates are full ISO strings with correct shift boundaries
+    // Use full-day ranges outside residence shift logic
     if (apiFilters.startDate && apiFilters.endDate) {
-      const shiftRange = toShiftRange(apiFilters.startDate, apiFilters.endDate);
+      const shiftRange = toCalendarRange(
+        apiFilters.startDate,
+        apiFilters.endDate,
+      );
       apiFilters.startDate = shiftRange.startDate;
       apiFilters.endDate = shiftRange.endDate;
     } else {
