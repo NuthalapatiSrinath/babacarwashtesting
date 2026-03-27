@@ -29,6 +29,7 @@ import {
   Clock,
   Car,
   Shield,
+  Bell,
 } from "lucide-react";
 
 const Sidebar = ({ isOpen, isMobile, onClose }) => {
@@ -591,6 +592,26 @@ const Sidebar = ({ isOpen, isMobile, onClose }) => {
                     to="/import-logs"
                     icon={FileText}
                     label="Import Logs"
+                    onClick={handleLinkClick}
+                    isMobile={isMobile}
+                  />
+                )}
+
+                {hasPermission("notifications", "view") && (
+                  <NavItem
+                    to="/notifications"
+                    icon={Bell}
+                    label="Notifications"
+                    onClick={handleLinkClick}
+                    isMobile={isMobile}
+                  />
+                )}
+
+                {hasPermission("notifications", "view") && (
+                  <NavItem
+                    to="/notifications/campaign"
+                    icon={Bell}
+                    label="Push Campaign"
                     onClick={handleLinkClick}
                     isMobile={isMobile}
                   />

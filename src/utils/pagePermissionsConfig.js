@@ -585,6 +585,7 @@ const PAGE_PERMISSIONS_CONFIG = {
     toolbar: [
       { key: "filterTabs", label: "Filter Tabs" },
       { key: "markAllRead", label: "Mark All as Read" },
+      { key: "sendPush", label: "Send Push Campaign" },
     ],
   },
 };

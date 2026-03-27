@@ -546,6 +546,9 @@ const Attendance = () => {
           { value: "ND", label: "No Duty (ND)" },
           { value: "SL", label: "Sick Leave (SL)" },
           { value: "WO", label: "Week Off (WO)" },
+          { value: "EL", label: "Emergency Leave (EL)" },
+          { value: "PL", label: "Paid Leave (PL)" },
+          { value: "UL", label: "Unpaid Leave (UL)" },
         ];
         return (
           <div className="relative group w-full max-w-xs">
@@ -559,9 +562,15 @@ const Attendance = () => {
                 const noteValue = newNote === "" ? " " : newNote;
                 // Update both notes and type fields to ensure consistency
                 const typeValue = newNote === "" ? "" : newNote;
-                const isAbsentType = ["AB", "ND", "SL", "WO"].includes(
-                  typeValue,
-                );
+                const isAbsentType = [
+                  "AB",
+                  "ND",
+                  "SL",
+                  "WO",
+                  "EL",
+                  "PL",
+                  "UL",
+                ].includes(typeValue);
                 const presentValue =
                   typeValue === "" ? row.present : !isAbsentType;
 

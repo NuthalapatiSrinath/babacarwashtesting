@@ -79,6 +79,7 @@ import SupervisorAttendance from "./pages/supervisor/Attendance";
 
 // Notifications
 import Notifications from "./pages/notifications/Notifications";
+import CustomerPushCampaign from "./pages/notifications/CustomerPushCampaign";
 
 // Activity Tracking
 import AdminTracking from "./pages/tracking/AdminTracking";
@@ -342,6 +343,12 @@ export const routes = [
     path: "/notifications",
     title: "All Notifications",
     component: <Notifications />,
+    icon: Bell,
+  },
+  {
+    path: "/notifications/campaign",
+    title: "Customer Push Campaign",
+    component: <CustomerPushCampaign />,
     icon: Bell,
   },
 
