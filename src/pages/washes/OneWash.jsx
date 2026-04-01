@@ -777,18 +777,7 @@ const OneWash = () => {
 
         <DataTable
           columns={pp.filterColumns(columns)}
-          data={data.filter((row) => {
-            // Re-implement search logic here because filteredData variable was removed
-            // to simplify the flow and rely on 'data' state which is updated by fetchData
-            if (!searchTerm) return true;
-            const term = searchTerm.toLowerCase();
-            return (
-              String(row.id).toLowerCase().includes(term) ||
-              String(row.registration_no).toLowerCase().includes(term) ||
-              String(row.parking_no).toLowerCase().includes(term) ||
-              String(row.worker?.name).toLowerCase().includes(term)
-            );
-          })}
+          data={data}
           loading={loading}
           pagination={pagination}
           onPageChange={(p) => fetchData(p, pagination.limit)}

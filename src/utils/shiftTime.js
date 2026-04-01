@@ -9,6 +9,38 @@
 const DUBAI_OFFSET_HOURS = 4; // UTC+4
 
 /**
+ * Normalize incoming date strings from pickers/API payloads.
+ * Accepts YYYY-MM-DD and ISO-like values, returns YYYY-MM-DD.
+ */
+function normalizeDateString(dateStr) {
+  if (!dateStr) return null;
+
+  if (dateStr instanceof Date) {
+    if (isNaN(dateStr.getTime())) return null;
+    const year = dateStr.getFullYear();
+    const month = String(dateStr.getMonth() + 1).padStart(2, "0");
+    const day = String(dateStr.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  if (typeof dateStr !== "string") return null;
+
+  const trimmed = dateStr.trim();
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+
+  const parsed = new Date(trimmed);
+  if (isNaN(parsed.getTime())) return null;
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Get current Dubai time as a Date object.
  */
 function getDubaiNow() {
@@ -70,9 +102,16 @@ export function getCurrentShiftRange() {
  * @returns {{ startDate: string, endDate: string }} UTC ISO strings
  */
 export function toShiftRange(startDateStr, endDateStr) {
+  const normalizedStart = normalizeDateString(startDateStr);
+  const normalizedEnd = normalizeDateString(endDateStr);
+
+  if (!normalizedStart || !normalizedEnd) {
+    throw new Error("Invalid date range provided to toShiftRange");
+  }
+
   // Parse as Dubai-local dates
-  const startParts = startDateStr.split("-").map(Number);
-  const endParts = endDateStr.split("-").map(Number);
+  const startParts = normalizedStart.split("-").map(Number);
+  const endParts = normalizedEnd.split("-").map(Number);
 
   // Shift starts at 18:30 the day BEFORE the selected start date
   const shiftStartDubai = new Date(

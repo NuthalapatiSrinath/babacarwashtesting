@@ -10,6 +10,7 @@ import {
   CheckCircle,
   X,
   AlertTriangle,
+  ClipboardCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -17,6 +18,7 @@ import toast from "react-hot-toast";
 import DataTable from "../../components/DataTable";
 import RichDateRangePicker from "../../components/inputs/RichDateRangePicker";
 import CustomDropdown from "../../components/ui/CustomDropdown";
+import AttendanceSheetModal from "../../components/modals/AttendanceSheetModal";
 
 // APIs
 import { attendanceService } from "../../api/attendanceService";
@@ -25,6 +27,12 @@ import { siteService } from "../../api/siteService";
 import { buildingService } from "../../api/buildingService";
 import usePagePermissions from "../../utils/usePagePermissions";
 import { toCalendarRange } from "../../utils/shiftTime";
+
+const getMonthValueFromDate = (value) => {
+  const parsed = value ? new Date(value) : new Date();
+  const fallback = isNaN(parsed.getTime()) ? new Date() : parsed;
+  return `${fallback.getFullYear()}-${String(fallback.getMonth() + 1).padStart(2, "0")}`;
+};
 
 const Attendance = () => {
   const pp = usePagePermissions("attendance");
@@ -70,12 +78,47 @@ const Attendance = () => {
   const [sites, setSites] = useState([]);
   const [buildings, setBuildings] = useState([]);
 
+  const mallNameById = useMemo(
+    () =>
+      new Map(
+        (malls || [])
+          .filter((item) => item?._id && item?.name)
+          .map((item) => [String(item._id), item.name]),
+      ),
+    [malls],
+  );
+
+  const siteNameById = useMemo(
+    () =>
+      new Map(
+        (sites || [])
+          .filter((item) => item?._id && item?.name)
+          .map((item) => [String(item._id), item.name]),
+      ),
+    [sites],
+  );
+
+  const buildingNameById = useMemo(
+    () =>
+      new Map(
+        (buildings || [])
+          .filter((item) => item?._id && item?.name)
+          .map((item) => [String(item._id), item.name]),
+      ),
+    [buildings],
+  );
+
   // Absent Reason Modal
   const [absentModal, setAbsentModal] = useState({
     isOpen: false,
     row: null,
     reason: "AB",
     notes: "",
+  });
+  const [attendanceSheetModal, setAttendanceSheetModal] = useState({
+    isOpen: false,
+    workers: [],
+    monthValue: getMonthValueFromDate(),
   });
 
   // --- 1. INITIAL LOAD ---
@@ -276,6 +319,90 @@ const Attendance = () => {
     } else {
       setDateRange((prev) => ({ ...prev, [field]: value }));
     }
+  };
+
+  const closeAttendanceSheetModal = () => {
+    setAttendanceSheetModal((prev) => ({
+      ...prev,
+      isOpen: false,
+      workers: [],
+    }));
+  };
+
+  const normalizeEntityValue = (value, lookupMap) => {
+    if (!value) return null;
+
+    if (typeof value === "object") {
+      const id = value?._id ? String(value._id) : "";
+      const mappedName = id ? lookupMap.get(id) : "";
+      if (mappedName && !value.name) {
+        return { ...value, name: mappedName };
+      }
+      return value;
+    }
+
+    const id = String(value);
+    const mappedName = lookupMap.get(id);
+    if (mappedName) {
+      return { _id: id, name: mappedName };
+    }
+
+    return value;
+  };
+
+  const normalizeEntityArray = (value, lookupMap) => {
+    if (Array.isArray(value) && value.length > 0) {
+      return value
+        .map((item) => normalizeEntityValue(item, lookupMap))
+        .filter(Boolean);
+    }
+    return [];
+  };
+
+  const hydratePersonForAttendanceSheet = (person) => {
+    if (!person) return person;
+
+    const resolvedSites = normalizeEntityArray(person.sites, siteNameById);
+    const resolvedMalls = normalizeEntityArray(person.malls, mallNameById);
+    const resolvedBuildings = normalizeEntityArray(
+      person.buildings,
+      buildingNameById,
+    );
+
+    const singleSite = normalizeEntityValue(person.site, siteNameById);
+    const singleMall = normalizeEntityValue(person.mall, mallNameById);
+    const singleBuilding = normalizeEntityValue(
+      person.building,
+      buildingNameById,
+    );
+
+    if (resolvedSites.length === 0 && singleSite) resolvedSites.push(singleSite);
+    if (resolvedMalls.length === 0 && singleMall) resolvedMalls.push(singleMall);
+    if (resolvedBuildings.length === 0 && singleBuilding)
+      resolvedBuildings.push(singleBuilding);
+
+    return {
+      ...person,
+      sites: resolvedSites,
+      malls: resolvedMalls,
+      buildings: resolvedBuildings,
+    };
+  };
+
+  const handleOpenAttendanceSheetModal = (row) => {
+    const person = row?.worker || row?.staff;
+    if (!person?._id) {
+      toast.error("Employee details are unavailable for attendance sheet");
+      return;
+    }
+
+    const hydratedPerson = hydratePersonForAttendanceSheet(person);
+
+    setAttendanceSheetModal({
+      isOpen: true,
+      workers: [hydratedPerson],
+      monthValue: getMonthValueFromDate(row?.date || dateRange.startDate),
+    });
   };
 
   const handlePremiseChange = (newPremise) => {
@@ -499,6 +626,32 @@ const Attendance = () => {
                 {person.mobile || person.employeeCode || "No ID"}
               </span>
             </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: "sheet",
+      header: "Attendance Sheet",
+      className: "w-44 text-center",
+      render: (row) => {
+        const person = row.worker || row.staff;
+
+        if (!pp.isActionVisible("attendanceSheet")) {
+          return <span className="text-xs text-slate-300">-</span>;
+        }
+
+        return (
+          <div className="flex justify-center">
+            <button
+              onClick={() => handleOpenAttendanceSheetModal(row)}
+              disabled={!person?._id}
+              className="h-9 px-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800 text-xs font-bold flex items-center gap-1.5 transition-all disabled:opacity-50"
+              title="Open attendance sheet"
+            >
+              <ClipboardCheck className="w-3.5 h-3.5" />
+              Open
+            </button>
           </div>
         );
       },
@@ -887,6 +1040,13 @@ const Attendance = () => {
           searchPlaceholder="Search Name or ID..."
         />
       </div>
+
+      <AttendanceSheetModal
+        isOpen={attendanceSheetModal.isOpen}
+        onClose={closeAttendanceSheetModal}
+        workers={attendanceSheetModal.workers}
+        monthValue={attendanceSheetModal.monthValue}
+      />
 
       {/* --- ABSENT REASON MODAL --- */}
       {absentModal.isOpen && (

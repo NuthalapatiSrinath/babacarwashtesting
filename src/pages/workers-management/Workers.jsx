@@ -29,6 +29,7 @@ import {
   UserCheck, // ✅ Office Staff icon
   Shield, // ✅ Supervisor icon
   Activity,
+  ClipboardCheck,
   X,
   AlertTriangle,
 } from "lucide-react";
@@ -40,11 +41,19 @@ import api from "../../api/axiosInstance";
 import DataTable from "../../components/DataTable";
 import WorkerModal from "../../components/modals/WorkerModal";
 import DeleteModal from "../../components/modals/DeleteModal";
+import AttendanceSheetModal from "../../components/modals/AttendanceSheetModal";
 import CustomDropdown from "../../components/ui/CustomDropdown";
 
 // API
 import { workerService } from "../../api/workerService";
 import usePagePermissions from "../../utils/usePagePermissions";
+
+const getDefaultAttendanceMonth = () => {
+  const now = new Date();
+  const nextMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  nextMonthStart.setMonth(nextMonthStart.getMonth() + 1);
+  return `${nextMonthStart.getFullYear()}-${String(nextMonthStart.getMonth() + 1).padStart(2, "0")}`;
+};
 
 const Workers = () => {
   const navigate = useNavigate();
@@ -85,6 +94,14 @@ const Workers = () => {
     deactivateDate: new Date().toISOString().split("T")[0],
   });
   const [statusLoading, setStatusLoading] = useState(false);
+  const [attendanceMonth, setAttendanceMonth] = useState(
+    getDefaultAttendanceMonth(),
+  );
+  const [attendanceModalLoading, setAttendanceModalLoading] = useState(false);
+  const [attendanceSheetModal, setAttendanceSheetModal] = useState({
+    isOpen: false,
+    workers: [],
+  });
 
   const [pagination, setPagination] = useState({
     page: 1,
@@ -123,6 +140,20 @@ const Workers = () => {
     return Math.ceil((new Date(date) - new Date()) / (1000 * 60 * 60 * 24));
   };
 
+  const buildServerFilters = () => ({
+    ...(selectedCompany ? { companyName: selectedCompany } : {}),
+    ...(filterServiceType !== "all" ? { service_type: filterServiceType } : {}),
+    ...(filterLocation && filterServiceType === "mall"
+      ? { mall: filterLocation }
+      : {}),
+    ...(filterLocation && filterServiceType === "residence"
+      ? { building: filterLocation }
+      : {}),
+    ...(filterLocation && filterServiceType === "site"
+      ? { site: filterLocation }
+      : {}),
+  });
+
   // --- FETCH DATA ---
   const fetchData = async (
     page = 1,
@@ -136,21 +167,7 @@ const Workers = () => {
       const fetchStatus =
         status !== undefined ? status : activeTab === "active" ? 1 : 2;
 
-      const serverFilters = {
-        ...(selectedCompany ? { companyName: selectedCompany } : null),
-        ...(filterServiceType !== "all"
-          ? { service_type: filterServiceType }
-          : null),
-        ...(filterLocation && filterServiceType === "mall"
-          ? { mall: filterLocation }
-          : null),
-        ...(filterLocation && filterServiceType === "residence"
-          ? { building: filterLocation }
-          : null),
-        ...(filterLocation && filterServiceType === "site"
-          ? { site: filterLocation }
-          : null),
-      };
+      const serverFilters = buildServerFilters();
 
       const response = await workerService.list(
         page,
@@ -289,6 +306,63 @@ const Workers = () => {
       return Math.min(...diffs) <= 30;
     });
   }, [data]);
+
+  const closeAttendanceSheetModal = () => {
+    setAttendanceSheetModal({ isOpen: false, workers: [] });
+  };
+
+  const handleOpenAttendanceSheetsModal = async () => {
+    const toastId = toast.loading("Loading attendance sheets...");
+    try {
+      setAttendanceModalLoading(true);
+      const response = await workerService.list(
+        1,
+        10000,
+        "",
+        1,
+        buildServerFilters(),
+      );
+
+      const activeWorkers = (response.data || []).filter(
+        (worker) => worker.status === 1,
+      );
+
+      if (activeWorkers.length === 0) {
+        toast.error("No active workers found for the current filters", {
+          id: toastId,
+        });
+        return;
+      }
+
+      setAttendanceSheetModal({
+        isOpen: true,
+        workers: activeWorkers,
+      });
+
+      toast.success(
+        `Loaded attendance sheets for ${activeWorkers.length} workers`,
+        {
+          id: toastId,
+        },
+      );
+    } catch (error) {
+      toast.error("Failed to load attendance sheets", { id: toastId });
+    } finally {
+      setAttendanceModalLoading(false);
+    }
+  };
+
+  const handleOpenSingleAttendanceSheetModal = (worker) => {
+    if (!worker?._id) {
+      toast.error("Worker details are not available");
+      return;
+    }
+
+    setAttendanceSheetModal({
+      isOpen: true,
+      workers: [worker],
+    });
+  };
 
   const handleExportData = async () => {
     const toastId = toast.loading("Exporting...");
@@ -687,7 +761,7 @@ const Workers = () => {
       key: "actions",
       header: "Actions",
       className:
-        "text-right w-36 sticky right-0 bg-white shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]",
+        "text-right w-44 sticky right-0 bg-white shadow-[-5px_0_10px_-5px_rgba(0,0,0,0.05)]",
       render: (row) => (
         <div className="flex justify-end gap-1.5 pr-2">
           {pp.isActionVisible("view") && (
@@ -714,6 +788,16 @@ const Workers = () => {
               title="Monthly Records"
             >
               <FileText className="w-4 h-4" />
+            </button>
+          )}
+
+          {pp.isActionVisible("attendanceSheet") && (
+            <button
+              onClick={() => handleOpenSingleAttendanceSheetModal(row)}
+              className="p-2 hover:bg-amber-50 text-slate-400 hover:text-amber-600 rounded-lg transition-all"
+              title="Open Attendance Sheet"
+            >
+              <ClipboardCheck className="w-4 h-4" />
             </button>
           )}
 
@@ -794,6 +878,29 @@ const Workers = () => {
               </div>
             )}
             <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-100">
+              {pp.isToolbarVisible("attendanceSheet") && (
+                <div className="flex items-center gap-2 px-2 py-1">
+                  <input
+                    type="month"
+                    value={attendanceMonth}
+                    onChange={(e) => setAttendanceMonth(e.target.value)}
+                    className="h-10 px-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                  <button
+                    onClick={handleOpenAttendanceSheetsModal}
+                    disabled={attendanceModalLoading}
+                    className="h-10 px-3 text-slate-600 hover:text-amber-600 rounded-xl text-[11px] font-black uppercase tracking-tighter flex items-center gap-2 transition-all hover:bg-white hover:shadow-sm disabled:opacity-60"
+                    title="Open monthly attendance sheets"
+                  >
+                    {attendanceModalLoading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <FileText className="w-3.5 h-3.5" />
+                    )}
+                    <span className="hidden sm:inline">Attendance Sheets</span>
+                  </button>
+                </div>
+              )}
               {pp.isToolbarVisible("export") && (
                 <button
                   onClick={handleExportData}
@@ -1001,6 +1108,12 @@ const Workers = () => {
         loading={deleteLoading}
         title="Delete Worker"
         message={`Are you sure you want to delete "${workerToDelete?.name}"?`}
+      />
+      <AttendanceSheetModal
+        isOpen={attendanceSheetModal.isOpen}
+        onClose={closeAttendanceSheetModal}
+        workers={attendanceSheetModal.workers}
+        monthValue={attendanceMonth}
       />
 
       {deactivationModal.isOpen && (

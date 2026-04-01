@@ -191,6 +191,7 @@ const Customers = () => {
     status = 1,
     worker = "",
     building = "",
+    vehicleStatus = vehicleStatusFilter,
   ) => {
     setLoading(true);
     try {
@@ -210,6 +211,13 @@ const Customers = () => {
       }
       if (building) {
         params.building = building;
+      }
+
+      // Keep vehicle status filtering server-side so pagination totals stay accurate.
+      if (vehicleStatus === "active") {
+        params.vehicleStatus = 1;
+      } else if (vehicleStatus === "inactive") {
+        params.vehicleStatus = 2;
       }
 
       console.log("📡 [CUSTOMERS PAGE] Fetching with params:", params);
@@ -265,12 +273,19 @@ const Customers = () => {
         activeTab,
         selectedWorker,
         selectedBuilding,
+        vehicleStatusFilter,
       );
     }, delay);
 
     return () => clearTimeout(delayDebounceFn);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, searchTerm, selectedWorker, selectedBuilding]);
+  }, [
+    activeTab,
+    searchTerm,
+    selectedWorker,
+    selectedBuilding,
+    vehicleStatusFilter,
+  ]);
 
   // ⚡ Filter counts are now loaded from backend, no expensive calculations needed!
   // Just use the state values directly
@@ -336,46 +351,8 @@ const Customers = () => {
         parking_no: parkingNos,
       });
     });
-
-    // 2. Client-Side Search (already handled by backend, this is just for additional filtering)
-    let filteredRows = rows;
-    if (!searchTerm) return filteredRows;
-
-    const lowerSearch = searchTerm.toLowerCase().trim();
-
-    return filteredRows.filter((row) => {
-      const c = row.customer || {};
-
-      // ✅ 1. Name Search
-      const fullName = `${c.firstName || ""} ${c.lastName || ""} ${
-        c.name || ""
-      }`.toLowerCase();
-
-      // ✅ 2. Mobile Search
-      const mobile = String(c.mobile || "");
-
-      // ✅ 3. Vehicle Search
-      const vehicle = String(row.registration_no || "").toLowerCase();
-
-      // ✅ 4. Building Search
-      const building = String(
-        c.building?.name || c.building || "",
-      ).toLowerCase();
-
-      return (
-        fullName.includes(lowerSearch) ||
-        mobile.includes(lowerSearch) ||
-        vehicle.includes(lowerSearch) ||
-        building.includes(lowerSearch)
-      );
-    });
-  }, [
-    serverData,
-    searchTerm,
-    vehicleStatusFilter,
-    selectedWorker,
-    selectedBuilding,
-  ]);
+    return rows;
+  }, [serverData, vehicleStatusFilter]);
 
   // --- Handlers ---
   const handleTabChange = (status) => {
@@ -776,7 +753,15 @@ const Customers = () => {
           console.error("Import Errors:", summary.errors);
         }
 
-        fetchData(1, pagination.limit, searchTerm, activeTab);
+        fetchData(
+          1,
+          pagination.limit,
+          searchTerm,
+          activeTab,
+          selectedWorker,
+          selectedBuilding,
+          vehicleStatusFilter,
+        );
       } else {
         toast.error(res.message || "Import failed", { id: toastId });
       }
@@ -1001,7 +986,8 @@ const Customers = () => {
                 )}
               </span>
               <span className="text-xs text-slate-500 font-mono flex items-center gap-1">
-                <Phone className="w-3 h-3" /> {formatMobileWithCountry(row.customer?.mobile)}
+                <Phone className="w-3 h-3" />{" "}
+                {formatMobileWithCountry(row.customer?.mobile)}
               </span>
             </div>
           </div>
@@ -1717,6 +1703,7 @@ const Customers = () => {
               activeTab,
               selectedWorker,
               selectedBuilding,
+              vehicleStatusFilter,
             )
           }
           onLimitChange={(l) =>
@@ -1727,6 +1714,7 @@ const Customers = () => {
               activeTab,
               selectedWorker,
               selectedBuilding,
+              vehicleStatusFilter,
             )
           }
           renderExpandedRow={renderExpandedRow}
@@ -1746,6 +1734,7 @@ const Customers = () => {
             activeTab,
             selectedWorker,
             selectedBuilding,
+            vehicleStatusFilter,
           )
         }
       />

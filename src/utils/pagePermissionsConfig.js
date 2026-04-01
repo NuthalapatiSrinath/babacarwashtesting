@@ -66,6 +66,7 @@ const PAGE_PERMISSIONS_CONFIG = {
     actions: [
       { key: "view", label: "View Worker" },
       { key: "activity", label: "Activity Tracking" },
+      { key: "attendanceSheet", label: "Download Attendance Sheet" },
       { key: "edit", label: "Edit Worker" },
       { key: "delete", label: "Delete Worker" },
     ],
@@ -75,6 +76,10 @@ const PAGE_PERMISSIONS_CONFIG = {
       { key: "import", label: "Import" },
       { key: "export", label: "Export" },
       { key: "template", label: "Template Download" },
+      {
+        key: "attendanceSheet",
+        label: "Attendance Sheet Download",
+      },
     ],
   },
 
@@ -110,10 +115,12 @@ const PAGE_PERMISSIONS_CONFIG = {
     columns: [
       { key: "date", label: "Date" },
       { key: "employee", label: "Employee Details" },
+      { key: "sheet", label: "Attendance Sheet" },
       { key: "attendance", label: "Attendance (P/A)" },
       { key: "remark", label: "Remark/Notes" },
     ],
     actions: [
+      { key: "attendanceSheet", label: "Open Attendance Sheet" },
       { key: "markPresent", label: "Mark Present" },
       { key: "markAbsent", label: "Mark Absent" },
       { key: "changeRemark", label: "Change Remark" },

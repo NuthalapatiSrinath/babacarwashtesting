@@ -208,26 +208,6 @@ const SupervisorResidence = () => {
     }
   };
 
-  // --- CLIENT SIDE FILTERING ---
-  const filteredData = data.filter((row) => {
-    if (!searchTerm) return true;
-    const lowerTerm = searchTerm.toLowerCase();
-
-    const vehicleReg = row.vehicle?.registration_no?.toLowerCase() || "";
-    const parkingNo = row.vehicle?.parking_no?.toString().toLowerCase() || "";
-    const mobile = row.customer?.mobile?.toLowerCase() || "";
-    const buildingName = row.building?.name?.toLowerCase() || "";
-    const workerName = row.worker?.name?.toLowerCase() || "";
-
-    return (
-      vehicleReg.includes(lowerTerm) ||
-      parkingNo.includes(lowerTerm) ||
-      mobile.includes(lowerTerm) ||
-      buildingName.includes(lowerTerm) ||
-      workerName.includes(lowerTerm)
-    );
-  });
-
   // --- EXPORT ---
   const handleExport = async () => {
     if (!filters.startDate || !filters.endDate) {
@@ -689,7 +669,7 @@ const SupervisorResidence = () => {
 
         <DataTable
           columns={columns}
-          data={filteredData}
+          data={data}
           loading={loading}
           pagination={pagination}
           onPageChange={(p) => fetchData(p, pagination.limit)}
