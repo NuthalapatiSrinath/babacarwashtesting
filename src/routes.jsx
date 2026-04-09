@@ -81,6 +81,9 @@ import SupervisorAttendance from "./pages/supervisor/Attendance";
 // Notifications
 import Notifications from "./pages/notifications/Notifications";
 import CustomerPushCampaign from "./pages/notifications/CustomerPushCampaign";
+import NotificationHistoryByNotification from "./pages/notifications/NotificationHistoryByNotification";
+import NotificationHistoryByCustomer from "./pages/notifications/NotificationHistoryByCustomer";
+import NotificationTracking from "./pages/notifications/NotificationTracking";
 
 // Activity Tracking
 import AdminTracking from "./pages/tracking/AdminTracking";
@@ -364,6 +367,21 @@ export const routes = [
     title: "Customer Push Campaign",
     component: <CustomerPushCampaign />,
     icon: Bell,
+  },
+  {
+    path: "/notifications/history/notification-wise",
+    title: "Notification-wise History",
+    component: <NotificationHistoryByNotification />,
+  },
+  {
+    path: "/notifications/history/customer-wise",
+    title: "Customer-wise History",
+    component: <NotificationHistoryByCustomer />,
+  },
+  {
+    path: "/notifications/tracking",
+    title: "Notification Tracking",
+    component: <NotificationTracking />,
   },
 
   // --- ACTIVITY TRACKING (hidden route, no icon = no sidebar entry) ---

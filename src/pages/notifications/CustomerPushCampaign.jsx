@@ -11,15 +11,48 @@ import {
   AlertCircle,
   Loader2,
   ShieldCheck,
+  UploadCloud,
+  Palette,
+  ExternalLink,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import { customerService } from "../../api/customerService";
 import customerNotificationService from "../../api/customerNotificationService";
 import usePagePermissions from "../../utils/usePagePermissions";
 
+const CUSTOMER_APP_ROUTE_OPTIONS = [
+  { value: "/dashboard", label: "Dashboard (/dashboard)" },
+  { value: "/scheduleJobs", label: "Bookings Schedule (/scheduleJobs)" },
+  { value: "/jobs", label: "Jobs (/jobs)" },
+  { value: "/payments", label: "Payments (/payments)" },
+  { value: "/profile", label: "Profile (/profile)" },
+  { value: "/notifications", label: "Notifications (/notifications)" },
+  { value: "/bookingServices", label: "Booking Services (/bookingServices)" },
+  { value: "/history", label: "History (/history)" },
+  { value: "/enquiry", label: "Enquiry (/enquiry)" },
+  { value: "/onewash", label: "OneWash (/onewash)" },
+  { value: "/addresses", label: "Addresses (/addresses)" },
+  {
+    value: "/choose-vehicle-type",
+    label: "Choose Vehicle Type (/choose-vehicle-type)",
+  },
+  { value: "/select-brand", label: "Select Brand (/select-brand)" },
+  { value: "/select-model", label: "Select Model (/select-model)" },
+  {
+    value: "/add-vehicle-number",
+    label: "Add Vehicle Number (/add-vehicle-number)",
+  },
+  {
+    value: "/bookingDetail",
+    label: "Booking Detail (/bookingDetail) - requires booking data",
+  },
+];
+
 const CustomerPushCampaign = () => {
   const pp = usePagePermissions("notifications");
+  const navigate = useNavigate();
 
   const [sending, setSending] = useState(false);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
@@ -29,6 +62,7 @@ const CustomerPushCampaign = () => {
   const [sendResult, setSendResult] = useState(null);
   const [checkingHealth, setCheckingHealth] = useState(false);
   const [healthResult, setHealthResult] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -36,6 +70,14 @@ const CustomerPushCampaign = () => {
     imageUrl: "",
     type: "campaign",
     route: "/notifications",
+    openBehavior: "details",
+    emoji: "",
+    logoUrl: "",
+    accentColor: "#1F4ED8",
+    backgroundColor: "#EEF3FF",
+    textColor: "#1A1A2E",
+    ctaLabel: "",
+    ctaRoute: "",
     sendToAll: true,
   });
 
@@ -71,6 +113,40 @@ const CustomerPushCampaign = () => {
     );
   };
 
+  const handleImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type?.startsWith("image/")) {
+      toast.error("Please select a valid image file");
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      const response =
+        await customerNotificationService.uploadCampaignImage(file);
+      const uploadedUrl = response?.data?.imageUrl || "";
+
+      if (!uploadedUrl) {
+        throw new Error("Upload completed but image URL was missing");
+      }
+
+      setForm((prev) => ({ ...prev, imageUrl: uploadedUrl }));
+      toast.success("Image uploaded successfully");
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Image upload failed";
+      toast.error(message);
+    } finally {
+      setUploadingImage(false);
+      event.target.value = "";
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -91,17 +167,30 @@ const CustomerPushCampaign = () => {
       return;
     }
 
+    const effectiveRoute =
+      form.openBehavior === "page"
+        ? form.route.trim() || "/notifications"
+        : "/notifications";
+
     const payload = {
       title,
       message,
       imageUrl: form.imageUrl.trim(),
       type: form.type.trim() || "campaign",
-      route: form.route.trim() || "/notifications",
+      route: effectiveRoute,
       sendToAll: form.sendToAll,
       customerIds: form.sendToAll ? [] : selectedIds,
       data: {
         source: "admin-panel",
         audience: form.sendToAll ? "all" : "selected",
+        openBehavior: form.openBehavior,
+        emoji: form.emoji.trim(),
+        logoUrl: form.logoUrl.trim(),
+        accentColor: form.accentColor,
+        backgroundColor: form.backgroundColor,
+        textColor: form.textColor,
+        ctaLabel: form.ctaLabel.trim(),
+        ctaRoute: form.ctaRoute.trim() || "/notifications",
       },
     };
 
@@ -158,6 +247,33 @@ const CustomerPushCampaign = () => {
                   Send rich app notifications from admin panel with targeted
                   audience.
                 </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate("/notifications/history/notification-wise")
+                    }
+                    className="rounded-lg border border-[#cfe0ff] bg-white px-3 py-1.5 text-xs font-semibold text-[#1f4ed8] hover:bg-[#edf3ff]"
+                  >
+                    History: Notification-wise
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate("/notifications/history/customer-wise")
+                    }
+                    className="rounded-lg border border-[#cfe0ff] bg-white px-3 py-1.5 text-xs font-semibold text-[#1f4ed8] hover:bg-[#edf3ff]"
+                  >
+                    History: Customer-wise
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/notifications/tracking")}
+                    className="rounded-lg border border-[#cfe0ff] bg-white px-3 py-1.5 text-xs font-semibold text-[#1f4ed8] hover:bg-[#edf3ff]"
+                  >
+                    Notification Tracking
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -325,20 +441,209 @@ const CustomerPushCampaign = () => {
                   placeholder="https://yourcdn.com/banner.jpg"
                   className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:ring-4 focus:ring-[#1f4ed8]/15 focus:border-[#1f4ed8]"
                 />
+                <div className="mt-2 flex items-center gap-2">
+                  <label className="inline-flex items-center gap-2 rounded-lg border border-[#cfe0ff] bg-[#edf3ff] px-3 py-2 text-[#1f4ed8] text-xs font-semibold cursor-pointer hover:bg-[#e3eeff]">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      disabled={uploadingImage || sending}
+                    />
+                    {uploadingImage ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud className="w-3.5 h-3.5" />
+                        Upload from device
+                      </>
+                    )}
+                  </label>
+
+                  {form.imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setForm((p) => ({ ...p, imageUrl: "" }))}
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  You can paste an image URL or upload one directly from your
+                  device.
+                </p>
               </div>
-              <div>
-                <label className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
-                  <Link2 className="w-4 h-4" />
-                  App Route
-                </label>
-                <input
-                  value={form.route}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, route: e.target.value }))
-                  }
-                  placeholder="/notifications"
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:ring-4 focus:ring-[#1f4ed8]/15 focus:border-[#1f4ed8]"
-                />
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                    <ExternalLink className="w-4 h-4" />
+                    Open Behavior
+                  </label>
+                  <select
+                    value={form.openBehavior}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, openBehavior: e.target.value }))
+                    }
+                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:ring-4 focus:ring-[#1f4ed8]/15 focus:border-[#1f4ed8]"
+                  >
+                    <option value="details">
+                      Open full notification detail
+                    </option>
+                    <option value="page">Directly open selected page</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                    <Link2 className="w-4 h-4" />
+                    App Route
+                  </label>
+                  <select
+                    value={form.route}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, route: e.target.value }))
+                    }
+                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:ring-4 focus:ring-[#1f4ed8]/15 focus:border-[#1f4ed8]"
+                  >
+                    {CUSTOMER_APP_ROUTE_OPTIONS.map((routeOption) => (
+                      <option key={routeOption.value} value={routeOption.value}>
+                        {routeOption.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    {form.openBehavior === "page"
+                      ? "Customer tap directly opens this route."
+                      : "Used for CTA button from notification detail."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-700">
+                <Palette className="h-4 w-4" />
+                Rich Style Configuration
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">
+                    Emoji / Sticker
+                  </label>
+                  <input
+                    value={form.emoji}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, emoji: e.target.value }))
+                    }
+                    placeholder="🚗"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#1f4ed8]/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">
+                    Logo URL (optional)
+                  </label>
+                  <input
+                    value={form.logoUrl}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, logoUrl: e.target.value }))
+                    }
+                    placeholder="https://cdn/logo.png"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#1f4ed8]/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">
+                    CTA Button Label
+                  </label>
+                  <input
+                    value={form.ctaLabel}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, ctaLabel: e.target.value }))
+                    }
+                    placeholder="View details"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#1f4ed8]/20"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">
+                    CTA Route
+                  </label>
+                  <select
+                    value={form.ctaRoute}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, ctaRoute: e.target.value }))
+                    }
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#1f4ed8]/20"
+                  >
+                    <option value="">Use App Route</option>
+                    {CUSTOMER_APP_ROUTE_OPTIONS.map((routeOption) => (
+                      <option
+                        key={`cta-${routeOption.value}`}
+                        value={routeOption.value}
+                      >
+                        {routeOption.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">
+                    Accent Color
+                  </label>
+                  <input
+                    type="color"
+                    value={form.accentColor}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, accentColor: e.target.value }))
+                    }
+                    className="h-10 w-full rounded-lg border border-slate-300 bg-white px-1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">
+                    Background Color
+                  </label>
+                  <input
+                    type="color"
+                    value={form.backgroundColor}
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        backgroundColor: e.target.value,
+                      }))
+                    }
+                    className="h-10 w-full rounded-lg border border-slate-300 bg-white px-1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">
+                    Text Color
+                  </label>
+                  <input
+                    type="color"
+                    value={form.textColor}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, textColor: e.target.value }))
+                    }
+                    className="h-10 w-full rounded-lg border border-slate-300 bg-white px-1"
+                  />
+                </div>
               </div>
             </div>
 
@@ -503,7 +808,8 @@ const CustomerPushCampaign = () => {
   );
 };
 
-const ResultRow = ({ label, value, icon: Icon, success, danger }) => {
+const ResultRow = ({ label, value, icon, success, danger }) => {
+  const IconComponent = icon;
   const colorClass = success
     ? "text-emerald-700 bg-emerald-50 border-emerald-200"
     : danger
@@ -515,7 +821,7 @@ const ResultRow = ({ label, value, icon: Icon, success, danger }) => {
       className={`rounded-xl border px-3 py-2.5 flex items-center justify-between ${colorClass}`}
     >
       <div className="flex items-center gap-2 text-sm font-semibold">
-        <Icon className="w-4 h-4" />
+        {IconComponent ? <IconComponent className="w-4 h-4" /> : null}
         {label}
       </div>
       <div className="text-sm font-extrabold">{value ?? 0}</div>

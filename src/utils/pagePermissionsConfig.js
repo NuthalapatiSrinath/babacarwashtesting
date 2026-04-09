@@ -546,6 +546,7 @@ const PAGE_PERMISSIONS_CONFIG = {
     actions: [],
     toolbar: [
       { key: "contactNumber", label: "Contact Number" },
+      { key: "dashboardMarqueeText", label: "Dashboard Marquee Text" },
       { key: "currency", label: "Currency Selection" },
       { key: "graphColors", label: "Graph Colors" },
       { key: "theme", label: "Theme Configuration" },
