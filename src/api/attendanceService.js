@@ -43,6 +43,22 @@ export const attendanceService = {
         params,
         responseType: "blob",
       });
+
+      const contentType = response.headers?.["content-type"] || "";
+      if (contentType.includes("application/json")) {
+        const raw = await response.data.text();
+        let message = "Failed to export attendance";
+
+        try {
+          const parsed = JSON.parse(raw);
+          message = parsed?.message || parsed?.error || message;
+        } catch (_) {
+          if (raw) message = raw;
+        }
+
+        throw new Error(message);
+      }
+
       return response.data;
     } catch (error) {
       console.error("[Attendance] Export error:", error);

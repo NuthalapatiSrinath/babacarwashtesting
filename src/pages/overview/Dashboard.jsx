@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { analyticsService } from "../../api/analyticsService";
 import {
   LineChart,
   Line,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
+  RadialBarChart,
+  RadialBar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -51,12 +50,77 @@ import {
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import DataTable from "../../components/DataTable";
+import CustomDropdown from "../../components/ui/CustomDropdown";
 import usePagePermissions from "../../utils/usePagePermissions";
+import { toCalendarRange } from "../../utils/shiftTime";
+
+const getCurrentMonthValue = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+};
+
+const getMonthRangeUtc = (monthValue) => {
+  const [year, month] = String(monthValue).split("-").map(Number);
+  if (!year || !month) {
+    return { startDate: null, endDate: null };
+  }
+
+  // Keep month boundaries consistent with payments pages.
+  // This captures records created at local month start that may be previous UTC day.
+  const localStartDay = new Date(year, month - 1, 1)
+    .toISOString()
+    .split("T")[0];
+  const localEndDay = new Date(year, month, 0).toISOString().split("T")[0];
+
+  return toCalendarRange(localStartDay, localEndDay);
+};
+
+const formatMonthLabel = (monthValue) => {
+  const [year, month] = String(monthValue).split("-").map(Number);
+  if (!year || !month) return "Current Month";
+  return new Date(year, month - 1, 1).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+};
+
+const hasDailySnapshotData = (snapshot) => {
+  if (!snapshot) return false;
+
+  const paymentSummary = snapshot.payments || {};
+  const jobsSummary = snapshot.jobs || {};
+
+  const paymentTotal = Number(
+    paymentSummary.total ||
+      paymentSummary.collected ||
+      paymentSummary.pending ||
+      paymentSummary.overdue ||
+      0,
+  );
+  const jobsTotal = Number(
+    jobsSummary.total ||
+      jobsSummary.completed ||
+      jobsSummary.pending ||
+      jobsSummary.cancelled ||
+      0,
+  );
+
+  return paymentTotal > 0 || jobsTotal > 0;
+};
 
 const Dashboard = () => {
   const pp = usePagePermissions("dashboard");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthValue());
+  const [financialServiceFilter, setFinancialServiceFilter] = useState("both");
+  const [jobsServiceFilter, setJobsServiceFilter] = useState("both");
+  const [dailyOverviewDay, setDailyOverviewDay] = useState("today");
+  const [dailyFinancialServiceFilter, setDailyFinancialServiceFilter] =
+    useState("both");
+  const [dailyJobsServiceFilter, setDailyJobsServiceFilter] = useState("both");
 
   // State for all analytics data
   const [adminStats, setAdminStats] = useState(null);
@@ -78,9 +142,14 @@ const Dashboard = () => {
     else setRefreshing(true);
 
     try {
+      const { startDate, endDate } = getMonthRangeUtc(selectedMonth);
+
       // ✅ Single API call instead of 7 separate calls - SUPER FAST!
       const response = await analyticsService.getDashboardAll({
         limit: 10,
+        startDate,
+        endDate,
+        dashboardSchemaVersion: "v2-daily-service-splits",
       });
       const data = response.data;
 
@@ -193,11 +262,32 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMonth]);
 
   const handleRefresh = () => {
     fetchDashboardData(false);
   };
+
+  const handleMonthChange = (event) => {
+    const value = event.target.value;
+    if (value) {
+      setSelectedMonth(value);
+      setDailyOverviewDay("today");
+    }
+  };
+
+  useEffect(() => {
+    const overview = adminStats?.dailyOverview;
+    if (!overview || dailyOverviewDay !== "today") return;
+
+    if (
+      !hasDailySnapshotData(overview.today) &&
+      hasDailySnapshotData(overview.yesterday)
+    ) {
+      setDailyOverviewDay("yesterday");
+    }
+  }, [adminStats, dailyOverviewDay]);
 
   // Export dashboard data to JSON
   const handleExportData = () => {
@@ -282,6 +372,270 @@ const Dashboard = () => {
     mall: ShoppingBag,
     onewash: Package,
   };
+
+  const sectionServiceOptions = [
+    { value: "both", label: "Both (OneWash + Residence)" },
+    { value: "onewash", label: "OneWash" },
+    { value: "residence", label: "Residence" },
+  ];
+
+  const dailyOverviewOptions = [
+    { value: "today", label: "Today" },
+    { value: "yesterday", label: "Yesterday" },
+  ];
+
+  const financialStats = useMemo(() => {
+    if (!adminStats) return null;
+    const scopedPayments = adminStats.paymentsByService || {};
+    return scopedPayments[financialServiceFilter] || adminStats.payments;
+  }, [adminStats, financialServiceFilter]);
+
+  const jobsByService = useMemo(() => {
+    const backendJobsByService = adminStats?.jobsByService;
+    if (backendJobsByService) {
+      return {
+        both: {
+          total: Number(backendJobsByService?.both?.total || 0),
+          completed: Number(backendJobsByService?.both?.completed || 0),
+          pending: Number(backendJobsByService?.both?.pending || 0),
+          cancelled: Number(backendJobsByService?.both?.cancelled || 0),
+          completionRate: Number(
+            backendJobsByService?.both?.completionRate || 0,
+          ),
+        },
+        residence: {
+          total: Number(backendJobsByService?.residence?.total || 0),
+          completed: Number(backendJobsByService?.residence?.completed || 0),
+          pending: Number(backendJobsByService?.residence?.pending || 0),
+          cancelled: Number(backendJobsByService?.residence?.cancelled || 0),
+          completionRate: Number(
+            backendJobsByService?.residence?.completionRate || 0,
+          ),
+        },
+        onewash: {
+          total: Number(backendJobsByService?.onewash?.total || 0),
+          completed: Number(backendJobsByService?.onewash?.completed || 0),
+          pending: Number(backendJobsByService?.onewash?.pending || 0),
+          cancelled: Number(backendJobsByService?.onewash?.cancelled || 0),
+          completionRate: Number(
+            backendJobsByService?.onewash?.completionRate || 0,
+          ),
+        },
+      };
+    }
+
+    const fallback = {
+      both: {
+        total: adminStats?.jobs?.total || 0,
+        completed: adminStats?.jobs?.completed || 0,
+        pending: adminStats?.jobs?.pending || 0,
+        cancelled: adminStats?.jobs?.cancelled || 0,
+        completionRate: adminStats?.jobs?.completionRate || 0,
+      },
+      residence: {
+        total: 0,
+        completed: 0,
+        pending: 0,
+        cancelled: 0,
+        completionRate: 0,
+      },
+      onewash: {
+        total: 0,
+        completed: 0,
+        pending: 0,
+        cancelled: 0,
+        completionRate: 0,
+      },
+    };
+
+    if (
+      !Array.isArray(serviceDistribution) ||
+      serviceDistribution.length === 0
+    ) {
+      return fallback;
+    }
+
+    const sumByServiceKeys = (serviceKeys) => {
+      const acc = serviceDistribution.reduce(
+        (totals, row) => {
+          const key = String(row?.serviceType || "").toLowerCase();
+          if (!serviceKeys.includes(key)) return totals;
+
+          totals.total += Number(row?.count || 0);
+          totals.completed += Number(row?.completed || 0);
+          totals.pending += Number(row?.pending || 0);
+          totals.cancelled += Number(row?.cancelled || 0);
+          return totals;
+        },
+        { total: 0, completed: 0, pending: 0, cancelled: 0 },
+      );
+
+      return {
+        ...acc,
+        completionRate:
+          acc.total > 0
+            ? Math.round((acc.completed / acc.total) * 10000) / 100
+            : 0,
+      };
+    };
+
+    const residence = sumByServiceKeys(["residence"]);
+    const onewash = sumByServiceKeys(["onewash", "mobile"]);
+    const both = {
+      total: residence.total + onewash.total,
+      completed: residence.completed + onewash.completed,
+      pending: residence.pending + onewash.pending,
+      cancelled: residence.cancelled + onewash.cancelled,
+    };
+    both.completionRate =
+      both.total > 0
+        ? Math.round((both.completed / both.total) * 10000) / 100
+        : 0;
+
+    if (both.total === 0) {
+      return fallback;
+    }
+
+    return {
+      both,
+      residence,
+      onewash,
+    };
+  }, [adminStats, serviceDistribution]);
+
+  const selectedJobsStats =
+    jobsByService[jobsServiceFilter] || jobsByService.both;
+
+  const selectedDailyOverview = useMemo(() => {
+    const overview = adminStats?.dailyOverview || {};
+    return (
+      overview[dailyOverviewDay] || {
+        payments: {
+          total: 0,
+          collected: 0,
+          pending: 0,
+          overdue: 0,
+          count: 0,
+        },
+        paymentsByService: {
+          both: {
+            total: 0,
+            collected: 0,
+            pending: 0,
+            overdue: 0,
+            count: 0,
+          },
+          residence: {
+            total: 0,
+            collected: 0,
+            pending: 0,
+            overdue: 0,
+            count: 0,
+          },
+          onewash: {
+            total: 0,
+            collected: 0,
+            pending: 0,
+            overdue: 0,
+            count: 0,
+          },
+        },
+        jobs: {
+          total: 0,
+          completed: 0,
+          pending: 0,
+          cancelled: 0,
+        },
+        jobsByService: {
+          both: {
+            total: 0,
+            completed: 0,
+            pending: 0,
+            cancelled: 0,
+          },
+          residence: {
+            total: 0,
+            completed: 0,
+            pending: 0,
+            cancelled: 0,
+          },
+          onewash: {
+            total: 0,
+            completed: 0,
+            pending: 0,
+            cancelled: 0,
+          },
+        },
+      }
+    );
+  }, [adminStats, dailyOverviewDay]);
+
+  const selectedDailyFinancialStats = useMemo(() => {
+    const byService = selectedDailyOverview?.paymentsByService || {};
+    const fallback = selectedDailyOverview?.payments || {
+      total: 0,
+      collected: 0,
+      pending: 0,
+      overdue: 0,
+      count: 0,
+    };
+
+    return byService[dailyFinancialServiceFilter] || byService.both || fallback;
+  }, [selectedDailyOverview, dailyFinancialServiceFilter]);
+
+  const selectedDailyJobsStats = useMemo(() => {
+    const byService = selectedDailyOverview?.jobsByService || {};
+    const fallback = selectedDailyOverview?.jobs || {
+      total: 0,
+      completed: 0,
+      pending: 0,
+      cancelled: 0,
+    };
+
+    return byService[dailyJobsServiceFilter] || byService.both || fallback;
+  }, [selectedDailyOverview, dailyJobsServiceFilter]);
+
+  const dailyFinancialPieData = useMemo(
+    () => [
+      {
+        name: "Collected",
+        value: Number(selectedDailyFinancialStats?.collected || 0),
+        fill: COLORS.success,
+      },
+      {
+        name: "Pending",
+        value: Number(selectedDailyFinancialStats?.pending || 0),
+        fill: COLORS.warning,
+      },
+      {
+        name: "Overdue",
+        value: Number(selectedDailyFinancialStats?.overdue || 0),
+        fill: COLORS.danger,
+      },
+    ],
+    [selectedDailyFinancialStats],
+  );
+
+  const dailyJobsPieData = useMemo(
+    () => [
+      {
+        name: "Completed",
+        value: Number(selectedDailyJobsStats?.completed || 0),
+        fill: COLORS.success,
+      },
+      {
+        name: "Pending",
+        value: Number(selectedDailyJobsStats?.pending || 0),
+        fill: COLORS.warning,
+      },
+      {
+        name: "Rejected",
+        value: Number(selectedDailyJobsStats?.cancelled || 0),
+        fill: COLORS.danger,
+      },
+    ],
+    [selectedDailyJobsStats],
+  );
 
   // Animated Stat Card Component with Consistent Styling
   const StatCard = ({
@@ -499,6 +853,12 @@ const Dashboard = () => {
             <h1 className="text-2xl font-black bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
               Dashboard
             </h1>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 rounded-lg text-xs border border-indigo-100">
+              <Calendar className="w-3 h-3 text-indigo-500" />
+              <span className="text-indigo-700 font-semibold">
+                {formatMonthLabel(selectedMonth)}
+              </span>
+            </div>
             {cacheInfo && (
               <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg text-xs">
                 <ClockIcon className="w-3 h-3 text-slate-500" />
@@ -511,208 +871,259 @@ const Dashboard = () => {
             )}
           </div>
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-slate-200">
+              <Calendar className="w-4 h-4 text-slate-500" />
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={handleMonthChange}
+                className="text-sm font-semibold text-slate-700 bg-transparent outline-none"
+              />
+            </div>
             {pp.isToolbarVisible("exportData") && (
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleExportData}
-              disabled={!adminStats}
-              className="px-4 py-2 rounded-xl font-bold text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <FileDown className="w-4 h-4" />
-              Export
-            </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleExportData}
+                disabled={!adminStats}
+                className="px-4 py-2 rounded-xl font-bold text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileDown className="w-4 h-4" />
+                Export
+              </motion.button>
             )}
             {pp.isToolbarVisible("refresh") && (
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="px-4 py-2 rounded-xl font-bold text-sm bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
-              />
-              Refresh
-            </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="px-4 py-2 rounded-xl font-bold text-sm bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </motion.button>
             )}
             {pp.isToolbarVisible("advancedCharts") && (
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowAdvancedCharts(!showAdvancedCharts)}
-              className="px-4 py-2 rounded-xl font-bold text-sm bg-white border-2 border-slate-300 text-slate-700 hover:bg-slate-50 transition-all flex items-center gap-2"
-            >
-              <BarChart3 className="w-4 h-4" />
-              {showAdvancedCharts ? "Hide" : "Show"} Charts
-            </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowAdvancedCharts(!showAdvancedCharts)}
+                className="px-4 py-2 rounded-xl font-bold text-sm bg-white border-2 border-slate-300 text-slate-700 hover:bg-slate-50 transition-all flex items-center gap-2"
+              >
+                <BarChart3 className="w-4 h-4" />
+                {showAdvancedCharts ? "Hide" : "Show"} Charts
+              </motion.button>
             )}
           </div>
         </motion.div>
-        {/* Comparative Stats - Period Over Period */}
-        {comparativeData && (
+        {/* Daily Pie Overview */}
+        {adminStats && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <div className="flex items-center gap-3 mb-6 group">
-              <motion.div
-                whileHover={{ rotate: 360 }}
-                transition={{ duration: 0.6 }}
-                className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-xl"
-              >
-                <Activity className="w-7 h-7 text-white" />
-              </motion.div>
-              <div>
-                <h2 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2">
-                  Performance Comparison
-                  <Sparkles className="w-5 h-5 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </h2>
-                <p className="text-sm text-slate-500 font-medium mt-1">
-                  Period over period analysis
-                </p>
+            <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+              <div className="flex items-center gap-3 group">
+                <motion.div
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.6 }}
+                  className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-xl"
+                >
+                  <PieChartIcon className="w-7 h-7 text-white" />
+                </motion.div>
+                <div>
+                  <h2 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2">
+                    Daily Snapshot
+                    <Sparkles className="w-5 h-5 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </h2>
+                  <p className="text-sm text-slate-500 font-medium mt-1">
+                    Financial and jobs distribution for selected day
+                  </p>
+                </div>
+              </div>
+              <div className="w-full xl:w-64">
+                <CustomDropdown
+                  label="Day Filter"
+                  value={dailyOverviewDay}
+                  onChange={setDailyOverviewDay}
+                  options={dailyOverviewOptions}
+                  placeholder="Select day"
+                />
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Today vs Yesterday */}
-              <motion.div
-                whileHover={{ scale: 1.03, y: -8 }}
-                transition={{ duration: 0.3 }}
-                className="relative bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-3xl shadow-2xl p-8 text-white overflow-hidden group"
-              >
-                <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 group-hover:scale-150 transition-transform duration-500"></div>
-                <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full -ml-16 -mb-16 group-hover:scale-150 transition-transform duration-500"></div>
-                <div className="relative">
-                  <h3 className="text-xl font-black mb-6 flex items-center gap-2">
-                    <Calendar className="w-6 h-6" />
-                    Today vs Yesterday
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                      <p className="text-sm opacity-90 mb-1">Jobs</p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold">
-                          {comparativeData.daily.today.jobs}
-                        </p>
-                        <span
-                          className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
-                            comparativeData.daily.change.jobs >= 0
-                              ? "bg-green-500/30"
-                              : "bg-red-500/30"
-                          }`}
-                        >
-                          {comparativeData.daily.change.jobs >= 0 ? (
-                            <ArrowUp className="w-4 h-4" />
-                          ) : (
-                            <ArrowDown className="w-4 h-4" />
-                          )}
-                          {Math.abs(
-                            comparativeData.daily.change.jobsPercentage,
-                          )}
-                          %
-                        </span>
-                      </div>
-                    </div>
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                      <p className="text-sm opacity-90 mb-1">Revenue</p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold">
-                          {formatCurrency(comparativeData.daily.today.revenue)}
-                        </p>
-                        <span
-                          className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
-                            comparativeData.daily.change.revenue >= 0
-                              ? "bg-green-500/30"
-                              : "bg-red-500/30"
-                          }`}
-                        >
-                          {comparativeData.daily.change.revenue >= 0 ? (
-                            <ArrowUp className="w-4 h-4" />
-                          ) : (
-                            <ArrowDown className="w-4 h-4" />
-                          )}
-                          {Math.abs(
-                            comparativeData.daily.change.revenuePercentage,
-                          )}
-                          %
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
 
-              {/* This Week vs Last Week */}
-              <motion.div
-                whileHover={{ scale: 1.03, y: -8 }}
-                transition={{ duration: 0.3 }}
-                className="relative bg-gradient-to-br from-purple-500 via-purple-600 to-fuchsia-600 rounded-3xl shadow-2xl p-8 text-white overflow-hidden group"
-              >
-                <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 group-hover:scale-150 transition-transform duration-500"></div>
-                <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full -ml-16 -mb-16 group-hover:scale-150 transition-transform duration-500"></div>
-                <div className="relative">
-                  <h3 className="text-xl font-black mb-6 flex items-center gap-2">
-                    <Calendar className="w-6 h-6" />
-                    This Week vs Last Week
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                      <p className="text-sm opacity-90 mb-1">Jobs</p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold">
-                          {comparativeData.weekly.thisWeek.jobs}
-                        </p>
-                        <span
-                          className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
-                            comparativeData.weekly.change.jobs >= 0
-                              ? "bg-green-500/30"
-                              : "bg-red-500/30"
-                          }`}
-                        >
-                          {comparativeData.weekly.change.jobs >= 0 ? (
-                            <ArrowUp className="w-4 h-4" />
-                          ) : (
-                            <ArrowDown className="w-4 h-4" />
-                          )}
-                          {Math.abs(
-                            comparativeData.weekly.change.jobsPercentage,
-                          )}
-                          %
-                        </span>
-                      </div>
-                    </div>
-                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                      <p className="text-sm opacity-90 mb-1">Revenue</p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-2xl font-bold">
-                          {formatCurrency(
-                            comparativeData.weekly.thisWeek.revenue,
-                          )}
-                        </p>
-                        <span
-                          className={`flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg ${
-                            comparativeData.weekly.change.revenue >= 0
-                              ? "bg-green-500/30"
-                              : "bg-red-500/30"
-                          }`}
-                        >
-                          {comparativeData.weekly.change.revenue >= 0 ? (
-                            <ArrowUp className="w-4 h-4" />
-                          ) : (
-                            <ArrowDown className="w-4 h-4" />
-                          )}
-                          {Math.abs(
-                            comparativeData.weekly.change.revenuePercentage,
-                          )}
-                          %
-                        </span>
-                      </div>
-                    </div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl p-6 border border-white/50">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-800">
+                      Financial Overview Pie
+                    </h3>
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                      {dailyOverviewDay}
+                    </span>
+                  </div>
+                  <div className="w-56">
+                    <CustomDropdown
+                      label="Service"
+                      value={dailyFinancialServiceFilter}
+                      onChange={setDailyFinancialServiceFilter}
+                      options={sectionServiceOptions}
+                      placeholder="Filter service"
+                    />
                   </div>
                 </div>
-              </motion.div>
+                {dailyFinancialPieData.some((item) => item.value > 0) ? (
+                  <div className="relative rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-indigo-50/80 p-2">
+                    <ResponsiveContainer width="100%" height={280}>
+                      <RadialBarChart
+                        innerRadius="22%"
+                        outerRadius="96%"
+                        barSize={18}
+                        data={dailyFinancialPieData}
+                        startAngle={90}
+                        endAngle={-270}
+                      >
+                        <RadialBar
+                          minAngle={12}
+                          background={{ fill: "#e2e8f0" }}
+                          clockWise
+                          dataKey="value"
+                          cornerRadius={14}
+                        />
+                        <Tooltip formatter={(value) => formatCurrency(value)} />
+                        <Legend iconType="circle" />
+                      </RadialBarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="h-[260px] flex items-center justify-center text-sm font-semibold text-slate-400">
+                    No financial data for selected day
+                  </div>
+                )}
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/80 px-3 py-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">
+                      Collected
+                    </p>
+                    <p className="text-sm font-black text-emerald-700">
+                      {formatCurrency(selectedDailyFinancialStats?.collected || 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-amber-100 bg-amber-50/80 px-3 py-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-amber-600">
+                      Pending
+                    </p>
+                    <p className="text-sm font-black text-amber-700">
+                      {formatCurrency(selectedDailyFinancialStats?.pending || 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-rose-100 bg-rose-50/80 px-3 py-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-rose-600">
+                      Overdue
+                    </p>
+                    <p className="text-sm font-black text-rose-700">
+                      {formatCurrency(selectedDailyFinancialStats?.overdue || 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                      Total Value
+                    </p>
+                    <p className="text-sm font-black text-slate-900">
+                      {formatCurrency(selectedDailyFinancialStats?.total || 0)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl p-6 border border-white/50">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-800">
+                      Jobs & Services Pie
+                    </h3>
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                      {dailyOverviewDay}
+                    </span>
+                  </div>
+                  <div className="w-56">
+                    <CustomDropdown
+                      label="Service"
+                      value={dailyJobsServiceFilter}
+                      onChange={setDailyJobsServiceFilter}
+                      options={sectionServiceOptions}
+                      placeholder="Filter service"
+                    />
+                  </div>
+                </div>
+                {dailyJobsPieData.some((item) => item.value > 0) ? (
+                  <div className="relative rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-cyan-50/70 p-2">
+                    <ResponsiveContainer width="100%" height={280}>
+                      <RadialBarChart
+                        innerRadius="22%"
+                        outerRadius="96%"
+                        barSize={18}
+                        data={dailyJobsPieData}
+                        startAngle={90}
+                        endAngle={-270}
+                      >
+                        <RadialBar
+                          minAngle={12}
+                          background={{ fill: "#e2e8f0" }}
+                          clockWise
+                          dataKey="value"
+                          cornerRadius={14}
+                        />
+                        <Tooltip formatter={(value) => formatNumber(value)} />
+                        <Legend iconType="circle" />
+                      </RadialBarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="h-[260px] flex items-center justify-center text-sm font-semibold text-slate-400">
+                    No job data for selected day
+                  </div>
+                )}
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/80 px-3 py-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-600">
+                      Completed
+                    </p>
+                    <p className="text-sm font-black text-emerald-700">
+                      {formatNumber(selectedDailyJobsStats?.completed || 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-amber-100 bg-amber-50/80 px-3 py-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-amber-600">
+                      Pending
+                    </p>
+                    <p className="text-sm font-black text-amber-700">
+                      {formatNumber(selectedDailyJobsStats?.pending || 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-rose-100 bg-rose-50/80 px-3 py-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-rose-600">
+                      Rejected
+                    </p>
+                    <p className="text-sm font-black text-rose-700">
+                      {formatNumber(selectedDailyJobsStats?.cancelled || 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                      Total Jobs
+                    </p>
+                    <p className="text-sm font-black text-slate-900">
+                      {formatNumber(selectedDailyJobsStats?.total || 0)}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
@@ -726,55 +1137,68 @@ const Dashboard = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <div className="flex items-center gap-3 mb-6 group">
-                <motion.div
-                  whileHover={{ rotate: 360 }}
-                  transition={{ duration: 0.6 }}
-                  className="p-3 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 shadow-xl"
-                >
-                  <DollarSign className="w-7 h-7 text-white" />
-                </motion.div>
-                <div>
-                  <h2 className="text-3xl font-extrabold bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
-                    Financial Overview
-                    <Sparkles className="w-5 h-5 text-green-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </h2>
-                  <p className="text-sm text-slate-500 font-medium mt-1">
-                    Revenue and payment metrics
-                  </p>
+              <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                <div className="flex items-center gap-3 group">
+                  <motion.div
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.6 }}
+                    className="p-3 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 shadow-xl"
+                  >
+                    <DollarSign className="w-7 h-7 text-white" />
+                  </motion.div>
+                  <div>
+                    <h2 className="text-3xl font-extrabold bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
+                      Financial Overview (Monthly)
+                      <Sparkles className="w-5 h-5 text-green-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </h2>
+                    <p className="text-sm text-slate-500 font-medium mt-1">
+                      Monthly revenue and payment metrics
+                    </p>
+                  </div>
+                </div>
+                <div className="w-full xl:w-80">
+                  <CustomDropdown
+                    label="Financial Service View"
+                    value={financialServiceFilter}
+                    onChange={setFinancialServiceFilter}
+                    options={sectionServiceOptions}
+                    placeholder="Select service"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
                   title="Total Revenue"
-                  value={formatCurrency(adminStats.payments.total)}
-                  subtitle={`${formatNumber(adminStats.payments.count)} transactions`}
+                  value={formatCurrency(financialStats?.total)}
+                  subtitle={`${formatNumber(financialStats?.count)} transactions`}
                   icon={DollarSign}
                   color="from-green-500 to-emerald-600"
                   delay={0}
                 />
                 <StatCard
                   title="Collected"
-                  value={formatCurrency(adminStats.payments.collected)}
-                  subtitle={`${adminStats.payments.collectionRate.toFixed(1)}% collection rate`}
+                  value={formatCurrency(financialStats?.collected)}
+                  subtitle={`${Number(financialStats?.collectionRate || 0).toFixed(1)}% collection rate`}
                   icon={CheckCircle}
                   trend="up"
-                  trendValue={adminStats.payments.collectionRate.toFixed(1)}
+                  trendValue={Number(
+                    financialStats?.collectionRate || 0,
+                  ).toFixed(1)}
                   color="from-blue-500 to-blue-600"
                   delay={0.1}
                 />
                 <StatCard
                   title="Pending"
-                  value={formatCurrency(adminStats.payments.pending)}
-                  subtitle="Awaiting payment"
+                  value={formatCurrency(financialStats?.pending)}
+                  subtitle={`${formatNumber(financialStats?.pendingCount || 0)} invoices awaiting payment`}
                   icon={Clock}
                   color="from-yellow-500 to-orange-500"
                   delay={0.2}
                 />
                 <StatCard
                   title="Overdue"
-                  value={formatCurrency(adminStats.payments.overdue)}
-                  subtitle="Requires attention"
+                  value={formatCurrency(financialStats?.overdue)}
+                  subtitle={`${formatNumber(financialStats?.overdueCount || 0)} overdue invoices`}
                   icon={XCircle}
                   color="from-red-500 to-rose-600"
                   delay={0.3}
@@ -788,46 +1212,59 @@ const Dashboard = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
             >
-              <div className="flex items-center gap-3 mb-6 group">
-                <motion.div
-                  whileHover={{ rotate: 360 }}
-                  transition={{ duration: 0.6 }}
-                  className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-xl"
-                >
-                  <Briefcase className="w-7 h-7 text-white" />
-                </motion.div>
-                <div>
-                  <h2 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2">
-                    Jobs & Services
-                    <Sparkles className="w-5 h-5 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </h2>
-                  <p className="text-sm text-slate-500 font-medium mt-1">
-                    Task completion and service status
-                  </p>
+              <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                <div className="flex items-center gap-3 group">
+                  <motion.div
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.6 }}
+                    className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-xl"
+                  >
+                    <Briefcase className="w-7 h-7 text-white" />
+                  </motion.div>
+                  <div>
+                    <h2 className="text-3xl font-extrabold bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2">
+                      Jobs & Services (Monthly)
+                      <Sparkles className="w-5 h-5 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </h2>
+                    <p className="text-sm text-slate-500 font-medium mt-1">
+                      Monthly task completion and service status
+                    </p>
+                  </div>
+                </div>
+                <div className="w-full xl:w-80">
+                  <CustomDropdown
+                    label="Jobs Service View"
+                    value={jobsServiceFilter}
+                    onChange={setJobsServiceFilter}
+                    options={sectionServiceOptions}
+                    placeholder="Select service"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
                   title="Total Jobs"
-                  value={formatNumber(adminStats.jobs.total)}
-                  subtitle={`${adminStats.jobs.completionRate.toFixed(1)}% completion rate`}
+                  value={formatNumber(selectedJobsStats.total)}
+                  subtitle={`${Number(selectedJobsStats.completionRate || 0).toFixed(1)}% completion rate`}
                   icon={Briefcase}
                   color="from-indigo-500 to-indigo-600"
                   delay={0}
                 />
                 <StatCard
                   title="Completed"
-                  value={formatNumber(adminStats.jobs.completed)}
+                  value={formatNumber(selectedJobsStats.completed)}
                   subtitle="Successfully finished"
                   icon={CheckCircle}
                   trend="up"
-                  trendValue={adminStats.jobs.completionRate.toFixed(1)}
+                  trendValue={Number(
+                    selectedJobsStats.completionRate || 0,
+                  ).toFixed(1)}
                   color="from-green-500 to-emerald-600"
                   delay={0.1}
                 />
                 <StatCard
                   title="Pending"
-                  value={formatNumber(adminStats.jobs.pending)}
+                  value={formatNumber(selectedJobsStats.pending)}
                   subtitle="In progress"
                   icon={Clock}
                   color="from-yellow-500 to-orange-500"
@@ -835,23 +1272,23 @@ const Dashboard = () => {
                 />
                 <StatCard
                   title="Rejected"
-                  value={formatNumber(adminStats.jobs.cancelled)}
+                  value={formatNumber(selectedJobsStats.cancelled)}
                   subtitle="Not completed"
                   icon={XCircle}
                   color="from-red-500 to-rose-600"
                   delay={0.3}
                 />
                 <StatCard
-                  title="Mall Services"
-                  value={formatNumber(adminStats.serviceTypes.mall)}
-                  subtitle="Commercial malls"
-                  icon={ShoppingBag}
+                  title="OneWash Services"
+                  value={formatNumber(jobsByService.onewash.total)}
+                  subtitle="OneWash jobs"
+                  icon={Package}
                   color="from-blue-500 to-cyan-600"
                   delay={0.4}
                 />
                 <StatCard
                   title="Residence Services"
-                  value={formatNumber(adminStats.serviceTypes.residence)}
+                  value={formatNumber(jobsByService.residence.total)}
                   subtitle="Residential areas"
                   icon={Home}
                   color="from-teal-500 to-green-600"
